@@ -1,0 +1,7 @@
+# Add to the existing Caddy configuration on the FLOW VPS.
+# The DNS record closet.desenvolvacontabil.com.br must point to the same VPS.
+# Caddy must be attached to the same external network as closet-web.
+closet.desenvolvacontabil.com.br {
+    encode zstd gzip
+    reverse_proxy closet-web:3000
+}

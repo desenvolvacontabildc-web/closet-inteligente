@@ -1,0 +1,3 @@
+import { NextResponse } from "next/server"; import { getPool } from "@/server/db"; import { Client } from "minio";
+const storage=new Client({endPoint:(process.env.S3_ENDPOINT||"http://storage:9000").replace(/^https?:\/\//,"").split(":")[0],port:9000,useSSL:false,accessKey:process.env.S3_ACCESS_KEY_ID||"closet-web",secretKey:process.env.S3_SECRET_ACCESS_KEY||""});
+export async function GET(){let db="ok",minio="ok";try{const c=await getPool().connect();try{await c.query("SELECT 1")}finally{c.release()}}catch{db="error"}try{await storage.bucketExists(process.env.S3_BUCKET||"closet-private")}catch{minio="error"}const ready=db==="ok"&&minio==="ok";return NextResponse.json({ready,web:"ok",db,minio},{status:ready?200:503,headers:{"Cache-Control":"no-store"}})}

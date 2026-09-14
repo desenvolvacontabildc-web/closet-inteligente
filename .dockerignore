@@ -1,0 +1,12 @@
+node_modules
+.pnpm-store
+.next
+.git
+.env
+.env.*
+!.env.example
+backups
+*.log
+*.tsbuildinfo
+*.pdf
+*.docx

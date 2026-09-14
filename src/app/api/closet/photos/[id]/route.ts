@@ -1,0 +1,6 @@
+import { NextResponse } from "next/server";
+import { Client } from "minio";
+import { withProfile } from "@/server/profile-session";
+const storage=new Client({endPoint:(process.env.S3_ENDPOINT||"http://storage:9000").replace(/^https?:\/\//,"").split(":")[0],port:9000,useSSL:false,accessKey:process.env.S3_ACCESS_KEY_ID||"closet-web",secretKey:process.env.S3_SECRET_ACCESS_KEY||""});
+async function readStream(stream:NodeJS.ReadableStream){const chunks:Buffer[]=[];for await(const chunk of stream as AsyncIterable<Buffer>)chunks.push(Buffer.from(chunk));return Buffer.concat(chunks)}
+export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;const result=await withProfile(async(c,userId)=>{const q=await c.query("SELECT object_key,content_type FROM closet_item_photos WHERE id=$1 AND user_id=$2",[id,userId]);if(!q.rowCount)return null;return {body:await readStream(await storage.getObject(process.env.S3_BUCKET||"closet-private",q.rows[0].object_key)),contentType:q.rows[0].content_type}});if(!result)return new NextResponse("Não encontrado",{status:404});return new NextResponse(new Uint8Array(result.body),{headers:{"Content-Type":result.contentType,"Cache-Control":"private, max-age=60"}})}
