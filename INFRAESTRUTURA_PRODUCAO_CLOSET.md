@@ -15,6 +15,23 @@ Rede privada Docker:
 
 O banco e o storage **não devem publicar portas para a internet**.
 
+### Topologia real na VPS de produção (validada em 16/09/2026)
+
+Não existe, na VPS `desenvolva-flow-prod`, um Caddy compartilhado independente em rede
+externa própria (`caddy_shared`) como presumido acima. O Caddy que ocupa as portas
+80/443 do host é o do próprio stack Compose do FLOW (`46b268a-caddy-1`), com um
+`Caddyfile` único. O Closet reaproveita esse mesmo Caddy: `closet-web` conecta-se à
+rede desse stack (`46b268a_default`, via `CADDY_NETWORK` no `.env`) e o `Caddyfile`
+do FLOW recebeu um bloco adicional de site para `closet.desenvolvacontabil.com.br`,
+apontando para `closet-web:3000`. `closet-db` e `closet-storage` permanecem isolados
+na rede interna do stack do Closet, sem qualquer porta publicada.
+
+Esse `Caddyfile` vive dentro de `/opt/desenvolva-flow/releases/<release>/`, pasta que
+parece gerada por um pipeline de deploy do FLOW externo a este repositório (uma pasta
+datada por release do FLOW). Um novo deploy do FLOW pode recriar essa pasta e apagar o
+bloco do Closet. Enquanto esse pipeline não for ajustado para preservar o bloco do
+Closet, cada deploy do FLOW exige verificar/readicionar manualmente esse bloco.
+
 ## Domínio
 Usar subdomínio próprio da empresa, por exemplo `closet.desenvolvacontabil.com.br` ou outro que a proprietária definir. Caddy deve emitir/renovar TLS automaticamente.
 
@@ -77,3 +94,10 @@ Não substituir esta arquitetura por Vercel, Supabase, Firebase ou outro PaaS se
 ## Estado da implementação
 
 Além da fundação, a aplicação já contém autenticação própria, onboarding, perfis, Closet com CRUD, fotos privadas no MinIO e revisão de confiança. A análise visual OpenAI permanece opcional e deve receber `OPENAI_API_KEY` somente como segredo do servidor.
+
+Implantado em produção em 16/09/2026 (`/opt/closet-inteligente`, commit `45886a7`),
+acessível em `https://closet.desenvolvacontabil.com.br` com TLS via Let's
+Encrypt/ACME, coexistindo com o FLOW na mesma VPS sem interrupção do FLOW. Detalhes
+da implantação e o risco operacional aberto sobre o `Caddyfile` do FLOW estão em
+`README.md`, seção "Implantação em produção — 16/09/2026". Backup agendado,
+restauração testada em produção e `OPENAI_API_KEY` seguem pendentes.

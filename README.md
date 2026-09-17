@@ -108,3 +108,16 @@ O botão “Analisar com IA” usa a API de Responses da OpenAI somente quando `
 O Bloco Funcional 1 está validado: cadastro, login com senha, onboarding, personalização, sessão persistente, logout e isolamento multi-tenant.
 
 O Closet já possui cadastro, edição, exclusão, grade, detalhe, códigos por categoria, upload privado de fotos no MinIO, rota autenticada de leitura, revisão `OBSERVED`/`CONFIRMED` e exclusão de objetos. A análise visual da OpenAI é opcional e requer `OPENAI_API_KEY` apenas no servidor.
+
+## Implantação em produção — 16/09/2026
+
+A Sprint 0 registrada acima não incluía acesso à VPS nem deploy; isso foi concluído nesta data. Estado real, validado por inspeção da VPS `desenvolva-flow-prod` (2.29.37.142):
+
+- Acesso SSH `root` à VPS já existia (chave local `desenvolva_flow_hetzner`); não houve pendência de credencial nova.
+- Repositório clonado em `/opt/closet-inteligente`, commit `45886a7`. `.env` de produção criado diretamente na VPS (as quatro senhas nunca trafegaram por fora do servidor); `MINIO_IMAGE`/`MINIO_MC_IMAGE` fixados nas versões datadas do `docker-compose.yml`, não `latest`.
+- `docker compose up --build -d`: `migrate` e `storage-init` terminaram com código 0; `db` e `web` saudáveis; `/health` e `/health/ready` responderam OK dentro do container.
+- DNS de `closet.desenvolvacontabil.com.br` e `flow.desenvolvacontabil.com.br` já apontavam para o IP correto antes do deploy.
+- **Correção de arquitetura**: não existe um Caddy compartilhado independente em rede `caddy_shared`, como os documentos originais presumiam. Na VPS real, o Caddy roda dentro do próprio stack Compose do FLOW (`46b268a-caddy-1`), ocupa as portas 80/443 do host e usa um `Caddyfile` único. Por isso o `closet-web` foi conectado à rede desse stack (`CADDY_NETWORK=46b268a_default` no `.env`, em vez de criar `caddy_shared`), e um bloco de site para `closet.desenvolvacontabil.com.br` foi adicionado ao final do `Caddyfile` do FLOW (backup do arquivo original preservado antes da edição), recarregado com `caddy reload` — validação de sintaxe antes de aplicar, sem reiniciar o FLOW.
+- TLS emitido automaticamente via Let's Encrypt/ACME para o novo domínio. Verificado por fora: `closet.desenvolvacontabil.com.br` e `flow.desenvolvacontabil.com.br` respondendo HTTP 200 com certificado válido, FLOW sem interrupção.
+- **Risco operacional aberto**: o `Caddyfile` editado vive em `/opt/desenvolva-flow/releases/46b268a/`, uma pasta datada que parece gerada por um pipeline de deploy do FLOW externo a este repositório (há várias pastas de releases anteriores, uma por deploy). Um novo deploy do FLOW pode recriar essa pasta e remover o bloco do Closet; o pipeline do FLOW precisa ser atualizado para preservar esse bloco, ou o bloco precisará ser readicionado manualmente a cada deploy do FLOW até isso ser resolvido.
+- Ainda pendente: backup agendado e restauração testada em produção (procedimento em `docs/BACKUP_RESTAURACAO.md` continua preparado, não executado); `OPENAI_API_KEY` não configurada em produção (análise visual permanece desligada até ser decidido ativá-la).
