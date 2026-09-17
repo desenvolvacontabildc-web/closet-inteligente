@@ -66,4 +66,25 @@ do papel web. O inicializador do MinIO reaplica bucket privado e credencial web.
 Se houver erro em qualquer etapa, pare a restauração e investigue no stack isolado.
 Confirme `/health`, contagens do banco, integridade de arquivos por amostragem e
 negação de acesso entre tenants antes de registrar a restauração como válida.
-**Procedimento preparado, ainda não executado nem certificado.**
+
+## Execução real — 17/09/2026
+
+Procedimento executado de ponta a ponta na VPS de produção, com dados reais (não
+fixtures), antes da abertura para as primeiras usuárias de teste.
+
+- Backup: `web` e `storage` parados por menos de um minuto (FLOW não foi afetado);
+  `pg_dump` e `tar` do volume MinIO concluídos com checksums SHA-256 registrados em
+  `backups/20260917T035159Z/SHA256SUMS`. Produção confirmada saudável após reinício.
+- Restauração: stack isolado `-p closet-restore`, `.env` e rede Caddy exclusivos com
+  segredos novos (nunca reaproveitados de produção), sem tocar nos volumes reais.
+  `sha256sum -c` validou os arquivos antes de restaurar.
+- Resultado: `/health/ready` OK; contagens no banco restaurado idênticas à produção
+  (1 usuária, 40 peças de closet, 1 conta administradora, 10 migrations aplicadas);
+  bucket MinIO restaurado com política `private` confirmada; RLS confirmado — o papel
+  `closet_app` sem contexto de sessão não retorna nenhuma linha de `closet_items`.
+- Stack de teste inteiro (containers, volumes e rede) removido após a validação.
+
+**Procedimento certificado com dados reais. Pendência restante:** definir o destino
+externo (fora da VPS) para onde o backup deve ser copiado, a retenção e o agendamento
+automático — o backup validado acima permanece, por ora, apenas no disco local da
+própria VPS.
