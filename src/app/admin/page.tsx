@@ -10,12 +10,13 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
     {accounts.map((a:any)=>(
       <section key={a.user_id} className="card">
         <h2>{a.display_name||"(sem nome)"} {a.is_admin&&"· administradora"}</h2>
-        <p>{a.email} · desde {new Date(a.created_at).toLocaleDateString("pt-BR")}</p>
+        <p>{a.email} · desde {new Date(a.created_at).toLocaleDateString("pt-BR")}{a.sub_status==="TRIAL"&&a.trial_ends_at&&<> · teste termina em {new Date(a.trial_ends_at).toLocaleDateString("pt-BR")}</>}</p>
         <form action={setSubscription} className="form">
           <input type="hidden" name="user_id" value={a.user_id}/>
           <label>Status
             <select name="status" defaultValue={a.sub_status} disabled={a.user_id===actorId}>
-              <option value="ACTIVE">Ativa</option>
+              <option value="TRIAL">Em teste gratuito</option>
+              <option value="ACTIVE">Ativa (assinante)</option>
               <option value="PAST_DUE">Inadimplente</option>
               <option value="BLOCKED">Bloqueada</option>
               <option value="CANCELED">Cancelada</option>
