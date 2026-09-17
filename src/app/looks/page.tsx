@@ -3,7 +3,7 @@ const TRIAL_DAILY_LOOK_LIMIT = 2;
 export default async function Looks(){
   const data=await withProfile(async(c,userId)=>{
     const items=(await c.query("SELECT id,name,category FROM closet_items WHERE status='ACTIVE' ORDER BY category,name")).rows;
-    const looks=(await c.query(`SELECT l.id,l.name,l.occasion,l.status,l.created_at,
+    const looks=(await c.query(`SELECT l.id,l.name,l.occasion,l.status,l.created_at,l.illustration_object_key IS NOT NULL AS has_illustration,
       (SELECT json_agg(json_build_object('id',ci.id,'name',ci.name,'category',ci.category) ORDER BY ci.category)
        FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS items
       FROM looks l ORDER BY l.created_at DESC`)).rows;
@@ -24,6 +24,7 @@ export default async function Looks(){
     <div className="grid">
       {looks.map((l:any)=>(
         <div className="empty" key={l.id}>
+          {l.has_illustration&&<img src={`/api/looks/${l.id}/illustration`} alt={`Ilustração do look ${l.name||""}`} style={{maxWidth:"100%",borderRadius:12,marginBottom:8}}/>}
           <strong>{l.name||"Look sem nome"}</strong>
           <span>{l.occasion||"Ocasião não informada"} · {l.status}</span>
           <span>{(l.items||[]).map((it:any)=>it.name).join(" + ")||"Sem peças"}</span>

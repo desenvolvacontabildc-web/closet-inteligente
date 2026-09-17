@@ -1,9 +1,51 @@
 "use server";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
+import { Client } from "minio";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
 const TRIAL_DAILY_LOOK_LIMIT = 2;
 const DAILY_AI_LIMIT = 15;
+const store = new Client({ endPoint: (process.env.S3_ENDPOINT || "http://storage:9000").replace(/^https?:\/\//, "").split(":")[0], port: 9000, useSSL: false, accessKey: process.env.S3_ACCESS_KEY_ID || "closet-web", secretKey: process.env.S3_SECRET_ACCESS_KEY || "" });
+async function bumpAiUsage(c: any, userId: string): Promise<number> {
+  const usage = await c.query(
+    "INSERT INTO ai_usage(user_id,tenant_id,day,count) VALUES($1,current_setting('app.tenant_id')::uuid,current_date,1) ON CONFLICT (user_id,day) DO UPDATE SET count=ai_usage.count+1 RETURNING count",
+    [userId],
+  );
+  return usage.rows[0].count;
+}
+async function readObject(key: string): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const ch of await store.getObject(process.env.S3_BUCKET || "closet-private", key) as any) chunks.push(Buffer.from(ch));
+  return Buffer.concat(chunks);
+}
+async function generateIllustration(c: any, userId: string, lookId: string, itemIds: string[], description: string) {
+  const openai = new OpenAI();
+  const photos = (await c.query(
+    "SELECT DISTINCT ON (item_id) item_id, object_key, content_type FROM closet_item_photos WHERE item_id = ANY($1::uuid[]) ORDER BY item_id, created_at DESC LIMIT 4",
+    [itemIds],
+  )).rows;
+  const promptBase =
+    `Ilustração editorial de moda, estilo croqui/silhueta estilizada, sem rosto detalhado e sem identidade real de nenhuma pessoa. ` +
+    `Figura genérica de moda vestindo esta combinação: ${description}. Fundo neutro claro, traço elegante, sem texto na imagem.`;
+  let img;
+  if (photos.length > 0) {
+    const files = await Promise.all(photos.map(async (p: any, i: number) => toFile(await readObject(p.object_key), `ref-${i}.png`, { type: p.content_type })));
+    img = await openai.images.edit({
+      model: "gpt-image-1",
+      image: files,
+      size: "1024x1024",
+      prompt: `Use estas fotos reais das peças como referência de cor, textura e caimento. ${promptBase}`,
+    });
+  } else {
+    img = await openai.images.generate({ model: "gpt-image-1", size: "1024x1024", prompt: promptBase });
+  }
+  const b64 = img.data?.[0]?.b64_json;
+  if (!b64) return;
+  const buf = Buffer.from(b64, "base64");
+  const key = `looks/${lookId}/illustration.png`;
+  await store.putObject(process.env.S3_BUCKET || "closet-private", key, buf, buf.length, { "Content-Type": "image/png" });
+  await c.query("UPDATE looks SET illustration_object_key=$1 WHERE id=$2", [key, lookId]);
+}
 export async function createLook(f: FormData) {
   const name = String(f.get("name") || "").trim();
   const occasion = String(f.get("occasion") || "").trim();
@@ -47,11 +89,7 @@ export async function suggestLooks(f: FormData) {
       if (remaining === 0) throw new Error(`No teste gratuito, o limite de ${TRIAL_DAILY_LOOK_LIMIT} looks por dia já foi atingido. Assine para continuar.`);
       maxLooks = remaining;
     }
-    const usage = await c.query(
-      "INSERT INTO ai_usage(user_id,tenant_id,day,count) VALUES($1,current_setting('app.tenant_id')::uuid,current_date,1) ON CONFLICT (user_id,day) DO UPDATE SET count=ai_usage.count+1 RETURNING count",
-      [userId],
-    );
-    if (usage.rows[0].count > DAILY_AI_LIMIT) throw new Error(`Limite diário de ${DAILY_AI_LIMIT} usos de IA atingido. Tente novamente amanhã.`);
+    if ((await bumpAiUsage(c, userId)) > DAILY_AI_LIMIT) throw new Error(`Limite diário de ${DAILY_AI_LIMIT} usos de IA atingido. Tente novamente amanhã.`);
     const items = (await c.query("SELECT id,name,category,color FROM closet_items WHERE status='ACTIVE'")).rows;
     if (items.length === 0) throw new Error("Cadastre ao menos uma peça no closet antes de pedir sugestões de look.");
     const out = await new OpenAI().responses.create({
@@ -73,13 +111,14 @@ export async function suggestLooks(f: FormData) {
     try { parsed = JSON.parse(out.output_text); } catch { throw new Error("A IA não retornou uma sugestão válida. Tente novamente."); }
     const validIds = new Set(items.map((i: any) => i.id));
     const proposals = Array.isArray(parsed.looks) ? parsed.looks.slice(0, maxLooks) : [];
-    let created = 0;
+    let created = 0, illustrationBudgetOver = false;
     for (const p of proposals) {
       const ids = Array.isArray(p.item_ids) ? p.item_ids.filter((id: string) => validIds.has(id)) : [];
       if (ids.length === 0) continue;
+      const name = String(p.name || "").slice(0, 120), occasion = String(p.occasion || "").slice(0, 120);
       const look = await c.query(
         "INSERT INTO looks(tenant_id,user_id,name,occasion) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,$3) RETURNING id",
-        [userId, String(p.name || "").slice(0, 120), String(p.occasion || "").slice(0, 120)],
+        [userId, name, occasion],
       );
       for (const id of ids) {
         await c.query(
@@ -88,6 +127,13 @@ export async function suggestLooks(f: FormData) {
         );
       }
       created++;
+      if (!illustrationBudgetOver) {
+        if ((await bumpAiUsage(c, userId)) > DAILY_AI_LIMIT) { illustrationBudgetOver = true; }
+        else {
+          const pieceNames = items.filter((i: any) => ids.includes(i.id)).map((i: any) => `${i.name} (${i.color || "cor não informada"})`).join(", ");
+          try { await generateIllustration(c, userId, look.rows[0].id, ids, `${pieceNames}. Ocasião: ${occasion || "não informada"}.`); } catch { /* ilustração é apenas um extra visual; falha aqui não deve derrubar a criação do look */ }
+        }
+      }
     }
     if (created === 0) throw new Error("Não foi possível montar nenhum look com as peças atuais do seu closet para esse pedido.");
     return true;
