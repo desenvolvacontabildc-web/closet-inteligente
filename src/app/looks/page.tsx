@@ -1,4 +1,4 @@
-import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createLook, deleteLook } from "@/server/look-actions";
+import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createLook, deleteLook, suggestLooks } from "@/server/look-actions";
 const TRIAL_DAILY_LOOK_LIMIT = 2;
 export default async function Looks(){
   const data=await withProfile(async(c,userId)=>{
@@ -31,8 +31,13 @@ export default async function Looks(){
         </div>
       ))}
     </div>
+    <form action={suggestLooks} className="form">
+      <h2>Pedir sugestão de looks</h2>
+      <input name="request" placeholder='Ex.: "Preciso de 3 looks pra reuniões essa semana"' required/>
+      <button disabled={remainingToday===0}>Gerar sugestão com IA</button>
+    </form>
     <form action={createLook} className="form">
-      <h2>Criar look</h2>
+      <h2>Ou monte você mesma</h2>
       <input name="name" placeholder="Nome do look (opcional)"/>
       <input name="occasion" placeholder="Ocasião (opcional)"/>
       <fieldset>
