@@ -3,22 +3,14 @@ import OpenAI, { toFile } from "openai";
 import { Client } from "minio";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
-const TRIAL_DAILY_LOOK_LIMIT = 2;
-const DAILY_AI_LIMIT = 15;
+import { checkLookAllowance, bumpAndCheckAiUsage } from "./limits";
 const store = new Client({ endPoint: (process.env.S3_ENDPOINT || "http://storage:9000").replace(/^https?:\/\//, "").split(":")[0], port: 9000, useSSL: false, accessKey: process.env.S3_ACCESS_KEY_ID || "closet-web", secretKey: process.env.S3_SECRET_ACCESS_KEY || "" });
-async function bumpAiUsage(c: any, userId: string): Promise<number> {
-  const usage = await c.query(
-    "INSERT INTO ai_usage(user_id,tenant_id,day,count) VALUES($1,current_setting('app.tenant_id')::uuid,current_date,1) ON CONFLICT (user_id,day) DO UPDATE SET count=ai_usage.count+1 RETURNING count",
-    [userId],
-  );
-  return usage.rows[0].count;
-}
 async function readObject(key: string): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const ch of await store.getObject(process.env.S3_BUCKET || "closet-private", key) as any) chunks.push(Buffer.from(ch));
   return Buffer.concat(chunks);
 }
-async function generateIllustration(c: any, userId: string, lookId: string, itemIds: string[], description: string) {
+async function generateIllustration(c: any, lookId: string, itemIds: string[], description: string) {
   const openai = new OpenAI();
   const photos = (await c.query(
     "SELECT DISTINCT ON (item_id) item_id, object_key, content_type FROM closet_item_photos WHERE item_id = ANY($1::uuid[]) ORDER BY item_id, created_at DESC LIMIT 4",
@@ -30,12 +22,7 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
   let img;
   if (photos.length > 0) {
     const files = await Promise.all(photos.map(async (p: any, i: number) => toFile(await readObject(p.object_key), `ref-${i}.png`, { type: p.content_type })));
-    img = await openai.images.edit({
-      model: "gpt-image-1",
-      image: files,
-      size: "1024x1024",
-      prompt: `Use estas fotos reais das peças como referência de cor, textura e caimento. ${promptBase}`,
-    });
+    img = await openai.images.edit({ model: "gpt-image-1", image: files, size: "1024x1024", prompt: `Use estas fotos reais das peças como referência de cor, textura e caimento. ${promptBase}` });
   } else {
     img = await openai.images.generate({ model: "gpt-image-1", size: "1024x1024", prompt: promptBase });
   }
@@ -52,13 +39,8 @@ export async function createLook(f: FormData) {
   const itemIds = f.getAll("items").map(String).filter(Boolean);
   if (itemIds.length === 0) throw new Error("Selecione ao menos uma peça para o look.");
   await withProfile(async (c, userId) => {
-    const sub = (await c.query("SELECT * FROM my_subscription($1)", [userId])).rows[0];
-    if (sub?.status === "TRIAL") {
-      const cnt = await c.query("SELECT count(*) n FROM looks WHERE created_at::date = current_date");
-      if (Number(cnt.rows[0].n) >= TRIAL_DAILY_LOOK_LIMIT) {
-        throw new Error(`No teste gratuito, o limite é de ${TRIAL_DAILY_LOOK_LIMIT} looks criados por dia. Assine para criar sem limite.`);
-      }
-    }
+    const allowance = await checkLookAllowance(c, userId);
+    if (!allowance.ok) throw new Error(allowance.message);
     const valid = await c.query("SELECT id FROM closet_items WHERE id = ANY($1::uuid[])", [itemIds]);
     if (valid.rowCount !== itemIds.length) throw new Error("Alguma peça selecionada não pertence ao seu closet.");
     const look = await c.query(
@@ -81,17 +63,17 @@ export async function suggestLooks(f: FormData) {
   if (!request) throw new Error('Descreva o que você precisa (ex.: "3 looks para reuniões essa semana").');
   if (!process.env.OPENAI_API_KEY) throw new Error("Sugestão por IA não configurada: defina OPENAI_API_KEY no servidor.");
   await withProfile(async (c, userId) => {
-    const sub = (await c.query("SELECT * FROM my_subscription($1)", [userId])).rows[0];
-    let maxLooks = 5;
-    if (sub?.status === "TRIAL") {
-      const cnt = await c.query("SELECT count(*) n FROM looks WHERE created_at::date = current_date");
-      const remaining = Math.max(0, TRIAL_DAILY_LOOK_LIMIT - Number(cnt.rows[0].n));
-      if (remaining === 0) throw new Error(`No teste gratuito, o limite de ${TRIAL_DAILY_LOOK_LIMIT} looks por dia já foi atingido. Assine para continuar.`);
-      maxLooks = remaining;
-    }
-    if ((await bumpAiUsage(c, userId)) > DAILY_AI_LIMIT) throw new Error(`Limite diário de ${DAILY_AI_LIMIT} usos de IA atingido. Tente novamente amanhã.`);
+    const allowance = await checkLookAllowance(c, userId);
+    if (!allowance.ok) throw new Error(allowance.message);
+    const maxLooks = allowance.remaining === null ? 5 : Math.min(5, allowance.remaining);
+    const budget = await bumpAndCheckAiUsage(c, userId);
+    if (!budget.ok) throw new Error(budget.message);
     const items = (await c.query("SELECT id,name,category,color FROM closet_items WHERE status='ACTIVE'")).rows;
     if (items.length === 0) throw new Error("Cadastre ao menos uma peça no closet antes de pedir sugestões de look.");
+    const recent = (await c.query(
+      `SELECT l.name, l.occasion, (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
+       FROM looks l WHERE l.created_at >= now() - interval '14 days' ORDER BY l.created_at DESC LIMIT 10`,
+    )).rows;
     const out = await new OpenAI().responses.create({
       model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
       input: [{
@@ -101,9 +83,10 @@ export async function suggestLooks(f: FormData) {
           text:
             `Você é uma consultora de imagem. Pedido da cliente: "${request}".\n` +
             `Peças reais disponíveis no closet (use SOMENTE estas, nunca invente peças novas):\n${JSON.stringify(items)}\n` +
+            (recent.length > 0 ? `Looks já sugeridos ou usados nos últimos 14 dias (evite repetir exatamente a mesma combinação; pode reutilizar peças individuais, mas varie a composição):\n${JSON.stringify(recent)}\n` : "") +
             `Monte até ${maxLooks} looks distintos e coerentes com o pedido, usando apenas essas peças. ` +
             `Responda apenas JSON no formato {"looks":[{"item_ids":["..."],"name":"...","occasion":"..."}],"note":"..."}. ` +
-            `Cada item_ids deve conter somente ids da lista fornecida. Se não houver peças suficientes para ${maxLooks} looks bons, gere menos e explique em "note".`,
+            `Cada item_ids deve conter somente ids da lista fornecida. Se não houver peças suficientes para ${maxLooks} looks bons e variados, gere menos e explique em "note".`,
         }],
       }],
     });
@@ -128,10 +111,11 @@ export async function suggestLooks(f: FormData) {
       }
       created++;
       if (!illustrationBudgetOver) {
-        if ((await bumpAiUsage(c, userId)) > DAILY_AI_LIMIT) { illustrationBudgetOver = true; }
+        const imgBudget = await bumpAndCheckAiUsage(c, userId);
+        if (!imgBudget.ok) { illustrationBudgetOver = true; }
         else {
           const pieceNames = items.filter((i: any) => ids.includes(i.id)).map((i: any) => `${i.name} (${i.color || "cor não informada"})`).join(", ");
-          try { await generateIllustration(c, userId, look.rows[0].id, ids, `${pieceNames}. Ocasião: ${occasion || "não informada"}.`); } catch { /* ilustração é apenas um extra visual; falha aqui não deve derrubar a criação do look */ }
+          try { await generateIllustration(c, look.rows[0].id, ids, `${pieceNames}. Ocasião: ${occasion || "não informada"}.`); } catch { /* ilustração é apenas um extra visual; falha aqui não deve derrubar a criação do look */ }
         }
       }
     }

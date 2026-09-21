@@ -22,6 +22,12 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
               <option value="CANCELED">Cancelada</option>
             </select>
           </label>
+          <label>Plano
+            <select name="plan" defaultValue={a.plan} disabled={a.user_id===actorId}>
+              <option value="ESSENCIAL">Closet Essencial (30 looks/análises IA por mês)</option>
+              <option value="ICON">Closet Icon (ilimitado)</option>
+            </select>
+          </label>
           <label>Mensalidade (R$)<input name="fee" defaultValue={(a.monthly_fee_cents/100).toFixed(2)} disabled={a.user_id===actorId}/></label>
           <label>Desconto (R$)<input name="discount" defaultValue={(a.discount_cents/100).toFixed(2)} disabled={a.user_id===actorId}/></label>
           <label>Observações<input name="notes" defaultValue={a.notes} disabled={a.user_id===actorId}/></label>

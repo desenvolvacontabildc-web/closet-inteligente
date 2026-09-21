@@ -14,13 +14,13 @@ export async function adminListAccounts(){
   return result;
 }
 export async function setSubscription(f:FormData){
-  const target=String(f.get("user_id")||""),status=String(f.get("status")||"ACTIVE");
+  const target=String(f.get("user_id")||""),status=String(f.get("status")||"ACTIVE"),plan=String(f.get("plan")||"ESSENCIAL");
   const feeReais=Number(String(f.get("fee")||"0").replace(",","."))||0;
   const discountReais=Number(String(f.get("discount")||"0").replace(",","."))||0;
   const notes=String(f.get("notes")||"").trim();
   await withProfile(async(c,userId)=>{
-    await c.query("SELECT admin_set_subscription($1,$2,$3,$4,$5,$6)",
-      [userId,target,status,Math.round(feeReais*100),Math.round(discountReais*100),notes]);
+    await c.query("SELECT admin_set_subscription($1,$2,$3,$4,$5,$6,$7)",
+      [userId,target,status,Math.round(feeReais*100),Math.round(discountReais*100),notes,plan]);
     return true;
   });
   redirect("/admin");
