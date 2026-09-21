@@ -3,7 +3,7 @@ import { logout } from "@/server/auth-actions";
 import { generateTodayLook } from "@/server/look-actions";
 import Link from "next/link";
 import { withProfile } from "@/server/profile-session";
-import { aiUsageRemaining, PLAN_LABEL } from "@/server/limits";
+import { aiUsageRemaining, PLAN_LABEL, type Plan } from "@/server/limits";
 export default async function Home(){
  const profile=await withProfile(async(c,id)=>{
    const p=(await c.query("SELECT p.display_name,p.experience_tokens,p.onboarding_completed,u.is_admin FROM profiles p JOIN app_users u ON u.id=p.user_id WHERE p.user_id=$1",[id])).rows[0];
@@ -23,7 +23,7 @@ export default async function Home(){
  return <main className="shell" style={{"--accent":experience_tokens?.accent||"#b25b76"} as React.CSSProperties}>
    <div className="top"><span className="eyebrow">CLOSET INTELIGENTE</span><form action={logout}><button className="link">Sair</button></form></div>
    {trialDaysLeft!==null&&<div className="trial-banner"><p>{trialDaysLeft>0?`Faltam ${trialDaysLeft} dia${trialDaysLeft===1?"":"s"} do seu teste gratuito.`:"Seu teste gratuito termina hoje."} Fale com a administradora para assinar e manter o acesso ao seu Closet.</p></div>}
-   {sub?.status==="ACTIVE"&&<div className="trial-banner"><p>Plano {PLAN_LABEL[sub.plan]||sub.plan}{aiRemaining!==null?` · restam ${aiRemaining} usos de IA este mês`:" · usos de IA ilimitados"}.</p></div>}
+   {sub?.status==="ACTIVE"&&<div className="trial-banner"><p>Plano {PLAN_LABEL[sub.plan as Plan]||sub.plan}{aiRemaining!==null?` · restam ${aiRemaining} usos de IA este mês`:" · usos de IA ilimitados"}.</p></div>}
    <section className="welcome">
      <p className="eyebrow">SEU CLOSET ESTÁ PRONTO</p>
      <h1>Olá, {display_name}.</h1>
