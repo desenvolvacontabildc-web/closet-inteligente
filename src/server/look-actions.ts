@@ -33,6 +33,73 @@ async function generateIllustration(c: any, lookId: string, itemIds: string[], d
   await store.putObject(process.env.S3_BUCKET || "closet-private", key, buf, buf.length, { "Content-Type": "image/png" });
   await c.query("UPDATE looks SET illustration_object_key=$1 WHERE id=$2", [key, lookId]);
 }
+
+/** Núcleo compartilhado: pede N looks à IA usando somente peças reais ativas, salva e ilustra dentro do orçamento. */
+async function generateLooksFromRequest(c: any, userId: string, request: string, maxLooksRequested: number, kind: "SUGGESTED" | "DAILY" | "TRIP", tripLabel = "", skipLookAllowance = false): Promise<{ createdCount: number; note?: string }> {
+  if (!process.env.OPENAI_API_KEY) throw new Error("Sugestão por IA não configurada: defina OPENAI_API_KEY no servidor.");
+  let maxLooks = maxLooksRequested;
+  if (!skipLookAllowance) {
+    const allowance = await checkLookAllowance(c, userId);
+    if (!allowance.ok) throw new Error(allowance.message);
+    maxLooks = Math.max(1, allowance.remaining === null ? maxLooksRequested : Math.min(maxLooksRequested, allowance.remaining));
+  }
+  const budget = await bumpAndCheckAiUsage(c, userId);
+  if (!budget.ok) throw new Error(budget.message);
+  const items = (await c.query("SELECT id,name,category,color FROM closet_items WHERE status='ACTIVE'")).rows;
+  if (items.length === 0) throw new Error("Cadastre ao menos uma peça no closet antes de pedir sugestões de look.");
+  const recent = (await c.query(
+    `SELECT l.name, l.occasion, (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
+     FROM looks l WHERE l.created_at >= now() - interval '14 days' ORDER BY l.created_at DESC LIMIT 10`,
+  )).rows;
+  const out = await new OpenAI().responses.create({
+    model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+    input: [{
+      role: "user",
+      content: [{
+        type: "input_text",
+        text:
+          `Você é uma consultora de imagem. Pedido da cliente: "${request}".\n` +
+          `Peças reais disponíveis no closet (use SOMENTE estas, nunca invente peças novas):\n${JSON.stringify(items)}\n` +
+          (recent.length > 0 ? `Looks já sugeridos ou usados nos últimos 14 dias (evite repetir exatamente a mesma combinação; pode reutilizar peças individuais, mas varie a composição):\n${JSON.stringify(recent)}\n` : "") +
+          `Monte até ${maxLooks} looks distintos e coerentes com o pedido, usando apenas essas peças. ` +
+          (maxLooks > 1 ? `Se o pedido envolver múltiplos dias, monte um look por dia, variando as combinações mesmo repetindo peças individuais. ` : "") +
+          `Responda apenas JSON no formato {"looks":[{"item_ids":["..."],"name":"...","occasion":"..."}],"note":"..."}. ` +
+          `Cada item_ids deve conter somente ids da lista fornecida. Se não houver peças suficientes para ${maxLooks} looks bons e variados, gere menos e explique em "note".`,
+      }],
+    }],
+  });
+  let parsed: any;
+  try { parsed = JSON.parse(out.output_text); } catch { throw new Error("A IA não retornou uma sugestão válida. Tente novamente."); }
+  const validIds = new Set(items.map((i: any) => i.id));
+  const proposals = Array.isArray(parsed.looks) ? parsed.looks.slice(0, maxLooks) : [];
+  let created = 0, illustrationBudgetOver = false;
+  for (const p of proposals) {
+    const ids = Array.isArray(p.item_ids) ? p.item_ids.filter((id: string) => validIds.has(id)) : [];
+    if (ids.length === 0) continue;
+    const name = String(p.name || "").slice(0, 120), occasion = String(p.occasion || "").slice(0, 120);
+    const look = await c.query(
+      "INSERT INTO looks(tenant_id,user_id,name,occasion,kind,trip_label) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,$3,$4,$5) RETURNING id",
+      [userId, name, occasion, kind, tripLabel],
+    );
+    for (const id of ids) {
+      await c.query(
+        "INSERT INTO look_items(look_id,item_id,tenant_id,user_id) VALUES($1,$2,current_setting('app.tenant_id')::uuid,$3)",
+        [look.rows[0].id, id, userId],
+      );
+    }
+    created++;
+    if (!illustrationBudgetOver) {
+      const imgBudget = await bumpAndCheckAiUsage(c, userId);
+      if (!imgBudget.ok) { illustrationBudgetOver = true; }
+      else {
+        const pieceNames = items.filter((i: any) => ids.includes(i.id)).map((i: any) => `${i.name} (${i.color || "cor não informada"})`).join(", ");
+        try { await generateIllustration(c, look.rows[0].id, ids, `${pieceNames}. Ocasião: ${occasion || "não informada"}.`); } catch { /* ilustração é apenas um extra visual; falha aqui não deve derrubar a criação do look */ }
+      }
+    }
+  }
+  return { createdCount: created, note: parsed.note };
+}
+
 export async function createLook(f: FormData) {
   const name = String(f.get("name") || "").trim();
   const occasion = String(f.get("occasion") || "").trim();
@@ -58,72 +125,50 @@ export async function createLook(f: FormData) {
   });
   redirect("/looks");
 }
+
 export async function suggestLooks(f: FormData) {
   const request = String(f.get("request") || "").trim();
   if (!request) throw new Error('Descreva o que você precisa (ex.: "3 looks para reuniões essa semana").');
-  if (!process.env.OPENAI_API_KEY) throw new Error("Sugestão por IA não configurada: defina OPENAI_API_KEY no servidor.");
   await withProfile(async (c, userId) => {
-    const allowance = await checkLookAllowance(c, userId);
-    if (!allowance.ok) throw new Error(allowance.message);
-    const maxLooks = allowance.remaining === null ? 5 : Math.min(5, allowance.remaining);
-    const budget = await bumpAndCheckAiUsage(c, userId);
-    if (!budget.ok) throw new Error(budget.message);
-    const items = (await c.query("SELECT id,name,category,color FROM closet_items WHERE status='ACTIVE'")).rows;
-    if (items.length === 0) throw new Error("Cadastre ao menos uma peça no closet antes de pedir sugestões de look.");
-    const recent = (await c.query(
-      `SELECT l.name, l.occasion, (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
-       FROM looks l WHERE l.created_at >= now() - interval '14 days' ORDER BY l.created_at DESC LIMIT 10`,
-    )).rows;
-    const out = await new OpenAI().responses.create({
-      model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
-      input: [{
-        role: "user",
-        content: [{
-          type: "input_text",
-          text:
-            `Você é uma consultora de imagem. Pedido da cliente: "${request}".\n` +
-            `Peças reais disponíveis no closet (use SOMENTE estas, nunca invente peças novas):\n${JSON.stringify(items)}\n` +
-            (recent.length > 0 ? `Looks já sugeridos ou usados nos últimos 14 dias (evite repetir exatamente a mesma combinação; pode reutilizar peças individuais, mas varie a composição):\n${JSON.stringify(recent)}\n` : "") +
-            `Monte até ${maxLooks} looks distintos e coerentes com o pedido, usando apenas essas peças. ` +
-            `Responda apenas JSON no formato {"looks":[{"item_ids":["..."],"name":"...","occasion":"..."}],"note":"..."}. ` +
-            `Cada item_ids deve conter somente ids da lista fornecida. Se não houver peças suficientes para ${maxLooks} looks bons e variados, gere menos e explique em "note".`,
-        }],
-      }],
-    });
-    let parsed: any;
-    try { parsed = JSON.parse(out.output_text); } catch { throw new Error("A IA não retornou uma sugestão válida. Tente novamente."); }
-    const validIds = new Set(items.map((i: any) => i.id));
-    const proposals = Array.isArray(parsed.looks) ? parsed.looks.slice(0, maxLooks) : [];
-    let created = 0, illustrationBudgetOver = false;
-    for (const p of proposals) {
-      const ids = Array.isArray(p.item_ids) ? p.item_ids.filter((id: string) => validIds.has(id)) : [];
-      if (ids.length === 0) continue;
-      const name = String(p.name || "").slice(0, 120), occasion = String(p.occasion || "").slice(0, 120);
-      const look = await c.query(
-        "INSERT INTO looks(tenant_id,user_id,name,occasion) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,$3) RETURNING id",
-        [userId, name, occasion],
-      );
-      for (const id of ids) {
-        await c.query(
-          "INSERT INTO look_items(look_id,item_id,tenant_id,user_id) VALUES($1,$2,current_setting('app.tenant_id')::uuid,$3)",
-          [look.rows[0].id, id, userId],
-        );
-      }
-      created++;
-      if (!illustrationBudgetOver) {
-        const imgBudget = await bumpAndCheckAiUsage(c, userId);
-        if (!imgBudget.ok) { illustrationBudgetOver = true; }
-        else {
-          const pieceNames = items.filter((i: any) => ids.includes(i.id)).map((i: any) => `${i.name} (${i.color || "cor não informada"})`).join(", ");
-          try { await generateIllustration(c, look.rows[0].id, ids, `${pieceNames}. Ocasião: ${occasion || "não informada"}.`); } catch { /* ilustração é apenas um extra visual; falha aqui não deve derrubar a criação do look */ }
-        }
-      }
-    }
-    if (created === 0) throw new Error("Não foi possível montar nenhum look com as peças atuais do seu closet para esse pedido.");
+    const result = await generateLooksFromRequest(c, userId, request, 5, "SUGGESTED");
+    if (result.createdCount === 0) throw new Error("Não foi possível montar nenhum look com as peças atuais do seu closet para esse pedido.");
     return true;
   });
   redirect("/looks");
 }
+
+/** Botão "Look de hoje": sempre gera 3 opções; reaproveita as de hoje se já existirem. Não conta na cota de looks criados (só no orçamento de IA). */
+export async function generateTodayLook(f: FormData) {
+  const baseItemId = String(f.get("base_item_id") || "").trim();
+  await withProfile(async (c, userId) => {
+    const existing = await c.query("SELECT id FROM looks WHERE kind='DAILY' AND created_at::date=current_date LIMIT 1");
+    if (existing.rowCount) return true;
+    let request = "Monte 3 opções de look para hoje, variadas entre si, práticas e alinhadas com o estilo da cliente para um dia comum, usando peças reais do closet ativo.";
+    if (baseItemId) {
+      const base = await c.query("SELECT name FROM closet_items WHERE id=$1 AND status='ACTIVE'", [baseItemId]);
+      if (base.rowCount) request = `A cliente quer usar esta peça como base em todas as opções: "${base.rows[0].name}". ${request}`;
+    }
+    await generateLooksFromRequest(c, userId, request, 3, "DAILY", "", true);
+    return true;
+  });
+  redirect("/home");
+}
+
+export async function suggestTrip(f: FormData) {
+  const destino = String(f.get("destino") || "").trim();
+  const diasRaw = Number(f.get("dias") || 0);
+  const observacoes = String(f.get("observacoes") || "").trim();
+  const dias = Math.min(7, Math.max(1, Math.floor(diasRaw) || 1));
+  if (!destino) throw new Error("Informe o destino da viagem.");
+  await withProfile(async (c, userId) => {
+    const request = `Mala de viagem para ${destino}, ${dias} dia${dias === 1 ? "" : "s"}. ${observacoes || ""}`.trim();
+    const result = await generateLooksFromRequest(c, userId, request, dias, "TRIP", destino);
+    if (result.createdCount === 0) throw new Error("Não foi possível montar looks para essa viagem com as peças atuais do seu closet.");
+    return true;
+  });
+  redirect("/mala");
+}
+
 export async function deleteLook(f: FormData) {
   const id = String(f.get("id") || "");
   await withProfile(async (c) => {

@@ -5,7 +5,7 @@ export default async function Looks(){
     const looks=(await c.query(`SELECT l.id,l.name,l.occasion,l.status,l.created_at,l.illustration_object_key IS NOT NULL AS has_illustration,
       (SELECT json_agg(json_build_object('id',ci.id,'name',ci.name,'category',ci.category) ORDER BY ci.category)
        FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS items
-      FROM looks l ORDER BY l.created_at DESC`)).rows;
+      FROM looks l WHERE l.kind NOT IN ('DAILY','TRIP') ORDER BY l.created_at DESC`)).rows;
     const allowance=await checkLookAllowance(c,userId);
     return {items,looks,allowance};
   });

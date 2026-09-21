@@ -1,0 +1,50 @@
+import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { suggestTrip, deleteLook } from "@/server/look-actions"; import { checkLookAllowance } from "@/server/limits";
+export default async function Mala(){
+  const data=await withProfile(async(c,userId)=>{
+    const looks=(await c.query(`SELECT l.id,l.name,l.occasion,l.trip_label,l.created_at,l.illustration_object_key IS NOT NULL AS has_illustration,
+      (SELECT json_agg(json_build_object('id',ci.id,'name',ci.name,'category',ci.category) ORDER BY ci.category)
+       FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS items
+      FROM looks l WHERE l.kind='TRIP' ORDER BY l.trip_label,l.created_at`)).rows;
+    const allowance=await checkLookAllowance(c,userId);
+    return {looks,allowance};
+  });
+  if(!data)redirect("/");
+  const {looks,allowance}=data;
+  const trips=new Map<string,any[]>();
+  for(const l of looks){const arr=trips.get(l.trip_label)||[];arr.push(l);trips.set(l.trip_label,arr)}
+  const remaining=allowance.remaining;
+  return <main className="shell">
+    <div className="top"><span className="eyebrow">MALA DE VIAGEM</span><Link href="/home">Voltar</Link></div>
+    <h1>Sua mala inteligente</h1>
+    <p>Diga o destino e quantos dias — a IA monta um look por dia usando só peças reais do seu closet, e a mala vira a lista de tudo que precisa levar.</p>
+    {remaining!==null&&<div className="trial-banner"><p>{remaining>0?`Você ainda pode gerar ${remaining} look${remaining===1?"":"s"} neste período.`:(allowance.message||"Limite de looks atingido neste período.")}</p></div>}
+    <form action={suggestTrip} className="form">
+      <h2>Montar mala</h2>
+      <input name="destino" placeholder="Destino (ex.: São Paulo)" required/>
+      <input name="dias" type="number" min={1} max={7} placeholder="Quantos dias (máx. 7)" required/>
+      <textarea name="observacoes" placeholder="Compromissos e clima (ex.: 1 reunião, 1 jantar, clima frio)"/>
+      <button disabled={remaining===0}>Gerar mala com IA</button>
+    </form>
+    {[...trips.entries()].map(([label,tripLooks])=>{
+      const allPieces=new Map<string,string>();
+      for(const l of tripLooks)for(const it of (l.items||[]))allPieces.set(it.id,`${it.name} (${it.category})`);
+      return <section className="card" key={label}>
+        <h2>{label}</h2>
+        <h3>Lista para levar</h3>
+        <ul>{[...allPieces.values()].map((p:string)=><li key={p}>{p}</li>)}</ul>
+        <h3>Look por dia</h3>
+        <div className="grid">
+          {tripLooks.map((l:any)=>(
+            <div className="empty" key={l.id}>
+              {l.has_illustration&&<img src={`/api/looks/${l.id}/illustration`} alt={`Ilustração de ${l.name||"look"}`} style={{maxWidth:"100%",borderRadius:12,marginBottom:8}}/>}
+              <strong>{l.name||"Look"}</strong>
+              <span>{l.occasion||"Ocasião não informada"}</span>
+              <span>{(l.items||[]).map((it:any)=>it.name).join(" + ")}</span>
+              <form action={deleteLook}><input type="hidden" name="id" value={l.id}/><button>Excluir</button></form>
+            </div>
+          ))}
+        </div>
+      </section>;
+    })}
+  </main>;
+}
