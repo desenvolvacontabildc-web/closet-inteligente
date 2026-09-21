@@ -51,14 +51,16 @@ export default async function Home(){
      <div className="empty">
        <h2>Seu closet começa aqui</h2>
        <p>Cadastre suas peças reais e monte looks sem inventar nada que você não tem.</p>
-       <Link href="/closet">Abrir meu Closet</Link>
-       <Link href="/looks">Meus Looks</Link>
-       <Link href="/mala">Mala de Viagem</Link>
-       <Link href="/capsula">Closet Cápsula</Link>
-       <Link href="/colorimetria">Colorimetria</Link>
-       <Link href="/vitrine">Vitrine de Parceiras</Link>
-       {is_admin&&<Link href="/admin">Administração de contas</Link>}
-       {is_admin&&<Link href="/admin/parceiras">Administração de parceiras</Link>}
+       <nav className="nav-links">
+         <Link href="/closet">Abrir meu Closet</Link>
+         <Link href="/looks">Meus Looks</Link>
+         <Link href="/mala">Mala de Viagem</Link>
+         <Link href="/capsula">Closet Cápsula</Link>
+         <Link href="/colorimetria">Colorimetria</Link>
+         <Link href="/vitrine">Vitrine de Parceiras</Link>
+         {is_admin&&<Link href="/admin">Administração de contas</Link>}
+         {is_admin&&<Link href="/admin/parceiras">Administração de parceiras</Link>}
+       </nav>
      </div>
    </section>
  </main>}
