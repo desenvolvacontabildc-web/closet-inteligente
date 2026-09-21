@@ -5,13 +5,22 @@ import type { PoolClient } from "pg";
 export const TRIAL_DAILY_LOOK_LIMIT = 2;
 export const TRIAL_DAILY_AI_LIMIT = 15;
 
-// Planos pagos: limites mensais por plano. null = sem limite.
-export const PLAN_MONTHLY_AI_LIMIT: Record<string, number | null> = { ESSENCIAL: 60, ICON: null };
-export const PLAN_MONTHLY_LOOK_LIMIT: Record<string, number | null> = { ESSENCIAL: 30, ICON: null };
+// Planos pagos (nomes voltados à moda). null = sem limite.
+export type Plan = "ARRUMADA" | "FASHION" | "SUPER_STAR";
+export const PLAN_LABEL: Record<Plan, string> = { ARRUMADA: "Arrumada", FASHION: "Fashion", SUPER_STAR: "Super Star" };
+export const PLAN_MONTHLY_AI_LIMIT: Record<Plan, number | null> = { ARRUMADA: 40, FASHION: 100, SUPER_STAR: null };
+export const PLAN_MONTHLY_LOOK_LIMIT: Record<Plan, number | null> = { ARRUMADA: 15, FASHION: 40, SUPER_STAR: null };
+const PLAN_RANK: Record<Plan, number> = { ARRUMADA: 0, FASHION: 1, SUPER_STAR: 2 };
 
 export async function mySubscription(c: PoolClient, userId: string) {
   const sub = (await c.query("SELECT * FROM my_subscription($1)", [userId])).rows[0];
-  return { status: sub?.status || "ACTIVE", plan: sub?.plan || "ESSENCIAL", trial_ends_at: sub?.trial_ends_at || null };
+  return { status: (sub?.status || "ACTIVE") as string, plan: (sub?.plan || "ARRUMADA") as Plan, trial_ends_at: sub?.trial_ends_at || null };
+}
+
+/** Teste gratuito libera recursos Fashion para dar gostinho do produto; fora do teste, exige o plano mínimo. */
+export function hasPlanAtLeast(sub: { status: string; plan: Plan }, minPlan: Plan): boolean {
+  if (sub.status === "TRIAL") return PLAN_RANK.FASHION >= PLAN_RANK[minPlan];
+  return PLAN_RANK[sub.plan] >= PLAN_RANK[minPlan];
 }
 
 async function countLooksThisPeriod(c: PoolClient, monthly: boolean): Promise<number> {
@@ -34,7 +43,7 @@ export async function checkLookAllowance(c: PoolClient, userId: string): Promise
   if (limit === null) return { ok: true, remaining: null };
   const used = await countLooksThisPeriod(c, true);
   const remaining = Math.max(0, limit - used);
-  if (remaining === 0) return { ok: false, remaining: 0, message: `Seu plano ${sub.plan} permite ${limit} looks por mês. Esse limite já foi atingido — considere o plano Icon (ilimitado).` };
+  if (remaining === 0) return { ok: false, remaining: 0, message: `Seu plano ${PLAN_LABEL[sub.plan]} permite ${limit} looks por mês. Esse limite já foi atingido — considere o plano Super Star (ilimitado).` };
   return { ok: true, remaining };
 }
 
@@ -65,6 +74,6 @@ export async function bumpAndCheckAiUsage(c: PoolClient, userId: string): Promis
   const limit = PLAN_MONTHLY_AI_LIMIT[sub.plan] ?? null;
   if (limit === null) return { ok: true };
   const monthly = await c.query("SELECT COALESCE(SUM(count),0) n FROM ai_usage WHERE user_id=$1 AND day >= date_trunc('month', current_date)::date", [userId]);
-  if (Number(monthly.rows[0].n) > limit) return { ok: false, message: `Seu plano ${sub.plan} permite ${limit} usos de IA por mês. Esse limite já foi atingido este mês — considere o plano Icon (ilimitado).` };
+  if (Number(monthly.rows[0].n) > limit) return { ok: false, message: `Seu plano ${PLAN_LABEL[sub.plan]} permite ${limit} usos de IA por mês. Esse limite já foi atingido este mês — considere o plano Super Star (ilimitado).` };
   return { ok: true };
 }

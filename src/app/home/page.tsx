@@ -3,8 +3,7 @@ import { logout } from "@/server/auth-actions";
 import { generateTodayLook } from "@/server/look-actions";
 import Link from "next/link";
 import { withProfile } from "@/server/profile-session";
-import { aiUsageRemaining } from "@/server/limits";
-const PLAN_LABEL: Record<string,string> = { ESSENCIAL: "Closet Essencial", ICON: "Closet Icon" };
+import { aiUsageRemaining, PLAN_LABEL } from "@/server/limits";
 export default async function Home(){
  const profile=await withProfile(async(c,id)=>{
    const p=(await c.query("SELECT p.display_name,p.experience_tokens,p.onboarding_completed,u.is_admin FROM profiles p JOIN app_users u ON u.id=p.user_id WHERE p.user_id=$1",[id])).rows[0];
@@ -55,7 +54,11 @@ export default async function Home(){
        <Link href="/closet">Abrir meu Closet</Link>
        <Link href="/looks">Meus Looks</Link>
        <Link href="/mala">Mala de Viagem</Link>
+       <Link href="/capsula">Closet Cápsula</Link>
+       <Link href="/colorimetria">Colorimetria</Link>
+       <Link href="/vitrine">Vitrine de Parceiras</Link>
        {is_admin&&<Link href="/admin">Administração de contas</Link>}
+       {is_admin&&<Link href="/admin/parceiras">Administração de parceiras</Link>}
      </div>
    </section>
  </main>}

@@ -24,8 +24,9 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
           </label>
           <label>Plano
             <select name="plan" defaultValue={a.plan} disabled={a.user_id===actorId}>
-              <option value="ESSENCIAL">Closet Essencial (30 looks/análises IA por mês)</option>
-              <option value="ICON">Closet Icon (ilimitado)</option>
+              <option value="ARRUMADA">Arrumada (15 looks / 40 usos de IA por mês)</option>
+              <option value="FASHION">Fashion (40 looks / 100 usos de IA por mês + Closet Cápsula)</option>
+              <option value="SUPER_STAR">Super Star (ilimitado + Colorimetria)</option>
             </select>
           </label>
           <label>Mensalidade (R$)<input name="fee" defaultValue={(a.monthly_fee_cents/100).toFixed(2)} disabled={a.user_id===actorId}/></label>
