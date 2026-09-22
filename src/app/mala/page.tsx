@@ -35,12 +35,14 @@ export default async function Mala(){
         <h3>Look por dia</h3>
         <div className="grid">
           {tripLooks.map((l:any)=>(
-            <div className="empty" key={l.id}>
-              {l.has_illustration&&<img src={`/api/looks/${l.id}/illustration`} alt={`Ilustração de ${l.name||"look"}`} style={{maxWidth:"100%",borderRadius:12,marginBottom:8}}/>}
-              <strong>{l.name||"Look"}</strong>
-              <span>{l.occasion||"Ocasião não informada"}</span>
-              <span>{(l.items||[]).map((it:any)=>it.name).join(" + ")}</span>
-              <form action={deleteLook}><input type="hidden" name="id" value={l.id}/><button>Excluir</button></form>
+            <div className="look-card" key={l.id}>
+              {l.has_illustration&&<img src={`/api/looks/${l.id}/illustration`} alt={`Ilustração de ${l.name||"look"}`}/>}
+              <h3>{l.name||"Look"}</h3>
+              <p className="look-meta">{l.occasion||"Ocasião não informada"}</p>
+              <p className="look-pieces">{(l.items||[]).map((it:any)=>it.name).join(" + ")}</p>
+              <div className="look-actions">
+                <form action={deleteLook}><input type="hidden" name="id" value={l.id}/><button className="link">Excluir</button></form>
+              </div>
             </div>
           ))}
         </div>

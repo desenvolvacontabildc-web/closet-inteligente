@@ -1,5 +1,6 @@
 "use server";
 import OpenAI, { toFile } from "openai";
+import { randomUUID } from "node:crypto";
 import { Client } from "minio";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
@@ -173,6 +174,63 @@ export async function deleteLook(f: FormData) {
   const id = String(f.get("id") || "");
   await withProfile(async (c) => {
     await c.query("DELETE FROM looks WHERE id=$1", [id]);
+    return true;
+  });
+  redirect("/looks");
+}
+
+/** Sobe uma foto real da cliente usando o look e pede à IA para avaliar (caimento, harmonia, e o que já avisamos: roupa amassada, sapato sujo etc). */
+export async function uploadLookPhoto(f: FormData) {
+  const lookId = String(f.get("look_id") || "");
+  const file = f.get("photo");
+  if (!(file instanceof File) || file.size === 0) throw new Error("Envie uma foto sua usando o look.");
+  if (!file.type.startsWith("image/")) throw new Error("Envie um arquivo de imagem.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("A foto é muito grande. Envie uma imagem de até 10MB.");
+  const buf = Buffer.from(await file.arrayBuffer());
+  const objectKey = `looks/${lookId}/photo-${randomUUID()}`;
+
+  await withProfile(async (c, userId) => {
+    const look = await c.query(
+      `SELECT l.name, l.occasion, (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
+       FROM looks l WHERE l.id=$1`,
+      [lookId],
+    );
+    if (!look.rowCount) throw new Error("Look não encontrado.");
+    await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": file.type });
+    await c.query(
+      "UPDATE looks SET photo_object_key=$1, photo_content_type=$2, status='PHOTOGRAPHED', photo_evaluation=NULL, photo_evaluated_at=NULL, updated_at=now() WHERE id=$3",
+      [objectKey, file.type, lookId],
+    );
+    if (process.env.OPENAI_API_KEY) {
+      const budget = await bumpAndCheckAiUsage(c, userId);
+      if (budget.ok) {
+        try {
+          const { pieces, occasion } = look.rows[0];
+          const dataUrl = `data:${file.type};base64,${buf.toString("base64")}`;
+          const out = await new OpenAI().responses.create({
+            model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+            input: [{
+              role: "user",
+              content: [
+                {
+                  type: "input_text",
+                  text:
+                    `Você é uma consultora de imagem gentil e direta. A cliente está usando este look de verdade (foto real, não ilustração). ` +
+                    `Peças que deveriam compor o look: ${(pieces || []).join(", ") || "não informado"}. Ocasião: ${occasion || "não informada"}.\n` +
+                    `Avalie a foto: comente o caimento, a harmonia das cores e se está adequado à ocasião. Avalie APENAS o que está visível na foto, sem inventar. ` +
+                    `Se notar algo prático a corrigir (peça amassada, sapato sujo ou gasto, etiqueta pra fora, etc.), avise com uma sugestão curta de ação. Seja breve (até 4 frases) e encorajadora. ` +
+                    `Responda apenas JSON: {"avaliacao":"..."}.`,
+                },
+                { type: "input_image", image_url: dataUrl, detail: "low" },
+              ],
+            }],
+          });
+          let parsed: any;
+          try { parsed = JSON.parse(out.output_text); } catch { parsed = { avaliacao: out.output_text }; }
+          await c.query("UPDATE looks SET photo_evaluation=$1, photo_evaluated_at=now() WHERE id=$2", [String(parsed.avaliacao || "").slice(0, 2000), lookId]);
+        } catch { /* avaliação é um extra; falha aqui não deve impedir o upload da foto */ }
+      }
+    }
     return true;
   });
   redirect("/looks");

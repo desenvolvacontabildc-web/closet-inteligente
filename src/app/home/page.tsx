@@ -31,11 +31,11 @@ export default async function Home(){
        <h2>Look para hoje</h2>
        {todayLooks.length>0?<div className="grid">
          {todayLooks.map((l:any)=>(
-           <div className="empty" key={l.id}>
-             {l.has_illustration&&<img src={`/api/looks/${l.id}/illustration`} alt="Ilustração do look de hoje" style={{maxWidth:"100%",borderRadius:12,marginBottom:8}}/>}
-             <strong>{l.name||"Opção de hoje"}</strong>
-             <span>{l.occasion||"Dia comum"}</span>
-             <span>{(l.pieces||[]).join(" + ")}</span>
+           <div className="look-card" key={l.id}>
+             {l.has_illustration&&<img src={`/api/looks/${l.id}/illustration`} alt="Ilustração do look de hoje"/>}
+             <h3>{l.name||"Opção de hoje"}</h3>
+             <p className="look-meta">{l.occasion||"Dia comum"}</p>
+             <p className="look-pieces">{(l.pieces||[]).join(" + ")}</p>
            </div>
          ))}
        </div>:<form action={generateTodayLook} className="form">

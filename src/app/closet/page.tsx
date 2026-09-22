@@ -49,7 +49,13 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
       <button>Filtrar</button>
       {(category||color||status)&&<Link href="/closet">Limpar filtro</Link>}
     </form>
-    <div className="grid">{items.map((i:any)=><Link className="empty" href={`/closet/${i.id}`} key={i.id}><strong>{i.condition_notes&&"⚠️ "}{i.name}</strong><span>{i.code} · {i.category}</span><span>{i.color||"Cor a definir"} · {i.confidence}</span></Link>)}</div>
+    <div className="grid">{items.map((i:any)=>(
+      <Link className="look-card" href={`/closet/${i.id}`} key={i.id}>
+        <h3>{i.condition_notes&&"⚠️ "}{i.name}</h3>
+        <p className="look-meta">{i.code} · {i.category}</p>
+        <p className="look-pieces">{i.color||"Cor a definir"} · {i.confidence}</p>
+      </Link>
+    ))}</div>
     {items.length===0&&<p>Nenhuma peça encontrada com esse filtro.</p>}
     <form action={createItem} className="form"><h2>Adicionar peça</h2><input name="name" placeholder="Nome da peça" required/><input name="category" placeholder="Categoria" required/><input name="color" placeholder="Cor"/><input name="photo_url" placeholder="Referência da foto (opcional)"/><textarea name="description" placeholder="Observações"/><button>Adicionar ao closet</button></form>
   </main>;
