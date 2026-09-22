@@ -3,7 +3,8 @@ import { generateTodayLook } from "@/server/look-actions";
 import Link from "next/link";
 import { withProfile } from "@/server/profile-session";
 import { aiUsageRemaining, PLAN_LABEL, type Plan } from "@/server/limits";
-export default async function Home(){
+export default async function Home({searchParams}:{searchParams:Promise<{error?:string}>}){
+ const {error}=await searchParams;
  const profile=await withProfile(async(c,id)=>{
    const p=(await c.query("SELECT p.display_name,p.onboarding_completed FROM profiles p WHERE p.user_id=$1",[id])).rows[0];
    if(!p)return null;
@@ -21,6 +22,7 @@ export default async function Home(){
  const trialDaysLeft=sub?.status==="TRIAL"&&sub.trial_ends_at?Math.max(0,Math.ceil((new Date(sub.trial_ends_at).getTime()-Date.now())/86400000)):null;
  return <main className="shell">
    <span className="eyebrow">CLOSET INTELIGENTE</span>
+   {error&&<p role="alert" className="trial-banner">{error}</p>}
    {trialDaysLeft!==null&&<div className="trial-banner"><p>{trialDaysLeft>0?`Faltam ${trialDaysLeft} dia${trialDaysLeft===1?"":"s"} do seu teste gratuito.`:"Seu teste gratuito termina hoje."} Fale com a administradora para assinar e manter o acesso ao seu Closet.</p></div>}
    {sub?.status==="ACTIVE"&&<div className="trial-banner"><p>Plano {PLAN_LABEL[sub.plan as Plan]||sub.plan}{aiRemaining!==null?` · restam ${aiRemaining} usos de IA este mês`:" · usos de IA ilimitados"}.</p></div>}
    <section className="welcome">

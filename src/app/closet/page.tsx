@@ -1,6 +1,6 @@
 import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createItem } from "@/server/closet-actions";
-export default async function Closet({searchParams}:{searchParams:Promise<{category?:string;color?:string;status?:string}>}){
-  const {category,color,status}=await searchParams;
+export default async function Closet({searchParams}:{searchParams:Promise<{category?:string;color?:string;status?:string;error?:string}>}){
+  const {category,color,status,error}=await searchParams;
   const data=await withProfile(async c=>{
     const filters:string[]=[]; const params:string[]=[];
     if(category){params.push(category);filters.push(`category=$${params.length}`)}
@@ -20,6 +20,7 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
   return <main className="shell">
     <div className="top"><span className="eyebrow">MEU CLOSET</span><Link href="/home">Voltar</Link></div>
     <h1>Suas peças</h1>
+    {error&&<p role="alert" className="trial-banner">{error}</p>}
     {forgotten.length>0&&!category&&!color&&!status&&<div className="trial-banner">
       <p>Peças esquecidas — ainda não entraram em nenhum look: {forgotten.map((i:any)=>i.name).join(", ")}. <Link href="/looks">Que tal montar um look com elas?</Link></p>
     </div>}

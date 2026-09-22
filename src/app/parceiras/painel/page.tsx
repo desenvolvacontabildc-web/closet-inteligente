@@ -3,8 +3,8 @@ import { addPartnerItem, removePartnerItem } from "@/server/partner-items-action
 import { PARTNER_PACKAGE_LIMIT, PARTNER_PACKAGE_LABEL } from "@/server/partner-limits";
 import { redirect } from "next/navigation";
 
-export default async function PainelParceira({ searchParams }: { searchParams: Promise<{ novo?: string }> }) {
-  const { novo } = await searchParams;
+export default async function PainelParceira({ searchParams }: { searchParams: Promise<{ novo?: string; error?: string }> }) {
+  const { novo, error } = await searchParams;
   const data = await withPartner(async (c, partnerId, storeName, pkg, approved) => {
     const items = (await c.query("SELECT * FROM partner_list_own_items($1)", [partnerId])).rows;
     return { storeName, pkg, approved, items };
@@ -19,6 +19,7 @@ export default async function PainelParceira({ searchParams }: { searchParams: P
       <span className="eyebrow">PAINEL DA LOJA</span>
       <h1>{storeName}</h1>
       {novo === "1" && <p role="status">Cadastro criado! {!approved && "Sua loja entra na vitrine assim que a equipe do Closet aprovar."}</p>}
+      {error && <p role="alert">{error}</p>}
       {!approved && <p role="alert">Sua loja ainda não foi aprovada pela equipe do Closet Inteligente. Ela não aparece na vitrine pública até a aprovação.</p>}
       <p>Pacote atual: <strong>{PARTNER_PACKAGE_LABEL[pkg] || pkg}</strong> · {used}{limit != null ? `/${limit}` : ""} peças publicadas</p>
       <form action={partnerLogout}><button className="link">Sair</button></form>

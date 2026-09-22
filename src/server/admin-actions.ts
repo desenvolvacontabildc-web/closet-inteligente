@@ -3,6 +3,7 @@ import { randomBytes, createHash, scrypt as sc } from "node:crypto";
 import { promisify } from "node:util";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
+import { bounce } from "./action-error";
 const scrypt=promisify(sc);
 async function makeHash(p:string){const salt=randomBytes(16),key=await scrypt(p,salt,64) as Buffer;return `scrypt$${salt.toString("hex")}$${key.toString("hex")}`}
 export async function adminListAccounts(){
@@ -40,7 +41,7 @@ export async function recordPayment(f:FormData){
   const amountReais=Number(String(f.get("amount")||"0").replace(",","."))||0;
   const paidAt=String(f.get("paid_at")||"")||new Date().toISOString().slice(0,10);
   const notes=String(f.get("payment_notes")||"").trim();
-  if(amountReais<=0)throw new Error("Informe um valor de pagamento maior que zero.");
+  if(amountReais<=0)bounce("/admin","Informe um valor de pagamento maior que zero.");
   await withProfile(async(c,userId)=>{
     await c.query("SELECT admin_record_payment($1,$2,$3,$4,$5)",[userId,target,Math.round(amountReais*100),paidAt,notes]);
     return true;

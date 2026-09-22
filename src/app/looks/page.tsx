@@ -1,6 +1,7 @@
 import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createLook, deleteLook, suggestLooks, uploadLookPhoto } from "@/server/look-actions"; import { checkLookAllowance } from "@/server/limits";
 const STATUS_LABEL: Record<string, string> = { SUGGESTED: "Sugestão da IA", PHOTOGRAPHED: "Com foto e avaliação", APPROVED: "Aprovado", WORN: "Já usei", REJECTED: "Rejeitado", OUTDATED: "Desatualizado" };
-export default async function Looks(){
+export default async function Looks({searchParams}:{searchParams:Promise<{error?:string}>}){
+  const {error}=await searchParams;
   const data=await withProfile(async(c,userId)=>{
     const items=(await c.query("SELECT id,name,category FROM closet_items WHERE status='ACTIVE' ORDER BY category,name")).rows;
     const looks=(await c.query(`SELECT l.id,l.name,l.occasion,l.status,l.created_at,l.illustration_object_key IS NOT NULL AS has_illustration,
@@ -17,6 +18,7 @@ export default async function Looks(){
   return <main className="shell">
     <div className="top"><span className="eyebrow">MEUS LOOKS</span><Link href="/home">Voltar</Link></div>
     <h1>Seus looks</h1>
+    {error&&<p role="alert" className="trial-banner">{error}</p>}
     {remaining!==null&&<div className="trial-banner"><p>{remaining>0?`Você ainda pode criar ${remaining} look${remaining===1?"":"s"} neste período.`:(allowance.message||"Limite de looks atingido neste período.")}</p></div>}
     <div className="grid">
       {looks.map((l:any)=>(

@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
+import { bounce } from "./action-error";
 const scrypt = promisify(sc);
 const PARTNER_COOKIE = "closet_partner_session";
 const COOKIE_OPTS = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/" };
@@ -31,8 +32,10 @@ export async function partnerRegister(f: FormData) {
   const instagram = String(f.get("instagram") || "").trim();
   const whatsapp = String(f.get("whatsapp") || "").trim();
   const pkg = String(f.get("package") || "BASICA");
-  const ph = await makeHash(String(f.get("password") || ""));
-  if (!storeName || !/^\S+@\S+\.\S+$/.test(email)) throw new Error("Informe o nome da loja e um e-mail válido.");
+  const password = String(f.get("password") || "");
+  if (!storeName || !/^\S+@\S+\.\S+$/.test(email)) bounce("/parceiras", "Informe o nome da loja e um e-mail válido.");
+  if (password.length < 6) bounce("/parceiras", "A senha deve ter pelo menos 6 caracteres.");
+  const ph = await makeHash(password);
   const c = await getPool().connect();
   try {
     const id = (await c.query("SELECT partner_register($1,$2,$3,$4,$5,$6) id", [storeName, email, ph, instagram, whatsapp, pkg])).rows[0].id;
@@ -40,7 +43,7 @@ export async function partnerRegister(f: FormData) {
     await c.query("SELECT partner_create_session($1,$2)", [hashToken(t), id]);
     (await cookies()).set(PARTNER_COOKIE, t, COOKIE_OPTS);
   } catch (e) {
-    if ((e as any).code === "23505") throw new Error("Este e-mail já está cadastrado como parceira.");
+    if ((e as any).code === "23505") bounce("/parceiras", "Este e-mail já está cadastrado como parceira.");
     throw e;
   } finally { c.release(); }
   redirect("/parceiras/painel?novo=1");

@@ -2,8 +2,8 @@ import { adminListAccounts, setSubscription, resetPassword, recordPayment, admin
 
 const AUDIT_LABEL: Record<string, string> = { SET_SUBSCRIPTION: "Alteração de plano/status", RESET_PASSWORD: "Senha resetada", PAYMENT_RECEIVED: "Pagamento registrado" };
 
-export default async function Admin({searchParams}:{searchParams:Promise<{temp?:string;for?:string;historico?:string}>}){
-  const {temp,for:forEmail,historico}=await searchParams;
+export default async function Admin({searchParams}:{searchParams:Promise<{temp?:string;for?:string;historico?:string;error?:string}>}){
+  const {temp,for:forEmail,historico,error}=await searchParams;
   const {actorId,accounts}=await adminListAccounts();
   if(!accounts)return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/home">← Voltar</a></main>;
 
@@ -20,6 +20,7 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
     <a href="/home">← Voltar</a>
     <h1>Administração de contas</h1>
     {temp&&<p role="alert">Senha temporária para {forEmail}: <strong>{temp}</strong> (copie agora; não será mostrada de novo)</p>}
+    {error&&<p role="alert" className="trial-banner">{error}</p>}
 
     <section className="card">
       <h2>Resumo</h2>

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { generateColorimetria } from "@/server/style-actions"; import { mySubscription, hasPlanAtLeast } from "@/server/limits";
-export default async function Colorimetria(){
+export default async function Colorimetria({searchParams}:{searchParams:Promise<{error?:string}>}){
+  const {error}=await searchParams;
   const data=await withProfile(async(c,userId)=>{
     const sub=await mySubscription(c,userId);
     const allowed=hasPlanAtLeast(sub,"SUPER_STAR");
@@ -12,6 +13,7 @@ export default async function Colorimetria(){
     <a href="/home">← Voltar</a>
     <h1>Colorimetria pessoal</h1>
     <p>A IA analisa uma foto sua (rosto ou pulso, em boa iluminação) para estimar seu subtom de pele e sugerir cores. É uma estimativa — não substitui uma análise profissional presencial.</p>
+    {error&&<p role="alert" className="trial-banner">{error}</p>}
     {!allowed&&<div className="trial-banner"><p>Exclusiva do plano <strong>Super Star</strong> (ou durante o teste gratuito). Fale com a administradora para migrar de plano.</p></div>}
     {allowed&&<form action={generateColorimetria} encType="multipart/form-data" className="form">
       <label>Sua foto (rosto e/ou pulso, luz natural, sem filtro)<input name="photo" type="file" accept="image/*" required/></label>

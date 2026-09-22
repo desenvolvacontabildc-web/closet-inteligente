@@ -10,10 +10,13 @@ body{margin:0;padding-bottom:88px}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:20px}
 .card,.form{background:#fff;border:1px solid #ece1d2;border-radius:20px;padding:26px;box-shadow:0 8px 30px #6b3b4810}
-.card h2{margin-top:0;font-family:Georgia,serif;font-weight:500}
+.card h2,.form h2,.empty h2,.card h3,.form h3,.empty h3{margin-top:0;font-family:Georgia,serif;font-weight:500}
+.card h3,.form h3,.empty h3{font-size:17px}
 .card label,.form label{display:grid;gap:7px;margin:14px 0;font-size:13px}
 .card input,.form input,.form textarea,.form select{font:inherit;padding:12px;border:1px solid #ddd0bb;border-radius:10px;background:#fff}
 .form textarea{min-height:84px;resize:vertical}
+.form fieldset{border:1px solid #ddd0bb;border-radius:12px;padding:14px 16px;margin:14px 0}
+.form legend{padding:0 6px;font-size:13px;color:#8a7a68}
 button{border:0;border-radius:999px;padding:13px 20px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;margin-top:10px}
 button:disabled{opacity:.5}
 .secondary button{background:#46353d}
@@ -22,7 +25,6 @@ button:disabled{opacity:.5}
 .link{background:none;color:var(--accent);padding:0}
 .welcome{padding-top:70px}
 .empty{margin-top:36px;padding:28px;border-radius:20px;background:#f4ecdf}
-.empty h2{font-family:Georgia,serif;font-weight:500}
 .nav-links{display:flex;flex-direction:column;gap:10px;margin-top:18px}
 .nav-links a{display:block;padding:14px 18px;border-radius:14px;background:#fff;color:var(--accent);font-weight:700;text-decoration:none;box-shadow:0 4px 14px #6b3b4812}
 .checkbox{display:flex!important;flex-direction:row;align-items:flex-start;gap:8px;font-size:13px}

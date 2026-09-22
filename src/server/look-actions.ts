@@ -5,6 +5,7 @@ import { Client } from "minio";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
 import { checkLookAllowance, bumpAndCheckAiUsage } from "./limits";
+import { bounce } from "./action-error";
 const store = new Client({ endPoint: (process.env.S3_ENDPOINT || "http://storage:9000").replace(/^https?:\/\//, "").split(":")[0], port: 9000, useSSL: false, accessKey: process.env.S3_ACCESS_KEY_ID || "closet-web", secretKey: process.env.S3_SECRET_ACCESS_KEY || "" });
 async function readObject(key: string): Promise<Buffer> {
   const chunks: Buffer[] = [];
@@ -36,18 +37,18 @@ async function generateIllustration(c: any, lookId: string, itemIds: string[], d
 }
 
 /** Núcleo compartilhado: pede N looks à IA usando somente peças reais ativas, salva e ilustra dentro do orçamento. */
-async function generateLooksFromRequest(c: any, userId: string, request: string, maxLooksRequested: number, kind: "SUGGESTED" | "DAILY" | "TRIP", tripLabel = "", skipLookAllowance = false): Promise<{ createdCount: number; note?: string }> {
-  if (!process.env.OPENAI_API_KEY) throw new Error("Sugestão por IA não configurada: defina OPENAI_API_KEY no servidor.");
+async function generateLooksFromRequest(c: any, userId: string, request: string, maxLooksRequested: number, kind: "SUGGESTED" | "DAILY" | "TRIP", tripLabel = "", skipLookAllowance = false, returnPath = "/looks"): Promise<{ createdCount: number; note?: string }> {
+  if (!process.env.OPENAI_API_KEY) bounce(returnPath, "Sugestão por IA não configurada: defina OPENAI_API_KEY no servidor.");
   let maxLooks = maxLooksRequested;
   if (!skipLookAllowance) {
     const allowance = await checkLookAllowance(c, userId);
-    if (!allowance.ok) throw new Error(allowance.message);
+    if (!allowance.ok) bounce(returnPath, allowance.message || "Limite de looks atingido.");
     maxLooks = Math.max(1, allowance.remaining === null ? maxLooksRequested : Math.min(maxLooksRequested, allowance.remaining));
   }
   const budget = await bumpAndCheckAiUsage(c, userId);
-  if (!budget.ok) throw new Error(budget.message);
+  if (!budget.ok) bounce(returnPath, budget.message || "Limite de uso de IA atingido.");
   const items = (await c.query("SELECT id,name,category,color FROM closet_items WHERE status='ACTIVE'")).rows;
-  if (items.length === 0) throw new Error("Cadastre ao menos uma peça no closet antes de pedir sugestões de look.");
+  if (items.length === 0) bounce(returnPath, "Cadastre ao menos uma peça no closet antes de pedir sugestões de look.");
   const recent = (await c.query(
     `SELECT l.name, l.occasion, (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
      FROM looks l WHERE l.created_at >= now() - interval '14 days' ORDER BY l.created_at DESC LIMIT 10`,
@@ -70,7 +71,7 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
     }],
   });
   let parsed: any;
-  try { parsed = JSON.parse(out.output_text); } catch { throw new Error("A IA não retornou uma sugestão válida. Tente novamente."); }
+  try { parsed = JSON.parse(out.output_text); } catch { bounce(returnPath, "A IA não retornou uma sugestão válida. Tente novamente."); }
   const validIds = new Set(items.map((i: any) => i.id));
   const proposals = Array.isArray(parsed.looks) ? parsed.looks.slice(0, maxLooks) : [];
   let created = 0, illustrationBudgetOver = false;
@@ -105,12 +106,12 @@ export async function createLook(f: FormData) {
   const name = String(f.get("name") || "").trim();
   const occasion = String(f.get("occasion") || "").trim();
   const itemIds = f.getAll("items").map(String).filter(Boolean);
-  if (itemIds.length === 0) throw new Error("Selecione ao menos uma peça para o look.");
+  if (itemIds.length === 0) bounce("/looks", "Selecione ao menos uma peça para o look.");
   await withProfile(async (c, userId) => {
     const allowance = await checkLookAllowance(c, userId);
-    if (!allowance.ok) throw new Error(allowance.message);
+    if (!allowance.ok) bounce("/looks", allowance.message || "Limite de looks atingido.");
     const valid = await c.query("SELECT id FROM closet_items WHERE id = ANY($1::uuid[])", [itemIds]);
-    if (valid.rowCount !== itemIds.length) throw new Error("Alguma peça selecionada não pertence ao seu closet.");
+    if (valid.rowCount !== itemIds.length) bounce("/looks", "Alguma peça selecionada não pertence ao seu closet.");
     const look = await c.query(
       "INSERT INTO looks(tenant_id,user_id,name,occasion) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,$3) RETURNING id",
       [userId, name, occasion],
@@ -129,10 +130,10 @@ export async function createLook(f: FormData) {
 
 export async function suggestLooks(f: FormData) {
   const request = String(f.get("request") || "").trim();
-  if (!request) throw new Error('Descreva o que você precisa (ex.: "3 looks para reuniões essa semana").');
+  if (!request) bounce("/looks", 'Descreva o que você precisa (ex.: "3 looks para reuniões essa semana").');
   await withProfile(async (c, userId) => {
-    const result = await generateLooksFromRequest(c, userId, request, 5, "SUGGESTED");
-    if (result.createdCount === 0) throw new Error("Não foi possível montar nenhum look com as peças atuais do seu closet para esse pedido.");
+    const result = await generateLooksFromRequest(c, userId, request, 5, "SUGGESTED", "", false, "/looks");
+    if (result.createdCount === 0) bounce("/looks", "Não foi possível montar nenhum look com as peças atuais do seu closet para esse pedido.");
     return true;
   });
   redirect("/looks");
@@ -149,7 +150,7 @@ export async function generateTodayLook(f: FormData) {
       const base = await c.query("SELECT name FROM closet_items WHERE id=$1 AND status='ACTIVE'", [baseItemId]);
       if (base.rowCount) request = `A cliente quer usar esta peça como base em todas as opções: "${base.rows[0].name}". ${request}`;
     }
-    await generateLooksFromRequest(c, userId, request, 3, "DAILY", "", true);
+    await generateLooksFromRequest(c, userId, request, 3, "DAILY", "", true, "/home");
     return true;
   });
   redirect("/home");
@@ -160,11 +161,11 @@ export async function suggestTrip(f: FormData) {
   const diasRaw = Number(f.get("dias") || 0);
   const observacoes = String(f.get("observacoes") || "").trim();
   const dias = Math.min(7, Math.max(1, Math.floor(diasRaw) || 1));
-  if (!destino) throw new Error("Informe o destino da viagem.");
+  if (!destino) bounce("/mala", "Informe o destino da viagem.");
   await withProfile(async (c, userId) => {
     const request = `Mala de viagem para ${destino}, ${dias} dia${dias === 1 ? "" : "s"}. ${observacoes || ""}`.trim();
-    const result = await generateLooksFromRequest(c, userId, request, dias, "TRIP", destino);
-    if (result.createdCount === 0) throw new Error("Não foi possível montar looks para essa viagem com as peças atuais do seu closet.");
+    const result = await generateLooksFromRequest(c, userId, request, dias, "TRIP", destino, false, "/mala");
+    if (result.createdCount === 0) bounce("/mala", "Não foi possível montar looks para essa viagem com as peças atuais do seu closet.");
     return true;
   });
   redirect("/mala");
@@ -183,9 +184,9 @@ export async function deleteLook(f: FormData) {
 export async function uploadLookPhoto(f: FormData) {
   const lookId = String(f.get("look_id") || "");
   const file = f.get("photo");
-  if (!(file instanceof File) || file.size === 0) throw new Error("Envie uma foto sua usando o look.");
-  if (!file.type.startsWith("image/")) throw new Error("Envie um arquivo de imagem.");
-  if (file.size > 10 * 1024 * 1024) throw new Error("A foto é muito grande. Envie uma imagem de até 10MB.");
+  if (!(file instanceof File) || file.size === 0) bounce("/looks", "Envie uma foto sua usando o look.");
+  if (!file.type.startsWith("image/")) bounce("/looks", "Envie um arquivo de imagem.");
+  if (file.size > 10 * 1024 * 1024) bounce("/looks", "A foto é muito grande. Envie uma imagem de até 10MB.");
   const buf = Buffer.from(await file.arrayBuffer());
   const objectKey = `looks/${lookId}/photo-${randomUUID()}`;
 
@@ -195,7 +196,7 @@ export async function uploadLookPhoto(f: FormData) {
        FROM looks l WHERE l.id=$1`,
       [lookId],
     );
-    if (!look.rowCount) throw new Error("Look não encontrado.");
+    if (!look.rowCount) bounce("/looks", "Look não encontrado.");
     await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": file.type });
     await c.query(
       "UPDATE looks SET photo_object_key=$1, photo_content_type=$2, status='PHOTOGRAPHED', photo_evaluation=NULL, photo_evaluated_at=NULL, updated_at=now() WHERE id=$3",

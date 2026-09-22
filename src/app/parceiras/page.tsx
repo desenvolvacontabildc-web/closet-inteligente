@@ -3,6 +3,7 @@ export default async function Parceiras({searchParams}:{searchParams:Promise<{er
   const error=(await searchParams).error;
   return <main className="shell">
     <section className="hero"><span className="eyebrow">CLOSET INTELIGENTE · PARCEIRAS</span><h1>Sua loja na vitrine do Closet.</h1><p>Cadastre sua loja, publique peças com desconto exclusivo pras clientes do Closet Inteligente, e receba contato direto pelo WhatsApp ou Instagram.</p></section>
+    {error&&error!=="credentials"&&<p role="alert" className="trial-banner">{error}</p>}
     <div className="cards">
       <form action={partnerRegister} className="card">
         <h2>Cadastrar minha loja</h2>

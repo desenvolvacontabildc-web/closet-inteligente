@@ -1,5 +1,6 @@
 import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { suggestTrip, deleteLook } from "@/server/look-actions"; import { checkLookAllowance } from "@/server/limits";
-export default async function Mala(){
+export default async function Mala({searchParams}:{searchParams:Promise<{error?:string}>}){
+  const {error}=await searchParams;
   const data=await withProfile(async(c,userId)=>{
     const looks=(await c.query(`SELECT l.id,l.name,l.occasion,l.trip_label,l.created_at,l.illustration_object_key IS NOT NULL AS has_illustration,
       (SELECT json_agg(json_build_object('id',ci.id,'name',ci.name,'category',ci.category) ORDER BY ci.category)
@@ -17,6 +18,7 @@ export default async function Mala(){
     <div className="top"><span className="eyebrow">MALA DE VIAGEM</span><Link href="/home">Voltar</Link></div>
     <h1>Sua mala inteligente</h1>
     <p>Diga o destino e quantos dias — a IA monta um look por dia usando só peças reais do seu closet, e a mala vira a lista de tudo que precisa levar.</p>
+    {error&&<p role="alert" className="trial-banner">{error}</p>}
     {remaining!==null&&<div className="trial-banner"><p>{remaining>0?`Você ainda pode gerar ${remaining} look${remaining===1?"":"s"} neste período.`:(allowance.message||"Limite de looks atingido neste período.")}</p></div>}
     <form action={suggestTrip} className="form">
       <h2>Montar mala</h2>

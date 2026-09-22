@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { generateCapsule } from "@/server/capsule-actions"; import { mySubscription, hasPlanAtLeast } from "@/server/limits";
-export default async function Capsula(){
+export default async function Capsula({searchParams}:{searchParams:Promise<{error?:string}>}){
+  const {error}=await searchParams;
   const data=await withProfile(async(c,userId)=>{
     const sub=await mySubscription(c,userId);
     const allowed=hasPlanAtLeast(sub,"FASHION");
@@ -13,6 +14,7 @@ export default async function Capsula(){
     <a href="/home">← Voltar</a>
     <h1>Closet Cápsula</h1>
     <p>Escolha um número de peças e a IA seleciona, entre as suas peças reais, a combinação mais versátil — a que gera mais looks diferentes usando menos itens.</p>
+    {error&&<p role="alert" className="trial-banner">{error}</p>}
     {!allowed&&<div className="trial-banner"><p>Exclusivo dos planos <strong>Fashion</strong> e <strong>Super Star</strong> (ou durante o teste gratuito). Fale com a administradora para migrar de plano.</p></div>}
     {allowed&&<form action={generateCapsule} className="form">
       <label>Quantas peças na cápsula?<input name="target" type="number" min={5} max={30} defaultValue={15}/></label>
