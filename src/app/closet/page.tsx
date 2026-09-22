@@ -7,7 +7,9 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
     if(color){params.push(color);filters.push(`color=$${params.length}`)}
     if(status){params.push(status);filters.push(`status=$${params.length}`)}
     const where=filters.length?`WHERE ${filters.join(" AND ")}`:"";
-    const items=(await c.query(`SELECT id,code,name,category,color,confidence,status,condition_notes FROM closet_items ${where} ORDER BY created_at DESC`,params)).rows;
+    const items=(await c.query(`SELECT ci.id,ci.code,ci.name,ci.category,ci.color,ci.confidence,ci.status,ci.condition_notes,
+      (SELECT p.id FROM closet_item_photos p WHERE p.item_id=ci.id ORDER BY p.created_at DESC LIMIT 1) AS photo_id
+      FROM closet_items ci ${where.replace(/(category|color|status)=/g,"ci.$1=")} ORDER BY ci.created_at DESC`,params)).rows;
     const categories=(await c.query("SELECT DISTINCT category FROM closet_items ORDER BY category")).rows.map((r:any)=>r.category);
     const colors=(await c.query("SELECT DISTINCT color FROM closet_items WHERE color<>'' ORDER BY color")).rows.map((r:any)=>r.color);
     const forgotten=(await c.query("SELECT id,name,category FROM closet_items ci WHERE status='ACTIVE' AND NOT EXISTS (SELECT 1 FROM look_items li WHERE li.item_id=ci.id) ORDER BY created_at ASC LIMIT 6")).rows;
@@ -51,12 +53,21 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
     </form>
     <div className="grid">{items.map((i:any)=>(
       <Link className="look-card" href={`/closet/${i.id}`} key={i.id}>
+        {i.photo_id&&<img src={`/api/closet/photos/${i.photo_id}`} alt={i.name}/>}
         <h3>{i.condition_notes&&"⚠️ "}{i.name}</h3>
         <p className="look-meta">{i.code} · {i.category}</p>
         <p className="look-pieces">{i.color||"Cor a definir"} · {i.confidence}</p>
       </Link>
     ))}</div>
     {items.length===0&&<p>Nenhuma peça encontrada com esse filtro.</p>}
-    <form action={createItem} className="form"><h2>Adicionar peça</h2><input name="name" placeholder="Nome da peça" required/><input name="category" placeholder="Categoria" required/><input name="color" placeholder="Cor"/><input name="photo_url" placeholder="Referência da foto (opcional)"/><textarea name="description" placeholder="Observações"/><button>Adicionar ao closet</button></form>
+    <form action={createItem} encType="multipart/form-data" className="form">
+      <h2>Adicionar peça</h2>
+      <input name="name" placeholder="Nome da peça" required/>
+      <input name="category" placeholder="Categoria" required/>
+      <input name="color" placeholder="Cor"/>
+      <label>Foto real da peça (opcional, mas ajuda a IA a identificar)<input type="file" name="photo" accept="image/*"/></label>
+      <textarea name="description" placeholder="Observações"/>
+      <button>Adicionar ao closet</button>
+    </form>
   </main>;
 }

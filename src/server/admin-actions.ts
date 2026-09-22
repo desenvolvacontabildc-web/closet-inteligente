@@ -8,13 +8,13 @@ async function makeHash(p:string){const salt=randomBytes(16),key=await scrypt(p,
 export async function adminListAccounts(){
   const result=await withProfile(async(c,userId)=>{
     try{const q=await c.query("SELECT * FROM admin_list_accounts($1)",[userId]);return{actorId:userId,accounts:q.rows}}
-    catch{return{actorId:userId,accounts:null}}
+    catch(e){console.error("adminListAccounts falhou:",e);return{actorId:userId,accounts:null}}
   });
   if(!result)redirect("/");
   return result;
 }
 export async function setSubscription(f:FormData){
-  const target=String(f.get("user_id")||""),status=String(f.get("status")||"ACTIVE"),plan=String(f.get("plan")||"ESSENCIAL");
+  const target=String(f.get("user_id")||""),status=String(f.get("status")||"ACTIVE"),plan=String(f.get("plan")||"ARRUMADA");
   const feeReais=Number(String(f.get("fee")||"0").replace(",","."))||0;
   const discountReais=Number(String(f.get("discount")||"0").replace(",","."))||0;
   const notes=String(f.get("notes")||"").trim();
