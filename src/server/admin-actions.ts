@@ -35,3 +35,22 @@ export async function resetPassword(f:FormData){
   });
   redirect(`/admin?temp=${encodeURIComponent(temp)}&for=${encodeURIComponent(target)}`);
 }
+export async function recordPayment(f:FormData){
+  const target=String(f.get("user_id")||"");
+  const amountReais=Number(String(f.get("amount")||"0").replace(",","."))||0;
+  const paidAt=String(f.get("paid_at")||"")||new Date().toISOString().slice(0,10);
+  const notes=String(f.get("payment_notes")||"").trim();
+  if(amountReais<=0)throw new Error("Informe um valor de pagamento maior que zero.");
+  await withProfile(async(c,userId)=>{
+    await c.query("SELECT admin_record_payment($1,$2,$3,$4,$5)",[userId,target,Math.round(amountReais*100),paidAt,notes]);
+    return true;
+  });
+  redirect(`/admin?historico=${encodeURIComponent(target)}`);
+}
+export async function adminListAudit(targetUserId:string){
+  const result=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_list_audit($1,$2)",[userId,targetUserId])).rows}
+    catch{return null}
+  });
+  return result||[];
+}
