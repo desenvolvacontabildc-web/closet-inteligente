@@ -51,12 +51,11 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
       <button>Filtrar</button>
       {(category||color||status)&&<Link href="/closet">Limpar filtro</Link>}
     </form>
-    <div className="grid">{items.map((i:any)=>(
-      <Link className="look-card" href={`/closet/${i.id}`} key={i.id}>
-        {i.photo_id&&<img src={`/api/closet/photos/${i.photo_id}`} alt={i.name}/>}
-        <h3>{i.condition_notes&&"⚠️ "}{i.name}</h3>
-        <p className="look-meta">{i.code} · {i.category}</p>
-        <p className="look-pieces">{i.color||"Cor a definir"} · {i.confidence}</p>
+    <div className="closet-grid">{items.map((i:any)=>(
+      <Link className="closet-tile" href={`/closet/${i.id}`} key={i.id}>
+        <span className="thumb">{i.photo_id?<img src={`/api/closet/photos/${i.photo_id}`} alt={i.name}/>:"👗"}</span>
+        <strong>{i.condition_notes&&"⚠️ "}{i.name}</strong>
+        <span>{i.code} · {i.color||"cor a definir"}</span>
       </Link>
     ))}</div>
     {items.length===0&&<p>Nenhuma peça encontrada com esse filtro.</p>}

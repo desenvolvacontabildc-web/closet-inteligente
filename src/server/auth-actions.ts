@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import { cookies } from "next/headers"; import { redirect } from "next/navigation";
 import { getPool } from "./db"; import { SESSION_COOKIE, SESSION_COOKIE_OPTIONS } from "./auth";
 import { withProfile } from "./profile-session";
+import { resolveAccent } from "./accent";
 const scrypt=promisify(sc), hash=(v:string)=>createHash("sha256").update(v).digest("hex");
 async function makeHash(p:string){if(p.length<6)throw new Error("A senha deve ter pelo menos 6 caracteres.");const salt=randomBytes(16),key=await scrypt(p,salt,64) as Buffer;return `scrypt$${salt.toString("hex")}$${key.toString("hex")}`}
 async function checkHash(p:string,v:string|null){if(!v?.startsWith("scrypt$"))return false;const[,s,k]=v.split("$");const key=await scrypt(p,Buffer.from(s,"hex"),64) as Buffer;return key.length===k.length/2&&timingSafeEqual(key,Buffer.from(k,"hex"))}
@@ -18,7 +19,7 @@ export async function saveOnboarding(f:FormData){
   const fields=["feeling","avoid","routine","style","accent","tone"];
   const answers=Object.fromEntries(fields.map(k=>[k,String(f.get(k)||"").trim()]));
   if(!answers.feeling||!answers.avoid) throw new Error("Preencha as respostas obrigatórias.");
-  const tokens={accent:answers.accent||"#b25b76",tone:answers.tone||"acolhedor",density:"equilibrada"};
+  const tokens={accent:resolveAccent(answers.accent),tone:answers.tone||"acolhedor",density:"equilibrada"};
   const saved=await withProfile(async(c,id)=>{
     const q=await c.query("UPDATE profiles SET answers=$1,experience_tokens=$2,onboarding_completed=true,updated_at=now() WHERE user_id=$3 RETURNING user_id",[answers,tokens,id]);
     if(q.rowCount!==1) throw new Error("Não foi possível salvar seu perfil.");
