@@ -42,7 +42,8 @@ END $$;
 REVOKE ALL ON FUNCTION admin_list_audit(uuid,uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION admin_list_audit(uuid,uuid) TO closet_app;
 
-CREATE OR REPLACE FUNCTION admin_list_accounts(p_actor uuid)
+DROP FUNCTION admin_list_accounts(uuid);
+CREATE FUNCTION admin_list_accounts(p_actor uuid)
 RETURNS TABLE(user_id uuid, email text, display_name text, created_at timestamptz,
               sub_status text, plan text, trial_ends_at timestamptz, monthly_fee_cents integer, discount_cents integer, notes text, is_admin boolean, last_login_at timestamptz)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
