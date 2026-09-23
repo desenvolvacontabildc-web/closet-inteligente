@@ -6,7 +6,7 @@ import { aiUsageRemaining, PLAN_LABEL, type Plan } from "@/server/limits";
 export default async function Home({searchParams}:{searchParams:Promise<{error?:string}>}){
  const {error}=await searchParams;
  const profile=await withProfile(async(c,id)=>{
-   const p=(await c.query("SELECT p.display_name,p.onboarding_completed FROM profiles p WHERE p.user_id=$1",[id])).rows[0];
+   const p=(await c.query("SELECT p.display_name,p.onboarding_completed,p.avatar_object_key FROM profiles p WHERE p.user_id=$1",[id])).rows[0];
    if(!p)return null;
    const sub=(await c.query("SELECT * FROM my_subscription($1)",[id])).rows[0];
    const aiRemaining=await aiUsageRemaining(c,id);
@@ -19,7 +19,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems,trend}=profile;
+ const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key}=profile;
  const trialDaysLeft=sub?.status==="TRIAL"&&sub.trial_ends_at?Math.max(0,Math.ceil((new Date(sub.trial_ends_at).getTime()-Date.now())/86400000)):null;
  return <main className="shell">
    <span className="eyebrow">CLOSET INTELIGENTE</span>
@@ -28,7 +28,12 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
    {sub?.status==="ACTIVE"&&<div className="trial-banner"><p>Plano {PLAN_LABEL[sub.plan as Plan]||sub.plan}{aiRemaining!==null?` · restam ${aiRemaining} usos de IA este mês`:" · usos de IA ilimitados"}.</p></div>}
    <section className="welcome">
      <p className="eyebrow">SEU CLOSET ESTÁ PRONTO</p>
-     <h1>Olá, {display_name}.</h1>
+     <div className="avatar-row">
+       {avatar_object_key
+         ? <img className="avatar" src="/api/perfil/foto" alt={display_name}/>
+         : <span className="avatar avatar-placeholder">👤</span>}
+       <h1>Olá, {display_name}.</h1>
+     </div>
      <div className="empty">
        <h2>Look para hoje</h2>
        {todayLooks.length>0?<div className="grid">

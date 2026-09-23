@@ -67,6 +67,11 @@ a.find-card{color:inherit;text-decoration:none;display:block}
 .bottom-nav a{display:flex;flex-direction:column;align-items:center;gap:3px;color:#b5a68f;text-decoration:none;font-size:11px;font-weight:600;flex:1}
 .bottom-nav a svg{width:22px;height:22px}
 .bottom-nav a.active{color:var(--accent)}
+.avatar-row{display:flex;align-items:center;gap:16px;margin-top:14px}
+.avatar-row h1{margin:0}
+.avatar-row p{margin:2px 0 0}
+.avatar{width:72px;height:72px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.avatar-placeholder{display:flex;align-items:center;justify-content:center;background:#f4ecdf;color:#c9b79c;font-size:32px}
 .swatches{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px}
 .swatch{display:flex!important;flex-direction:column;align-items:center;gap:6px;font-size:11px;cursor:pointer;width:56px}
 .swatch input{position:absolute;opacity:0;width:0;height:0}

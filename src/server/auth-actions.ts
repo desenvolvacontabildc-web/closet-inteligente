@@ -1,11 +1,13 @@
 "use server";
 import { randomBytes, createHash, scrypt as sc, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
+import { Client } from "minio";
 import { cookies } from "next/headers"; import { redirect } from "next/navigation";
 import { getPool } from "./db"; import { SESSION_COOKIE, SESSION_COOKIE_OPTIONS } from "./auth";
 import { withProfile } from "./profile-session";
 import { resolveAccent } from "./accent";
 import { bounce } from "./action-error";
+const store=new Client({endPoint:(process.env.S3_ENDPOINT||"http://storage:9000").replace(/^https?:\/\//,'').split(':')[0],port:9000,useSSL:false,accessKey:process.env.S3_ACCESS_KEY_ID||"closet-web",secretKey:process.env.S3_SECRET_ACCESS_KEY||""});
 const scrypt=promisify(sc), hash=(v:string)=>createHash("sha256").update(v).digest("hex");
 async function makeHash(p:string){if(p.length<6)throw new Error("A senha deve ter pelo menos 6 caracteres.");const salt=randomBytes(16),key=await scrypt(p,salt,64) as Buffer;return `scrypt$${salt.toString("hex")}$${key.toString("hex")}`}
 async function checkHash(p:string,v:string|null){if(!v?.startsWith("scrypt$"))return false;const[,s,k]=v.split("$");const key=await scrypt(p,Buffer.from(s,"hex"),64) as Buffer;return key.length===k.length/2&&timingSafeEqual(key,Buffer.from(k,"hex"))}
@@ -39,8 +41,20 @@ export async function saveOnboarding(f:FormData){
   const answers=Object.fromEntries(fields.map(k=>[k,String(f.get(k)||"").trim()]));
   if(!answers.feeling||!answers.avoid) bounce("/onboarding","Preencha as respostas obrigatórias.");
   const tokens={accent:resolveAccent(answers.accent),tone:answers.tone||"acolhedor",density:"equilibrada"};
+  const avatar=f.get("avatar");
+  const hasAvatar=avatar instanceof File && avatar.size>0;
+  if(hasAvatar&&!(avatar as File).type.startsWith("image/")) bounce("/onboarding","Envie um arquivo de imagem pra foto.");
+  const avatarBuf=hasAvatar?Buffer.from(await (avatar as File).arrayBuffer()):null;
   const saved=await withProfile(async(c,id)=>{
-    const q=await c.query("UPDATE profiles SET answers=$1,experience_tokens=$2,onboarding_completed=true,updated_at=now() WHERE user_id=$3 RETURNING user_id",[answers,tokens,id]);
+    let avatarKey:string|null=null;
+    if(hasAvatar&&avatarBuf){
+      avatarKey=`avatars/${id}-${Date.now()}`;
+      await store.putObject(process.env.S3_BUCKET||"closet-private",avatarKey,avatarBuf,avatarBuf.length,{"Content-Type":(avatar as File).type});
+    }
+    const q=await c.query(
+      "UPDATE profiles SET answers=$1,experience_tokens=$2,onboarding_completed=true"+(avatarKey?",avatar_object_key=$4,avatar_content_type=$5":"")+",updated_at=now() WHERE user_id=$3 RETURNING user_id",
+      avatarKey?[answers,tokens,id,avatarKey,(avatar as File).type]:[answers,tokens,id],
+    );
     if(q.rowCount!==1) bounce("/onboarding","Não foi possível salvar seu perfil.");
     return true;
   });
