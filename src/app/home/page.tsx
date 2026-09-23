@@ -14,11 +14,12 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      (SELECT json_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
      FROM looks l WHERE l.kind='DAILY' AND l.created_at::date=current_date ORDER BY l.created_at`)).rows;
    const activeItems=(await c.query("SELECT id,name,category FROM closet_items WHERE status='ACTIVE' ORDER BY category,name")).rows;
-   return {...p,sub,aiRemaining,todayLooks,activeItems};
+   const trend=(await c.query("SELECT * FROM list_active_trends(1)")).rows[0]||null;
+   return {...p,sub,aiRemaining,todayLooks,activeItems,trend};
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems}=profile;
+ const {display_name,sub,aiRemaining,todayLooks,activeItems,trend}=profile;
  const trialDaysLeft=sub?.status==="TRIAL"&&sub.trial_ends_at?Math.max(0,Math.ceil((new Date(sub.trial_ends_at).getTime()-Date.now())/86400000)):null;
  return <main className="shell">
    <span className="eyebrow">CLOSET INTELIGENTE</span>
@@ -56,5 +57,12 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        <Link href="/closet">Adicionar peças</Link>
        <Link href="/vitrine">Comprar com desconto</Link>
      </div>
+     {trend&&<Link href="/tendencias" className="trend-teaser">
+       {trend.object_key&&<img src={`/api/tendencias/photos/${trend.id}`} alt={trend.title}/>}
+       <div>
+         <span className="eyebrow">TENDÊNCIA PARA VOCÊ</span>
+         <strong>{trend.title}</strong>
+       </div>
+     </Link>}
    </section>
  </main>}

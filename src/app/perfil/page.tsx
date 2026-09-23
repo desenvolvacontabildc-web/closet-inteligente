@@ -26,8 +26,11 @@ export default async function Perfil() {
       <Link href="/mala">Mala de Viagem</Link>
       <Link href="/capsula">Closet Cápsula</Link>
       <Link href="/colorimetria">Colorimetria</Link>
+      <Link href="/tendencias">Radar de Tendências</Link>
       {isAdmin && <Link href="/admin">Administração de contas</Link>}
       {isAdmin && <Link href="/admin/parceiras">Administração de parceiras</Link>}
+      {isAdmin && <Link href="/admin/tendencias">Administração de tendências</Link>}
+      {isAdmin && <Link href="/admin/achadinhos">Administração de achadinhos</Link>}
     </nav>
     <form action={logout}><button className="link">Sair da conta</button></form>
   </main>;

@@ -2,11 +2,16 @@ import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
 
 export default async function Vitrine() {
-  const rows = await withProfile(async (c) => (await c.query("SELECT * FROM storefront_list()")).rows);
-  if (!rows) redirect("/");
+  const data = await withProfile(async (c) => {
+    const partnerRows = (await c.query("SELECT * FROM storefront_list()")).rows;
+    const finds = (await c.query("SELECT * FROM list_active_finds()")).rows;
+    return { partnerRows, finds };
+  });
+  if (!data) redirect("/");
+  const { partnerRows, finds } = data;
 
   const stores = new Map<string, { store_name: string; instagram: string; whatsapp: string; items: any[] }>();
-  for (const r of rows) {
+  for (const r of partnerRows) {
     if (!stores.has(r.partner_id)) stores.set(r.partner_id, { store_name: r.store_name, instagram: r.instagram, whatsapp: r.whatsapp, items: [] });
     stores.get(r.partner_id)!.items.push(r);
   }
@@ -42,5 +47,23 @@ export default async function Vitrine() {
         </div>
       </section>
     ))}
+
+    <section className="hero">
+      <span className="eyebrow">ACHADINHOS</span>
+      <h1>Selecionados pela Ilka.</h1>
+      <p>Peças que a Ilka encontrou em outras lojas (Shopee, Shein e afins) e recomenda — clique e compre direto na loja de origem.</p>
+    </section>
+    {finds.length === 0 && <p>Nenhum achadinho publicado ainda.</p>}
+    <div className="cards">
+      {finds.map((f: any) => (
+        <a className="card secondary find-card" href={f.external_url} target="_blank" rel="noopener noreferrer" key={f.id}>
+          {f.object_key && <img src={`/api/achadinhos/photos/${f.id}`} alt={f.title} style={{ width: "100%", borderRadius: 12 }} />}
+          <h3>{f.title}</h3>
+          {f.description && <p>{f.description}</p>}
+          {f.price_cents != null && <p>R$ {(f.price_cents / 100).toFixed(2)}</p>}
+          <button>Comprar na loja</button>
+        </a>
+      ))}
+    </div>
   </main>;
 }
