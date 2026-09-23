@@ -15,7 +15,10 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
     const items=(await c.query("SELECT id,name,category FROM closet_items WHERE status='ACTIVE' ORDER BY category,name")).rows;
     const looks=(await c.query(`SELECT l.id,l.name,l.occasion,l.status,l.created_at,l.illustration_object_key IS NOT NULL AS has_illustration,
       l.photo_object_key IS NOT NULL AS has_photo, l.photo_evaluation,
-      (SELECT json_agg(json_build_object('id',ci.id,'name',ci.name,'category',ci.category) ORDER BY ci.category)
+      (SELECT json_agg(json_build_object(
+          'id',ci.id,'name',ci.name,'category',ci.category,
+          'photo_id',(SELECT p.id FROM closet_item_photos p WHERE p.item_id=ci.id ORDER BY p.created_at DESC LIMIT 1)
+        ) ORDER BY ci.category)
        FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS items
       FROM looks l WHERE l.kind NOT IN ('DAILY','TRIP') ORDER BY l.created_at DESC`)).rows;
     const allowance=await checkLookAllowance(c,userId);
@@ -38,6 +41,17 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
           <h3>{l.name||"Look sem nome"}</h3>
           <p className="look-meta">{l.occasion||"Ocasião não informada"} · {STATUS_LABEL[l.status]||l.status}</p>
           <p className="look-pieces">{(l.items||[]).map((it:any)=>it.name).join(" + ")||"Sem peças"}</p>
+          {(l.items||[]).length>0&&<>
+            <p className="look-meta">👗 Ver com minhas peças</p>
+            <div className="outfit-collage">
+              {(l.items||[]).map((it:any)=>(
+                <div className="outfit-collage-item" key={it.id}>
+                  {it.photo_id?<img src={`/api/closet/photos/${it.photo_id}`} alt={it.name}/>:<span className="outfit-collage-placeholder">👕</span>}
+                  <span>{it.name}</span>
+                </div>
+              ))}
+            </div>
+          </>}
           {parseEvaluation(l.photo_evaluation) && (
             <div className="eval-grid">
               {Object.entries(parseEvaluation(l.photo_evaluation)!).map(([key, text]) => text && (

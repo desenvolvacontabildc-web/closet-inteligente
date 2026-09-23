@@ -40,6 +40,11 @@ a.find-card{color:inherit;text-decoration:none;display:block}
 .look-card img{width:100%;border-radius:14px;max-height:360px;object-fit:cover;margin-bottom:6px}
 .look-thumb-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;aspect-ratio:1;border-radius:14px;background:#fff;color:#c9b79c;font-size:28px;margin-bottom:6px}
 .look-thumb-placeholder small{font-size:11px;color:#8a7a68}
+.outfit-collage{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:8px;margin-top:6px}
+.outfit-collage-item{display:flex;flex-direction:column;align-items:center;gap:4px;background:#fff;border-radius:12px;padding:8px}
+.outfit-collage-item img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px}
+.outfit-collage-placeholder{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#f4ecdf;border-radius:8px;font-size:22px;color:#c9b79c}
+.outfit-collage-item span{font-size:10px;text-align:center;color:#4a3f38;line-height:1.2}
 .look-card h3{margin:0;font-family:Georgia,serif;font-weight:500;font-size:19px}
 .look-meta{margin:0;font-size:13px;color:#8a7a68}
 .look-pieces{margin:0;font-size:14px}

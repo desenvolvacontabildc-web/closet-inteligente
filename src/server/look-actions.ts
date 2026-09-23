@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "minio";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
-import { checkLookAllowance, bumpAndCheckAiUsage, checkImageAllowance } from "./limits";
+import { checkLookAllowance, bumpAndCheckAiUsage } from "./limits";
 import { bounce } from "./action-error";
 const store = new Client({ endPoint: (process.env.S3_ENDPOINT || "http://storage:9000").replace(/^https?:\/\//, "").split(":")[0], port: 9000, useSSL: false, accessKey: process.env.S3_ACCESS_KEY_ID || "closet-web", secretKey: process.env.S3_SECRET_ACCESS_KEY || "" });
 async function readObject(key: string): Promise<Buffer> {
@@ -12,6 +12,8 @@ async function readObject(key: string): Promise<Buffer> {
   for await (const ch of await store.getObject(process.env.S3_BUCKET || "closet-private", key) as any) chunks.push(Buffer.from(ch));
   return Buffer.concat(chunks);
 }
+/** Reservada para a Fase 3 (Experimentar em mim) -- não é chamada automaticamente aqui;
+ * a curadoria de looks agora entrega texto + fotos reais, sem gerar imagem por IA. */
 async function generateIllustration(c: any, userId: string, lookId: string, itemIds: string[], description: string) {
   const openai = new OpenAI();
   const photos = (await c.query(
@@ -48,7 +50,7 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
   }
   const budget = await bumpAndCheckAiUsage(c, userId);
   if (!budget.ok) bounce(returnPath, budget.message || "Limite de uso de IA atingido.");
-  const items = (await c.query("SELECT id,name,category,color FROM closet_items WHERE status='ACTIVE'")).rows;
+  const items = (await c.query("SELECT id,name,category,color,attributes FROM closet_items WHERE status='ACTIVE'")).rows;
   if (items.length === 0) bounce(returnPath, "Cadastre ao menos uma peça no closet antes de pedir sugestões de look.");
   const recent = (await c.query(
     `SELECT l.name, l.occasion, (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
@@ -61,8 +63,8 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
       content: [{
         type: "input_text",
         text:
-          `Você é uma consultora de imagem. Pedido da cliente: "${request}".\n` +
-          `Peças reais disponíveis no closet (use SOMENTE estas, nunca invente peças novas):\n${JSON.stringify(items)}\n` +
+          `Você é uma consultora de imagem (personal stylist). Pedido da cliente: "${request}".\n` +
+          `Peças reais disponíveis no closet, com atributos de estilo já analisados (use SOMENTE estas peças, nunca invente peças novas; use os atributos — estilo, formalidade, estação, ocasiões, combina_com — pra decidir a curadoria):\n${JSON.stringify(items)}\n` +
           (recent.length > 0 ? `Looks já sugeridos ou usados nos últimos 14 dias (evite repetir exatamente a mesma combinação; pode reutilizar peças individuais, mas varie a composição):\n${JSON.stringify(recent)}\n` : "") +
           `Monte até ${maxLooks} looks distintos e coerentes com o pedido, usando apenas essas peças. ` +
           (maxLooks > 1 ? `Se o pedido envolver múltiplos dias, monte um look por dia, variando as combinações mesmo repetindo peças individuais. ` : "") +
@@ -75,7 +77,7 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
   try { parsed = JSON.parse(out.output_text); } catch { bounce(returnPath, "A IA não retornou uma sugestão válida. Tente novamente."); }
   const validIds = new Set(items.map((i: any) => i.id));
   const proposals = Array.isArray(parsed.looks) ? parsed.looks.slice(0, maxLooks) : [];
-  let created = 0, illustrationBudgetOver = false;
+  let created = 0;
   for (const p of proposals) {
     const ids = Array.isArray(p.item_ids) ? p.item_ids.filter((id: string) => validIds.has(id)) : [];
     if (ids.length === 0) continue;
@@ -91,15 +93,6 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
       );
     }
     created++;
-    if (!illustrationBudgetOver) {
-      const imgBudget = await bumpAndCheckAiUsage(c, userId);
-      const imgAllowance = await checkImageAllowance(c, userId);
-      if (!imgBudget.ok || !imgAllowance.ok) { illustrationBudgetOver = true; }
-      else {
-        const pieceNames = items.filter((i: any) => ids.includes(i.id)).map((i: any) => `${i.name} (${i.color || "cor não informada"})`).join(", ");
-        try { await generateIllustration(c, userId, look.rows[0].id, ids, `${pieceNames}. Ocasião: ${occasion || "não informada"}.`); } catch { /* ilustração é apenas um extra visual; falha aqui não deve derrubar a criação do look */ }
-      }
-    }
   }
   return { createdCount: created, note: parsed.note };
 }
