@@ -1,5 +1,14 @@
 import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createLook, deleteLook, suggestLooks, uploadLookPhoto } from "@/server/look-actions"; import { checkLookAllowance } from "@/server/limits";
 const STATUS_LABEL: Record<string, string> = { SUGGESTED: "Sugestão da IA", PHOTOGRAPHED: "Com foto e avaliação", APPROVED: "Aprovado", WORN: "Já usei", REJECTED: "Rejeitado", OUTDATED: "Desatualizado" };
+const EVAL_LABEL: Record<string, string> = { caimento: "👗 Caimento", proporcao: "📐 Proporção", cores: "🎨 Cores", sugestao: "💡 Sugestão" };
+function parseEvaluation(raw: string | null): Record<string, string> | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") return parsed;
+  } catch { /* avaliações antigas eram texto simples, não JSON */ }
+  return { avaliacao: raw };
+}
 export default async function Looks({searchParams}:{searchParams:Promise<{error?:string}>}){
   const {error}=await searchParams;
   const data=await withProfile(async(c,userId)=>{
@@ -24,11 +33,21 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
       {looks.map((l:any)=>(
         <div className="look-card" key={l.id}>
           {l.has_photo?<img src={`/api/looks/${l.id}/photo`} alt={`Foto real do look ${l.name||""}`}/>
-            :l.has_illustration&&<img src={`/api/looks/${l.id}/illustration`} alt={`Ilustração do look ${l.name||""}`}/>}
+            :l.has_illustration?<img src={`/api/looks/${l.id}/illustration`} alt={`Ilustração do look ${l.name||""}`}/>
+            :<span className="look-thumb-placeholder">✨<small>Sem foto ainda</small></span>}
           <h3>{l.name||"Look sem nome"}</h3>
           <p className="look-meta">{l.occasion||"Ocasião não informada"} · {STATUS_LABEL[l.status]||l.status}</p>
           <p className="look-pieces">{(l.items||[]).map((it:any)=>it.name).join(" + ")||"Sem peças"}</p>
-          {l.photo_evaluation&&<p className="look-evaluation">💬 {l.photo_evaluation}</p>}
+          {parseEvaluation(l.photo_evaluation) && (
+            <div className="eval-grid">
+              {Object.entries(parseEvaluation(l.photo_evaluation)!).map(([key, text]) => text && (
+                <div className="eval-card" key={key}>
+                  <strong>{EVAL_LABEL[key] || "💬 Avaliação"}</strong>
+                  <p>{text}</p>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="look-actions">
             <form action={uploadLookPhoto} encType="multipart/form-data">
               <input type="hidden" name="look_id" value={l.id}/>

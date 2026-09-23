@@ -8,7 +8,7 @@ import { getPool } from "./db";
 import { bounce } from "./action-error";
 const scrypt = promisify(sc);
 const PARTNER_COOKIE = "closet_partner_session";
-const COOKIE_OPTS = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/" };
+const COOKIE_OPTS = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/", maxAge: 60 * 60 * 24 * 30 };
 async function makeHash(p: string) { if (p.length < 6) throw new Error("A senha deve ter pelo menos 6 caracteres."); const salt = randomBytes(16), key = (await scrypt(p, salt, 64)) as Buffer; return `scrypt$${salt.toString("hex")}$${key.toString("hex")}`; }
 async function checkHash(p: string, v: string | null) { if (!v?.startsWith("scrypt$")) return false; const [, s, k] = v.split("$"); const key = (await scrypt(p, Buffer.from(s, "hex"), 64)) as Buffer; return key.length === k.length / 2 && timingSafeEqual(key, Buffer.from(k, "hex")); }
 const hashToken = (v: string) => createHash("sha256").update(v).digest("hex");

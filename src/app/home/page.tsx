@@ -33,7 +33,8 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        {todayLooks.length>0?<div className="grid">
          {todayLooks.map((l:any)=>(
            <div className="look-card" key={l.id}>
-             {l.has_illustration&&<img src={`/api/looks/${l.id}/illustration`} alt="Ilustração do look de hoje"/>}
+             {l.has_illustration?<img src={`/api/looks/${l.id}/illustration`} alt="Ilustração do look de hoje"/>
+               :<span className="look-thumb-placeholder">✨<small>Sem foto ainda</small></span>}
              <h3>{l.name||"Opção de hoje"}</h3>
              <p className="look-meta">{l.occasion||"Dia comum"}</p>
              <p className="look-pieces">{(l.pieces||[]).join(" + ")}</p>

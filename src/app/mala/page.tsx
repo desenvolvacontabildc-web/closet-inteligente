@@ -38,7 +38,8 @@ export default async function Mala({searchParams}:{searchParams:Promise<{error?:
         <div className="grid">
           {tripLooks.map((l:any)=>(
             <div className="look-card" key={l.id}>
-              {l.has_illustration&&<img src={`/api/looks/${l.id}/illustration`} alt={`Ilustração de ${l.name||"look"}`}/>}
+              {l.has_illustration?<img src={`/api/looks/${l.id}/illustration`} alt={`Ilustração de ${l.name||"look"}`}/>
+                :<span className="look-thumb-placeholder">✨<small>Sem foto ainda</small></span>}
               <h3>{l.name||"Look"}</h3>
               <p className="look-meta">{l.occasion||"Ocasião não informada"}</p>
               <p className="look-pieces">{(l.items||[]).map((it:any)=>it.name).join(" + ")}</p>

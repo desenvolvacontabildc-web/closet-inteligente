@@ -34,10 +34,16 @@ button:disabled{opacity:.5}
 .look-card{background:#f4ecdf;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:6px}
 a.look-card{color:inherit;text-decoration:none}
 .look-card img{width:100%;border-radius:14px;max-height:360px;object-fit:cover;margin-bottom:6px}
+.look-thumb-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;aspect-ratio:1;border-radius:14px;background:#fff;color:#c9b79c;font-size:28px;margin-bottom:6px}
+.look-thumb-placeholder small{font-size:11px;color:#8a7a68}
 .look-card h3{margin:0;font-family:Georgia,serif;font-weight:500;font-size:19px}
 .look-meta{margin:0;font-size:13px;color:#8a7a68}
 .look-pieces{margin:0;font-size:14px}
 .look-evaluation{margin:6px 0 0;font-size:13px;background:#fff;border-radius:12px;padding:10px 12px;line-height:1.5}
+.eval-grid{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.eval-card{background:#fff;border-radius:12px;padding:10px 12px}
+.eval-card strong{display:block;font-size:12px;margin-bottom:2px}
+.eval-card p{margin:0;font-size:13px;line-height:1.45;color:#4a3f38}
 .look-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .look-actions form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .look-actions input[type=file]{font-size:12px;flex:1;min-width:0}

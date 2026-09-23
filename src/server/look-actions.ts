@@ -218,17 +218,27 @@ export async function uploadLookPhoto(f: FormData) {
                   text:
                     `Você é uma consultora de imagem gentil e direta. A cliente está usando este look de verdade (foto real, não ilustração). ` +
                     `Peças que deveriam compor o look: ${(pieces || []).join(", ") || "não informado"}. Ocasião: ${occasion || "não informada"}.\n` +
-                    `Avalie a foto: comente o caimento, a harmonia das cores e se está adequado à ocasião. Avalie APENAS o que está visível na foto, sem inventar. ` +
-                    `Se notar algo prático a corrigir (peça amassada, sapato sujo ou gasto, etiqueta pra fora, etc.), avise com uma sugestão curta de ação. Seja breve (até 4 frases) e encorajadora. ` +
-                    `Responda apenas JSON: {"avaliacao":"..."}.`,
+                    `Avalie APENAS o que está visível na foto, sem inventar, e responda em 4 partes curtas (1-2 frases cada, tom encorajador):\n` +
+                    `- caimento: como a roupa cai no corpo dela (ajuste, comprimento, amassados).\n` +
+                    `- proporcao: o equilíbrio das proporções e silhueta dessa combinação.\n` +
+                    `- cores: a harmonia das cores entre as peças e com o tom de pele, se visível.\n` +
+                    `- sugestao: uma sugestão prática e específica pra melhorar esse look (troca de peça, ajuste, acessório) — ou um elogio específico se já estiver ótimo.\n` +
+                    `Se notar algo prático a corrigir (peça amassada, sapato sujo ou gasto, etiqueta pra fora), mencione em "caimento" ou "sugestao". ` +
+                    `Responda apenas JSON: {"caimento":"...","proporcao":"...","cores":"...","sugestao":"..."}.`,
                 },
                 { type: "input_image", image_url: dataUrl, detail: "low" },
               ],
             }],
           });
           let parsed: any;
-          try { parsed = JSON.parse(out.output_text); } catch { parsed = { avaliacao: out.output_text }; }
-          await c.query("UPDATE looks SET photo_evaluation=$1, photo_evaluated_at=now() WHERE id=$2", [String(parsed.avaliacao || "").slice(0, 2000), lookId]);
+          try { parsed = JSON.parse(out.output_text); } catch { parsed = { sugestao: out.output_text }; }
+          const evaluation = {
+            caimento: String(parsed.caimento || "").slice(0, 500),
+            proporcao: String(parsed.proporcao || "").slice(0, 500),
+            cores: String(parsed.cores || "").slice(0, 500),
+            sugestao: String(parsed.sugestao || "").slice(0, 500),
+          };
+          await c.query("UPDATE looks SET photo_evaluation=$1, photo_evaluated_at=now() WHERE id=$2", [JSON.stringify(evaluation), lookId]);
         } catch { /* avaliação é um extra; falha aqui não deve impedir o upload da foto */ }
       }
     }
