@@ -10,6 +10,7 @@ export type Plan = "ARRUMADA" | "FASHION" | "SUPER_STAR";
 export const PLAN_LABEL: Record<Plan, string> = { ARRUMADA: "Arrumada", FASHION: "Fashion", SUPER_STAR: "Super Star" };
 export const PLAN_MONTHLY_AI_LIMIT: Record<Plan, number | null> = { ARRUMADA: 40, FASHION: 100, SUPER_STAR: null };
 export const PLAN_MONTHLY_LOOK_LIMIT: Record<Plan, number | null> = { ARRUMADA: 15, FASHION: 40, SUPER_STAR: null };
+export const PLAN_MONTHLY_IMAGE_LIMIT: Record<Plan, number | null> = { ARRUMADA: 10, FASHION: 30, SUPER_STAR: null };
 const PLAN_RANK: Record<Plan, number> = { ARRUMADA: 0, FASHION: 1, SUPER_STAR: 2 };
 
 export async function mySubscription(c: PoolClient, userId: string) {
@@ -58,6 +59,18 @@ export async function aiUsageRemaining(c: PoolClient, userId: string): Promise<n
   if (limit === null) return null;
   const used = await c.query("SELECT COALESCE(SUM(count),0) n FROM ai_usage WHERE user_id=$1 AND day >= date_trunc('month', current_date)::date", [userId]);
   return Math.max(0, limit - Number(used.rows[0].n));
+}
+
+/** Ilustração de IA é a parte cara (gera imagem, não texto) — tem cota mensal própria por plano,
+ * separada da cota geral de usos de IA. No teste gratuito, usa a cota do plano Fashion. */
+export async function checkImageAllowance(c: PoolClient, userId: string): Promise<{ ok: boolean; message?: string }> {
+  const sub = await mySubscription(c, userId);
+  const plan: Plan = sub.status === "TRIAL" ? "FASHION" : sub.plan;
+  const limit = PLAN_MONTHLY_IMAGE_LIMIT[plan] ?? null;
+  if (limit === null) return { ok: true };
+  const used = Number((await c.query("SELECT count_my_images_this_month($1) n", [userId])).rows[0].n);
+  if (used >= limit) return { ok: false, message: `Seu plano ${PLAN_LABEL[plan]} permite ${limit} ilustrações de IA por mês. Esse limite já foi atingido — considere o plano Super Star (ilimitado).` };
+  return { ok: true };
 }
 
 /** Incrementa o uso de IA do dia e diz se ainda está dentro do orçamento do período (dia no teste, mês nos planos pagos). */

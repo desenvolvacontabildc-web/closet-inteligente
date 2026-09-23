@@ -1,6 +1,7 @@
-import { adminListAccounts, setSubscription, resetPassword, recordPayment, adminListAudit } from "@/server/admin-actions";
+import { adminListAccounts, setSubscription, resetPassword, recordPayment, adminListAudit, adminImageSpend } from "@/server/admin-actions";
 
 const AUDIT_LABEL: Record<string, string> = { SET_SUBSCRIPTION: "Alteração de plano/status", RESET_PASSWORD: "Senha resetada", PAYMENT_RECEIVED: "Pagamento registrado" };
+const IMAGE_SPEND_ALERT_CENTS = 10000; // R$ 100/mês — avisa quando o gasto estimado com geração de imagem passar disso
 
 export default async function Admin({searchParams}:{searchParams:Promise<{temp?:string;for?:string;historico?:string;error?:string}>}){
   const {temp,for:forEmail,historico,error}=await searchParams;
@@ -15,6 +16,8 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
 
   const history=historico?await adminListAudit(historico):null;
   const historyAccount=historico?accounts.find((a:any)=>a.user_id===historico):null;
+  const imageSpend=await adminImageSpend();
+  const imageSpendOverLimit=Number(imageSpend.estimated_cents)>=IMAGE_SPEND_ALERT_CENTS;
 
   return <main className="shell narrow">
     <a href="/home">← Voltar</a>
@@ -27,6 +30,14 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
       <p className="look-meta">Receita mensal ativa (MRR)</p>
       <p className="look-pieces"><strong>R$ {(mrrCents/100).toFixed(2)}</strong> de {activeAccounts.length} assinante{activeAccounts.length===1?"":"s"} ativo{activeAccounts.length===1?"":"s"}</p>
       <p className="look-meta">{trialCount} em teste gratuito · {pastDueCount} inadimplente{pastDueCount===1?"":"s"} · {inactive30d} sem acessar há 30+ dias</p>
+    </section>
+
+    <section className={imageSpendOverLimit?"card alert-card":"card"}>
+      <h2>Gasto estimado com ilustração de IA este mês</h2>
+      <p className="look-pieces"><strong>R$ {(Number(imageSpend.estimated_cents)/100).toFixed(2)}</strong> · {imageSpend.month_count} ilustração{Number(imageSpend.month_count)===1?"":"ões"} gerada{Number(imageSpend.month_count)===1?"":"s"} (estimativa de R$ 0,30 cada)</p>
+      {imageSpendOverLimit
+        ? <p role="alert">⚠️ Passou de R$ {(IMAGE_SPEND_ALERT_CENTS/100).toFixed(2)} este mês. Vale checar o consumo direto na OpenAI.</p>
+        : <p className="look-meta">Aviso automático se passar de R$ {(IMAGE_SPEND_ALERT_CENTS/100).toFixed(2)}/mês.</p>}
     </section>
 
     {historico&&<section className="card">
@@ -61,9 +72,9 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
           </label>
           <label>Plano
             <select name="plan" defaultValue={a.plan} disabled={a.user_id===actorId}>
-              <option value="ARRUMADA">Arrumada (15 looks / 40 usos de IA por mês)</option>
-              <option value="FASHION">Fashion (40 looks / 100 usos de IA por mês + Closet Cápsula)</option>
-              <option value="SUPER_STAR">Super Star (ilimitado + Colorimetria)</option>
+              <option value="ARRUMADA">Arrumada (15 looks / 40 usos de IA / 10 ilustrações por mês)</option>
+              <option value="FASHION">Fashion (40 looks / 100 usos de IA / 30 ilustrações por mês + Closet Cápsula)</option>
+              <option value="SUPER_STAR">Super Star (tudo ilimitado + Colorimetria)</option>
             </select>
           </label>
           <label>Mensalidade (R$)<input name="fee" defaultValue={(a.monthly_fee_cents/100).toFixed(2)} disabled={a.user_id===actorId}/></label>

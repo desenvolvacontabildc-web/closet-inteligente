@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "minio";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
-import { checkLookAllowance, bumpAndCheckAiUsage } from "./limits";
+import { checkLookAllowance, bumpAndCheckAiUsage, checkImageAllowance } from "./limits";
 import { bounce } from "./action-error";
 const store = new Client({ endPoint: (process.env.S3_ENDPOINT || "http://storage:9000").replace(/^https?:\/\//, "").split(":")[0], port: 9000, useSSL: false, accessKey: process.env.S3_ACCESS_KEY_ID || "closet-web", secretKey: process.env.S3_SECRET_ACCESS_KEY || "" });
 async function readObject(key: string): Promise<Buffer> {
@@ -12,7 +12,7 @@ async function readObject(key: string): Promise<Buffer> {
   for await (const ch of await store.getObject(process.env.S3_BUCKET || "closet-private", key) as any) chunks.push(Buffer.from(ch));
   return Buffer.concat(chunks);
 }
-async function generateIllustration(c: any, lookId: string, itemIds: string[], description: string) {
+async function generateIllustration(c: any, userId: string, lookId: string, itemIds: string[], description: string) {
   const openai = new OpenAI();
   const photos = (await c.query(
     "SELECT DISTINCT ON (item_id) item_id, object_key, content_type FROM closet_item_photos WHERE item_id = ANY($1::uuid[]) ORDER BY item_id, created_at DESC LIMIT 4",
@@ -34,6 +34,7 @@ async function generateIllustration(c: any, lookId: string, itemIds: string[], d
   const key = `looks/${lookId}/illustration.png`;
   await store.putObject(process.env.S3_BUCKET || "closet-private", key, buf, buf.length, { "Content-Type": "image/png" });
   await c.query("UPDATE looks SET illustration_object_key=$1 WHERE id=$2", [key, lookId]);
+  await c.query("SELECT log_image_generation($1,current_setting('app.tenant_id')::uuid)", [userId]);
 }
 
 /** Núcleo compartilhado: pede N looks à IA usando somente peças reais ativas, salva e ilustra dentro do orçamento. */
@@ -92,10 +93,11 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
     created++;
     if (!illustrationBudgetOver) {
       const imgBudget = await bumpAndCheckAiUsage(c, userId);
-      if (!imgBudget.ok) { illustrationBudgetOver = true; }
+      const imgAllowance = await checkImageAllowance(c, userId);
+      if (!imgBudget.ok || !imgAllowance.ok) { illustrationBudgetOver = true; }
       else {
         const pieceNames = items.filter((i: any) => ids.includes(i.id)).map((i: any) => `${i.name} (${i.color || "cor não informada"})`).join(", ");
-        try { await generateIllustration(c, look.rows[0].id, ids, `${pieceNames}. Ocasião: ${occasion || "não informada"}.`); } catch { /* ilustração é apenas um extra visual; falha aqui não deve derrubar a criação do look */ }
+        try { await generateIllustration(c, userId, look.rows[0].id, ids, `${pieceNames}. Ocasião: ${occasion || "não informada"}.`); } catch { /* ilustração é apenas um extra visual; falha aqui não deve derrubar a criação do look */ }
       }
     }
   }

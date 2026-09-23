@@ -55,3 +55,10 @@ export async function adminListAudit(targetUserId:string){
   });
   return result||[];
 }
+export async function adminImageSpend(){
+  const result=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_image_spend($1)",[userId])).rows[0]}
+    catch{return null}
+  });
+  return result||{month_count:0,estimated_cents:0};
+}
