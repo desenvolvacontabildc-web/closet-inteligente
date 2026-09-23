@@ -4,7 +4,8 @@ body{margin:0;padding-bottom:88px}
 .shell{max-width:960px;margin:auto;padding:48px 24px}
 .narrow{max-width:680px}
 .hero{padding:56px 0 32px}
-.eyebrow{letter-spacing:.16em;font-size:11px;font-weight:700;color:var(--accent)}
+.eyebrow{display:block;letter-spacing:.16em;font-size:11px;font-weight:700;color:var(--accent)}
+.top .eyebrow{display:inline-block}
 .hero h1,h1{font-family:Georgia,serif;font-weight:500;font-size:clamp(36px,7vw,64px);line-height:1.05;margin:18px 0}
 .hero p,.welcome>p{font-size:18px;line-height:1.6;max-width:560px}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
