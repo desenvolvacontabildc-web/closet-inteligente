@@ -30,16 +30,16 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
     <section className="card">
       <h2>Resumo</h2>
       <p className="look-meta">Receita mensal ativa (MRR)</p>
-      <p className="look-pieces"><strong>R$ {(mrrCents/100).toFixed(2)}</strong> de {activeAccounts.length} assinante{activeAccounts.length===1?"":"s"} ativo{activeAccounts.length===1?"":"s"}</p>
+      <p className="look-pieces"><strong>R$ {(mrrCents/100).toFixed(2).replace(".", ",")}</strong> de {activeAccounts.length} assinante{activeAccounts.length===1?"":"s"} ativo{activeAccounts.length===1?"":"s"}</p>
       <p className="look-meta">{trialCount} em teste gratuito · {pastDueCount} inadimplente{pastDueCount===1?"":"s"} · {inactive30d} sem acessar há 30+ dias</p>
     </section>
 
     <section className={imageSpendOverLimit?"card alert-card":"card"}>
       <h2>Gasto estimado com ilustração de IA este mês</h2>
-      <p className="look-pieces"><strong>R$ {(Number(imageSpend.estimated_cents)/100).toFixed(2)}</strong> · {imageSpend.month_count} ilustração{Number(imageSpend.month_count)===1?"":"ões"} gerada{Number(imageSpend.month_count)===1?"":"s"} (estimativa de R$ 0,30 cada)</p>
+      <p className="look-pieces"><strong>R$ {(Number(imageSpend.estimated_cents)/100).toFixed(2).replace(".", ",")}</strong> · {imageSpend.month_count} ilustração{Number(imageSpend.month_count)===1?"":"ões"} gerada{Number(imageSpend.month_count)===1?"":"s"} (estimativa de R$ 0,30 cada)</p>
       {imageSpendOverLimit
-        ? <p role="alert">⚠️ Passou de R$ {(IMAGE_SPEND_ALERT_CENTS/100).toFixed(2)} este mês. Vale checar o consumo direto na OpenAI.</p>
-        : <p className="look-meta">Aviso automático se passar de R$ {(IMAGE_SPEND_ALERT_CENTS/100).toFixed(2)}/mês.</p>}
+        ? <p role="alert">⚠️ Passou de R$ {(IMAGE_SPEND_ALERT_CENTS/100).toFixed(2).replace(".", ",")} este mês. Vale checar o consumo direto na OpenAI.</p>
+        : <p className="look-meta">Aviso automático se passar de R$ {(IMAGE_SPEND_ALERT_CENTS/100).toFixed(2).replace(".", ",")}/mês.</p>}
     </section>
 
     <section className="card">
@@ -48,7 +48,7 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
         <form action={setPlanConfig} className="form" key={p.plan}>
           <input type="hidden" name="plan" value={p.plan}/>
           <h3>{PLAN_TITLE[p.plan]||p.plan}</h3>
-          <label>Preço-base (R$/mês)<input name="price" defaultValue={(p.base_price_cents/100).toFixed(2)}/></label>
+          <label>Preço-base (R$/mês)<input name="price" defaultValue={(p.base_price_cents/100).toFixed(2).replace(".", ",")}/></label>
           <label>Operações de IA/mês (vazio = ilimitado)<input name="ai_limit" defaultValue={p.ai_ops_monthly_limit??""}/></label>
           <label>Gerações de imagem/mês (vazio = ilimitado)<input name="image_limit" defaultValue={p.image_gen_monthly_limit??""}/></label>
           <button>Salvar</button>
@@ -62,8 +62,8 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
         {history.map((h:any,i:number)=>(
           <li key={i}>
             <strong>{AUDIT_LABEL[h.action]||h.action}</strong> — {new Date(h.created_at).toLocaleString("pt-BR")}
-            {h.action==="PAYMENT_RECEIVED"&&<> · R$ {(h.details.amount_cents/100).toFixed(2)} em {new Date(h.details.paid_at).toLocaleDateString("pt-BR")}{h.details.notes&&` · ${h.details.notes}`}</>}
-            {h.action==="SET_SUBSCRIPTION"&&<> · status {h.details.status}, mensalidade R$ {(h.details.fee_cents/100).toFixed(2)}, desconto R$ {(h.details.discount_cents/100).toFixed(2)}</>}
+            {h.action==="PAYMENT_RECEIVED"&&<> · R$ {(h.details.amount_cents/100).toFixed(2).replace(".", ",")} em {new Date(h.details.paid_at).toLocaleDateString("pt-BR")}{h.details.notes&&` · ${h.details.notes}`}</>}
+            {h.action==="SET_SUBSCRIPTION"&&<> · status {h.details.status}, mensalidade R$ {(h.details.fee_cents/100).toFixed(2).replace(".", ",")}, desconto R$ {(h.details.discount_cents/100).toFixed(2).replace(".", ",")}</>}
           </li>
         ))}
       </ul>}
@@ -93,8 +93,8 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
               <option value="SUPER_STAR">Super Star (+ Colorimetria)</option>
             </select>
           </label>
-          <label>Mensalidade (R$)<input name="fee" defaultValue={(a.monthly_fee_cents/100).toFixed(2)} disabled={a.user_id===actorId}/></label>
-          <label>Desconto (R$)<input name="discount" defaultValue={(a.discount_cents/100).toFixed(2)} disabled={a.user_id===actorId}/></label>
+          <label>Mensalidade (R$)<input name="fee" defaultValue={(a.monthly_fee_cents/100).toFixed(2).replace(".", ",")} disabled={a.user_id===actorId}/></label>
+          <label>Desconto (R$)<input name="discount" defaultValue={(a.discount_cents/100).toFixed(2).replace(".", ",")} disabled={a.user_id===actorId}/></label>
           <label>Observações<input name="notes" defaultValue={a.notes} disabled={a.user_id===actorId}/></label>
           <button disabled={a.user_id===actorId}>Salvar</button>
         </form>

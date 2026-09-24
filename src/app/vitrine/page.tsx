@@ -39,8 +39,8 @@ export default async function Vitrine() {
               {it.description && <p>{it.description}</p>}
               <p>
                 {it.discount_percent > 0
-                  ? <>R$ {(it.price_cents * (1 - it.discount_percent / 100) / 100).toFixed(2)} <s>R$ {(it.price_cents / 100).toFixed(2)}</s> · {it.discount_percent}% OFF</>
-                  : <>R$ {(it.price_cents / 100).toFixed(2)}</>}
+                  ? <>R$ {(it.price_cents * (1 - it.discount_percent / 100) / 100).toFixed(2).replace(".", ",")} <s>R$ {(it.price_cents / 100).toFixed(2).replace(".", ",")}</s> · {it.discount_percent}% OFF</>
+                  : <>R$ {(it.price_cents / 100).toFixed(2).replace(".", ",")}</>}
               </p>
             </div>
           ))}
@@ -60,7 +60,7 @@ export default async function Vitrine() {
           {f.object_key && <img src={`/api/achadinhos/photos/${f.id}`} alt={f.title} style={{ width: "100%", borderRadius: 12 }} />}
           <h3>{f.title}</h3>
           {f.description && <p>{f.description}</p>}
-          {f.price_cents != null && <p>R$ {(f.price_cents / 100).toFixed(2)}</p>}
+          {f.price_cents != null && <p>R$ {(f.price_cents / 100).toFixed(2).replace(".", ",")}</p>}
           <button>Comprar na loja</button>
         </a>
       ))}

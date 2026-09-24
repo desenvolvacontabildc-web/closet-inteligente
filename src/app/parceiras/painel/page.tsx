@@ -45,7 +45,7 @@ export default async function PainelParceira({ searchParams }: { searchParams: P
           {it.object_key && <img src={`/api/vitrine/photos/${it.id}`} alt={it.name} style={{ width: "100%", borderRadius: 12 }} />}
           <h3>{it.name}</h3>
           {it.description && <p>{it.description}</p>}
-          <p>R$ {(it.price_cents / 100).toFixed(2)}{it.discount_percent > 0 && ` · ${it.discount_percent}% OFF`}</p>
+          <p>R$ {(it.price_cents / 100).toFixed(2).replace(".", ",")}{it.discount_percent > 0 && ` · ${it.discount_percent}% OFF`}</p>
           <form action={removePartnerItem}>
             <input type="hidden" name="item_id" value={it.id} />
             <button className="link">Remover</button>
