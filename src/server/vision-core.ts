@@ -15,26 +15,31 @@ export async function runVisionAnalysis(c: PoolClient, userId: string, photoId: 
   const chunks: Buffer[] = [];
   for await (const ch of await s3.getObject(process.env.S3_BUCKET || "closet-private", q.rows[0].object_key) as any) chunks.push(Buffer.from(ch));
   const data = `data:${q.rows[0].content_type};base64,${Buffer.concat(chunks).toString("base64")}`;
-  const out = await new OpenAI().responses.create({
-    model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
-    input: [{
-      role: "user",
-      content: [
-        {
-          type: "input_text",
-          text:
-            "Identifique a peça de roupa/acessório na foto e descreva seus atributos de estilo, pra um personal stylist usar depois sem precisar olhar a foto de novo. " +
-            "Além disso, avalie apenas o que estiver visível na foto quanto a amassado, sujeira, manchas ou desgaste (ex.: sapato sujo ou gasto). " +
-            "Responda apenas JSON: {\"category\":\"...\",\"color\":\"...\",\"description\":\"...\",\"condition_notes\":\"...\",\"attributes\":{" +
-            "\"subcategoria\":\"...\",\"cores_secundarias\":\"...\",\"estampa\":\"...\",\"tecido\":\"...\",\"modelagem\":\"...\",\"comprimento\":\"...\"," +
-            "\"estilo\":\"...\",\"estacao\":\"...\",\"formalidade\":\"...\",\"ocasioes\":\"...\",\"combina_com\":\"...\"}}. " +
-            "Em condition_notes, se houver algo visível a corrigir, descreva o problema e sugira uma ação prática curta (ex.: \"Parece amassada — passar a ferro antes de usar\"). Se nada estiver visivelmente errado, deixe condition_notes vazio. " +
-            "Em attributes, seja breve (poucas palavras por campo, ex.: estilo:\"casual elegante\", ocasioes:\"trabalho, jantar\", combina_com:\"preto, jeans, branco\"). Se não conseguir avaliar algum campo pela foto, deixe como string vazia. Nunca invente detalhes nem afirme algo que não seja visível na imagem.",
-        },
-        { type: "input_image", image_url: data, detail: "low" },
-      ],
-    }],
-  });
+  let out: any;
+  try {
+    out = await new OpenAI().responses.create({
+      model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+      input: [{
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text:
+              "Identifique a peça de roupa/acessório na foto e descreva seus atributos de estilo, pra um personal stylist usar depois sem precisar olhar a foto de novo. " +
+              "Além disso, avalie apenas o que estiver visível na foto quanto a amassado, sujeira, manchas ou desgaste (ex.: sapato sujo ou gasto). " +
+              "Responda apenas JSON: {\"category\":\"...\",\"color\":\"...\",\"description\":\"...\",\"condition_notes\":\"...\",\"attributes\":{" +
+              "\"subcategoria\":\"...\",\"cores_secundarias\":\"...\",\"estampa\":\"...\",\"tecido\":\"...\",\"modelagem\":\"...\",\"comprimento\":\"...\"," +
+              "\"estilo\":\"...\",\"estacao\":\"...\",\"formalidade\":\"...\",\"ocasioes\":\"...\",\"combina_com\":\"...\"}}. " +
+              "Em condition_notes, se houver algo visível a corrigir, descreva o problema e sugira uma ação prática curta (ex.: \"Parece amassada — passar a ferro antes de usar\"). Se nada estiver visivelmente errado, deixe condition_notes vazio. " +
+              "Em attributes, seja breve (poucas palavras por campo, ex.: estilo:\"casual elegante\", ocasioes:\"trabalho, jantar\", combina_com:\"preto, jeans, branco\"). Se não conseguir avaliar algum campo pela foto, deixe como string vazia. Nunca invente detalhes nem afirme algo que não seja visível na imagem.",
+          },
+          { type: "input_image", image_url: data, detail: "low" },
+        ],
+      }],
+    });
+  } catch {
+    return { ok: false, message: "Análise visual indisponível no momento (sem créditos ou fora do ar). Tente de novo mais tarde." };
+  }
   let parsed: any;
   try { parsed = JSON.parse(out.output_text); } catch { parsed = { description: out.output_text }; }
   await c.query(

@@ -56,23 +56,28 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
     `SELECT l.name, l.occasion, (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
      FROM looks l WHERE l.created_at >= now() - interval '14 days' ORDER BY l.created_at DESC LIMIT 10`,
   )).rows;
-  const out = await new OpenAI().responses.create({
-    model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
-    input: [{
-      role: "user",
-      content: [{
-        type: "input_text",
-        text:
-          `Você é uma consultora de imagem (personal stylist). Pedido da cliente: "${request}".\n` +
-          `Peças reais disponíveis no closet, com atributos de estilo já analisados (use SOMENTE estas peças, nunca invente peças novas; use os atributos — estilo, formalidade, estação, ocasiões, combina_com — pra decidir a curadoria):\n${JSON.stringify(items)}\n` +
-          (recent.length > 0 ? `Looks já sugeridos ou usados nos últimos 14 dias (evite repetir exatamente a mesma combinação; pode reutilizar peças individuais, mas varie a composição):\n${JSON.stringify(recent)}\n` : "") +
-          `Monte até ${maxLooks} looks distintos e coerentes com o pedido, usando apenas essas peças. ` +
-          (maxLooks > 1 ? `Se o pedido envolver múltiplos dias, monte um look por dia, variando as combinações mesmo repetindo peças individuais. ` : "") +
-          `Responda apenas JSON no formato {"looks":[{"item_ids":["..."],"name":"...","occasion":"..."}],"note":"..."}. ` +
-          `Cada item_ids deve conter somente ids da lista fornecida. Se não houver peças suficientes para ${maxLooks} looks bons e variados, gere menos e explique em "note".`,
+  let out: any;
+  try {
+    out = await new OpenAI().responses.create({
+      model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+      input: [{
+        role: "user",
+        content: [{
+          type: "input_text",
+          text:
+            `Você é uma consultora de imagem (personal stylist). Pedido da cliente: "${request}".\n` +
+            `Peças reais disponíveis no closet, com atributos de estilo já analisados (use SOMENTE estas peças, nunca invente peças novas; use os atributos — estilo, formalidade, estação, ocasiões, combina_com — pra decidir a curadoria):\n${JSON.stringify(items)}\n` +
+            (recent.length > 0 ? `Looks já sugeridos ou usados nos últimos 14 dias (evite repetir exatamente a mesma combinação; pode reutilizar peças individuais, mas varie a composição):\n${JSON.stringify(recent)}\n` : "") +
+            `Monte até ${maxLooks} looks distintos e coerentes com o pedido, usando apenas essas peças. ` +
+            (maxLooks > 1 ? `Se o pedido envolver múltiplos dias, monte um look por dia, variando as combinações mesmo repetindo peças individuais. ` : "") +
+            `Responda apenas JSON no formato {"looks":[{"item_ids":["..."],"name":"...","occasion":"..."}],"note":"..."}. ` +
+            `Cada item_ids deve conter somente ids da lista fornecida. Se não houver peças suficientes para ${maxLooks} looks bons e variados, gere menos e explique em "note".`,
+        }],
       }],
-    }],
-  });
+    });
+  } catch {
+    bounce(returnPath, "A IA de sugestão está indisponível no momento (sem créditos ou fora do ar). Tente de novo mais tarde ou monte o look manualmente.");
+  }
   let parsed: any;
   try { parsed = JSON.parse(out.output_text); } catch { bounce(returnPath, "A IA não retornou uma sugestão válida. Tente novamente."); }
   const validIds = new Set(items.map((i: any) => i.id));
