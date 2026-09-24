@@ -50,8 +50,8 @@ export default async function Vitrine() {
 
     <section className="hero">
       <span className="eyebrow">ACHADINHOS</span>
-      <h1>Selecionados pela Ilka.</h1>
-      <p>Peças que a Ilka encontrou em outras lojas (Shopee, Shein e afins) e recomenda — clique e compre direto na loja de origem.</p>
+      <h1>Dica de amiga.</h1>
+      <p>Peças encontradas em outras lojas (Shopee, Shein e afins) e recomendadas por aqui — clique e compre direto na loja de origem.</p>
     </section>
     {finds.length === 0 && <p>Nenhum achadinho publicado ainda.</p>}
     <div className="cards">
