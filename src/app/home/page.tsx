@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { generateTodayLook } from "@/server/look-actions";
+import { generateTodayLook, generateLookIllustration } from "@/server/look-actions";
 import Link from "next/link";
 import { withProfile } from "@/server/profile-session";
 import { aiUsageRemaining, PLAN_LABEL, type Plan } from "@/server/limits";
@@ -25,7 +25,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
    <span className="eyebrow">CLOSET INTELIGENTE</span>
    {error&&<p role="alert" className="trial-banner">{error}</p>}
    {trialDaysLeft!==null&&<div className="trial-banner"><p>{trialDaysLeft>0?`Faltam ${trialDaysLeft} dia${trialDaysLeft===1?"":"s"} do seu teste gratuito.`:"Seu teste gratuito termina hoje."} Fale com a administradora para assinar e manter o acesso ao seu Closet.</p></div>}
-   {sub?.status==="ACTIVE"&&<div className="trial-banner"><p>Plano {PLAN_LABEL[sub.plan as Plan]||sub.plan}{aiRemaining!==null?` · restam ${aiRemaining} usos de IA este mês`:" · usos de IA ilimitados"}.</p></div>}
+   {sub?.status==="ACTIVE"&&<div className="trial-banner"><p>Plano {PLAN_LABEL[sub.plan as Plan]||sub.plan}{aiRemaining!==null?` · restam ${aiRemaining} operações de IA este mês`:" · operações de IA ilimitadas"}.</p></div>}
    <section className="welcome">
      <p className="eyebrow">SEU CLOSET ESTÁ PRONTO</p>
      <div className="avatar-row">
@@ -40,10 +40,15 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          {todayLooks.map((l:any)=>(
            <div className="look-card" key={l.id}>
              {l.has_illustration?<img src={`/api/looks/${l.id}/illustration`} alt="Ilustração do look de hoje"/>
-               :<span className="look-thumb-placeholder">✨<small>Sem foto ainda</small></span>}
+               :<span className="look-thumb-placeholder">✨<small>Sem imagem ainda</small></span>}
              <h3>{l.name||"Opção de hoje"}</h3>
              <p className="look-meta">{l.occasion||"Dia comum"}</p>
              <p className="look-pieces">{(l.pieces||[]).join(" + ")}</p>
+             {!l.has_illustration&&<form action={generateLookIllustration}>
+               <input type="hidden" name="look_id" value={l.id}/>
+               <input type="hidden" name="return_path" value="/home"/>
+               <button className="link">🖼️ Gerar inspiração em imagem</button>
+             </form>}
            </div>
          ))}
        </div>:<form action={generateTodayLook} className="form">

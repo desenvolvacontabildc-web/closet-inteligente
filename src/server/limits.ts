@@ -1,16 +1,14 @@
 import "server-only";
 import type { PoolClient } from "pg";
 
-// Teste gratuito: limite diário, recarrega todo dia (7 dias de teste = até 35 gerações no total).
-export const TRIAL_DAILY_LOOK_LIMIT = 5;
+// Teste gratuito: looks salvos são ilimitados (como em todos os planos); só a operação de
+// IA (raciocínio) tem cota diária.
 export const TRIAL_DAILY_AI_LIMIT = 40;
 
-// Planos pagos (nomes voltados à moda). null = sem limite.
+// Planos pagos (nomes voltados à moda). Preço e limites de IA/imagem vivem em plan_config
+// (editável pelo admin) -- só os nomes/rank ficam fixos aqui.
 export type Plan = "ARRUMADA" | "FASHION" | "SUPER_STAR";
 export const PLAN_LABEL: Record<Plan, string> = { ARRUMADA: "Arrumada", FASHION: "Fashion", SUPER_STAR: "Super Star" };
-export const PLAN_MONTHLY_AI_LIMIT: Record<Plan, number | null> = { ARRUMADA: 40, FASHION: 100, SUPER_STAR: null };
-export const PLAN_MONTHLY_LOOK_LIMIT: Record<Plan, number | null> = { ARRUMADA: 15, FASHION: 40, SUPER_STAR: null };
-export const PLAN_MONTHLY_IMAGE_LIMIT: Record<Plan, number | null> = { ARRUMADA: 10, FASHION: 30, SUPER_STAR: null };
 const PLAN_RANK: Record<Plan, number> = { ARRUMADA: 0, FASHION: 1, SUPER_STAR: 2 };
 
 export async function mySubscription(c: PoolClient, userId: string) {
@@ -18,75 +16,82 @@ export async function mySubscription(c: PoolClient, userId: string) {
   return { status: (sub?.status || "ACTIVE") as string, plan: (sub?.plan || "ARRUMADA") as Plan, trial_ends_at: sub?.trial_ends_at || null };
 }
 
-/** Teste gratuito libera recursos Fashion para dar gostinho do produto; fora do teste, exige o plano mínimo. */
+async function planConfig(c: PoolClient, plan: Plan): Promise<{ ai_ops_monthly_limit: number | null; image_gen_monthly_limit: number | null }> {
+  const r = await c.query("SELECT ai_ops_monthly_limit, image_gen_monthly_limit FROM get_plan_config($1)", [plan]);
+  return r.rows[0] || { ai_ops_monthly_limit: null, image_gen_monthly_limit: null };
+}
+
+/** Ilka é dona/administradora e não deve ter limite de uso. */
+async function isUnlimitedAdmin(c: PoolClient, userId: string): Promise<boolean> {
+  const r = await c.query("SELECT is_admin FROM app_users WHERE id=$1", [userId]);
+  return !!r.rows[0]?.is_admin;
+}
+
+/** Teste gratuito para dar gostinho do produto; fora do teste, exige o plano mínimo. */
 export function hasPlanAtLeast(sub: { status: string; plan: Plan }, minPlan: Plan): boolean {
   if (sub.status === "TRIAL") return PLAN_RANK.FASHION >= PLAN_RANK[minPlan];
   return PLAN_RANK[sub.plan] >= PLAN_RANK[minPlan];
 }
 
-async function countLooksThisPeriod(c: PoolClient, monthly: boolean): Promise<number> {
-  const cnt = monthly
-    ? await c.query("SELECT count(*) n FROM looks WHERE created_at >= date_trunc('month', now())")
-    : await c.query("SELECT count(*) n FROM looks WHERE created_at::date = current_date");
-  return Number(cnt.rows[0].n);
+/** Colorimetria é módulo avulso (liberação única, não mensal) -- não depende do plano atual. */
+export async function hasColorimetria(c: PoolClient, userId: string): Promise<boolean> {
+  const r = await c.query("SELECT status FROM my_module_status($1,'COLORIMETRIA')", [userId]);
+  return ["LIBERADA", "EM_ANALISE", "CONCLUIDA"].includes(r.rows[0]?.status);
 }
 
-/** Verifica se ainda há cota para criar mais um look. Não faz nenhuma escrita. */
-export async function checkLookAllowance(c: PoolClient, userId: string): Promise<{ ok: boolean; remaining: number | null; message?: string; isTrial?: boolean }> {
-  const sub = await mySubscription(c, userId);
-  if (sub.status === "TRIAL") {
-    const used = await countLooksThisPeriod(c, false);
-    const remaining = Math.max(0, TRIAL_DAILY_LOOK_LIMIT - used);
-    if (remaining === 0) return { ok: false, remaining: 0, isTrial: true, message: `No teste gratuito, o limite é de ${TRIAL_DAILY_LOOK_LIMIT} gerações por dia (35 no total, durante os 7 dias). Volte amanhã ou assine para continuar.` };
-    return { ok: true, remaining, isTrial: true };
-  }
-  const limit = PLAN_MONTHLY_LOOK_LIMIT[sub.plan] ?? null;
-  if (limit === null) return { ok: true, remaining: null };
-  const used = await countLooksThisPeriod(c, true);
-  const remaining = Math.max(0, limit - used);
-  if (remaining === 0) return { ok: false, remaining: 0, message: `Seu plano ${PLAN_LABEL[sub.plan]} permite ${limit} looks por mês. Esse limite já foi atingido — considere o plano Super Star (ilimitado).` };
-  return { ok: true, remaining };
-}
-
-/** Apenas leitura (não incrementa) — para exibir "restam X" na interface. */
+/** Apenas leitura (não incrementa) — para exibir "restam X operações de IA" na interface. */
 export async function aiUsageRemaining(c: PoolClient, userId: string): Promise<number | null> {
+  if (await isUnlimitedAdmin(c, userId)) return null;
   const sub = await mySubscription(c, userId);
   if (sub.status === "TRIAL") {
     const used = await c.query("SELECT COALESCE(count,0) n FROM ai_usage WHERE user_id=$1 AND day=current_date", [userId]);
     return Math.max(0, TRIAL_DAILY_AI_LIMIT - Number(used.rows[0]?.n || 0));
   }
-  const limit = PLAN_MONTHLY_AI_LIMIT[sub.plan] ?? null;
-  if (limit === null) return null;
+  const cfg = await planConfig(c, sub.plan);
+  if (cfg.ai_ops_monthly_limit === null) return null;
   const used = await c.query("SELECT COALESCE(SUM(count),0) n FROM ai_usage WHERE user_id=$1 AND day >= date_trunc('month', current_date)::date", [userId]);
-  return Math.max(0, limit - Number(used.rows[0].n));
+  return Math.max(0, cfg.ai_ops_monthly_limit - Number(used.rows[0].n));
 }
 
-/** Ilustração de IA é a parte cara (gera imagem, não texto) — tem cota mensal própria por plano,
- * separada da cota geral de usos de IA. No teste gratuito, usa a cota do plano Fashion. */
-export async function checkImageAllowance(c: PoolClient, userId: string): Promise<{ ok: boolean; message?: string }> {
+/** Apenas leitura -- para exibir "restam X gerações de imagem" na interface. */
+export async function imageGenerationsRemaining(c: PoolClient, userId: string): Promise<number | null> {
+  if (await isUnlimitedAdmin(c, userId)) return null;
   const sub = await mySubscription(c, userId);
   const plan: Plan = sub.status === "TRIAL" ? "FASHION" : sub.plan;
-  const limit = PLAN_MONTHLY_IMAGE_LIMIT[plan] ?? null;
-  if (limit === null) return { ok: true };
+  const cfg = await planConfig(c, plan);
+  if (cfg.image_gen_monthly_limit === null) return null;
   const used = Number((await c.query("SELECT count_my_images_this_month($1) n", [userId])).rows[0].n);
-  if (used >= limit) return { ok: false, message: `Seu plano ${PLAN_LABEL[plan]} permite ${limit} ilustrações de IA por mês. Esse limite já foi atingido — considere o plano Super Star (ilimitado).` };
+  return Math.max(0, cfg.image_gen_monthly_limit - used);
+}
+
+/** Geração de imagem é seu próprio contador, separado do uso geral de IA (raciocínio/texto). */
+export async function checkImageAllowance(c: PoolClient, userId: string): Promise<{ ok: boolean; message?: string }> {
+  if (await isUnlimitedAdmin(c, userId)) return { ok: true };
+  const sub = await mySubscription(c, userId);
+  const plan: Plan = sub.status === "TRIAL" ? "FASHION" : sub.plan;
+  const cfg = await planConfig(c, plan);
+  if (cfg.image_gen_monthly_limit === null) return { ok: true };
+  const used = Number((await c.query("SELECT count_my_images_this_month($1) n", [userId])).rows[0].n);
+  if (used >= cfg.image_gen_monthly_limit) return { ok: false, message: `Seu plano ${PLAN_LABEL[plan]} permite ${cfg.image_gen_monthly_limit} gerações de imagem por mês. Esse limite já foi atingido — considere um plano com mais gerações.` };
   return { ok: true };
 }
 
-/** Incrementa o uso de IA do dia e diz se ainda está dentro do orçamento do período (dia no teste, mês nos planos pagos). */
+/** Incrementa o uso de IA (operações de raciocínio: montar look, avaliar, analisar peça etc.)
+ * e diz se ainda está dentro do orçamento do período (dia no teste, mês nos planos pagos). */
 export async function bumpAndCheckAiUsage(c: PoolClient, userId: string): Promise<{ ok: boolean; message?: string }> {
+  if (await isUnlimitedAdmin(c, userId)) return { ok: true };
   const sub = await mySubscription(c, userId);
   const dayCount = (await c.query(
     "INSERT INTO ai_usage(user_id,tenant_id,day,count) VALUES($1,current_setting('app.tenant_id')::uuid,current_date,1) ON CONFLICT (user_id,day) DO UPDATE SET count=ai_usage.count+1 RETURNING count",
     [userId],
   )).rows[0].count;
   if (sub.status === "TRIAL") {
-    if (dayCount > TRIAL_DAILY_AI_LIMIT) return { ok: false, message: `Limite diário de ${TRIAL_DAILY_AI_LIMIT} usos de IA do teste gratuito atingido. Tente novamente amanhã.` };
+    if (dayCount > TRIAL_DAILY_AI_LIMIT) return { ok: false, message: `Limite diário de ${TRIAL_DAILY_AI_LIMIT} operações de IA do teste gratuito atingido. Tente novamente amanhã.` };
     return { ok: true };
   }
-  const limit = PLAN_MONTHLY_AI_LIMIT[sub.plan] ?? null;
-  if (limit === null) return { ok: true };
+  const cfg = await planConfig(c, sub.plan);
+  if (cfg.ai_ops_monthly_limit === null) return { ok: true };
   const monthly = await c.query("SELECT COALESCE(SUM(count),0) n FROM ai_usage WHERE user_id=$1 AND day >= date_trunc('month', current_date)::date", [userId]);
-  if (Number(monthly.rows[0].n) > limit) return { ok: false, message: `Seu plano ${PLAN_LABEL[sub.plan]} permite ${limit} usos de IA por mês. Esse limite já foi atingido este mês — considere o plano Super Star (ilimitado).` };
+  if (Number(monthly.rows[0].n) > cfg.ai_ops_monthly_limit) return { ok: false, message: `Seu plano ${PLAN_LABEL[sub.plan]} permite ${cfg.ai_ops_monthly_limit} operações de IA por mês. Esse limite já foi atingido este mês — considere um plano com mais operações.` };
   return { ok: true };
 }

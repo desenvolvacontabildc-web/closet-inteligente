@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "minio";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
-import { checkLookAllowance, bumpAndCheckAiUsage, checkImageAllowance } from "./limits";
+import { bumpAndCheckAiUsage, checkImageAllowance } from "./limits";
 import { bounce } from "./action-error";
 const store = new Client({ endPoint: (process.env.S3_ENDPOINT || "http://storage:9000").replace(/^https?:\/\//, "").split(":")[0], port: 9000, useSSL: false, accessKey: process.env.S3_ACCESS_KEY_ID || "closet-web", secretKey: process.env.S3_SECRET_ACCESS_KEY || "" });
 async function readObject(key: string): Promise<Buffer> {
@@ -13,7 +13,8 @@ async function readObject(key: string): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 /** Gera a ilustração do look a partir das peças reais (quando há foto) ou só do texto.
- * Sunburst tem mais precisão pra edição com fotos de referência; Flare é mais rápido pra gerar do zero. */
+ * Sunburst tem mais precisão pra edição com fotos de referência; Flare é mais rápido pra gerar do zero.
+ * Só é chamada sob demanda (botão "Gerar inspiração em imagem"), nunca automaticamente ao montar o look. */
 async function generateIllustration(c: any, userId: string, lookId: string, itemIds: string[], description: string) {
   const openai = new OpenAI();
   const photos = (await c.query(
@@ -32,28 +33,47 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
       img = await openai.images.generate({ model: "gpt-image-2.5-flare", size: "1024x1024", quality: "high", prompt: promptBase });
     }
   } catch {
-    return;
+    return false;
   }
   const b64 = img.data?.[0]?.b64_json;
-  if (!b64) return;
+  if (!b64) return false;
   const buf = Buffer.from(b64, "base64");
   const key = `looks/${lookId}/illustration.png`;
   await store.putObject(process.env.S3_BUCKET || "closet-private", key, buf, buf.length, { "Content-Type": "image/png" });
   await c.query("UPDATE looks SET illustration_object_key=$1 WHERE id=$2", [key, lookId]);
   await c.query("SELECT log_image_generation($1,current_setting('app.tenant_id')::uuid)", [userId]);
+  return true;
 }
 
-/** Núcleo compartilhado: pede N looks à IA usando somente peças reais ativas, salva e ilustra dentro do orçamento. */
-async function generateLooksFromRequest(c: any, userId: string, request: string, maxLooksRequested: number, kind: "SUGGESTED" | "DAILY" | "TRIP", tripLabel = "", skipLookAllowance = false, returnPath = "/looks"): Promise<{ createdCount: number; note?: string }> {
+/** Botão "Gerar inspiração em imagem" em cada look -- consome só o orçamento de geração de
+ * imagem (não o de operações de IA, que é pra raciocínio/texto, contador separado). */
+export async function generateLookIllustration(f: FormData) {
+  const lookId = String(f.get("look_id") || "");
+  const returnPath = String(f.get("return_path") || "/looks");
+  await withProfile(async (c, userId) => {
+    const allowance = await checkImageAllowance(c, userId);
+    if (!allowance.ok) bounce(returnPath, allowance.message || "Limite de gerações de imagem atingido.");
+    const look = await c.query(
+      `SELECT l.name, l.occasion, (SELECT array_agg(ci.id::text) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS item_ids,
+        (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
+       FROM looks l WHERE l.id=$1`,
+      [lookId],
+    );
+    if (!look.rowCount) bounce(returnPath, "Look não encontrado.");
+    const { name, occasion, item_ids, pieces } = look.rows[0];
+    const ok = await generateIllustration(c, userId, lookId, item_ids || [], `${name || "look"} (${occasion || "sem ocasião"}): ${(pieces || []).join(", ")}`);
+    if (!ok) bounce(returnPath, "Não foi possível gerar a imagem agora (sem créditos ou fora do ar). Tente de novo mais tarde.");
+    return true;
+  });
+  redirect(returnPath);
+}
+
+/** Núcleo compartilhado: pede N looks à IA usando somente peças reais ativas e salva.
+ * Looks salvos são ilimitados -- só a operação de IA (esta chamada) é contada. */
+async function generateLooksFromRequest(c: any, userId: string, request: string, maxLooks: number, kind: "SUGGESTED" | "DAILY" | "TRIP", tripLabel = "", returnPath = "/looks"): Promise<{ createdCount: number; note?: string }> {
   if (!process.env.OPENAI_API_KEY) bounce(returnPath, "Sugestão por IA não configurada: defina OPENAI_API_KEY no servidor.");
-  let maxLooks = maxLooksRequested;
-  if (!skipLookAllowance) {
-    const allowance = await checkLookAllowance(c, userId);
-    if (!allowance.ok) bounce(returnPath, allowance.message || "Limite de looks atingido.");
-    maxLooks = Math.max(1, allowance.remaining === null ? maxLooksRequested : Math.min(maxLooksRequested, allowance.remaining));
-  }
   const budget = await bumpAndCheckAiUsage(c, userId);
-  if (!budget.ok) bounce(returnPath, budget.message || "Limite de uso de IA atingido.");
+  if (!budget.ok) bounce(returnPath, budget.message || "Limite de operações de IA atingido.");
   const items = (await c.query("SELECT id,name,category,color,attributes FROM closet_items WHERE status='ACTIVE'")).rows;
   if (items.length === 0) bounce(returnPath, "Cadastre ao menos uma peça no closet antes de pedir sugestões de look.");
   const recent = (await c.query(
@@ -103,11 +123,6 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
       );
     }
     created++;
-    const imageAllowance = await checkImageAllowance(c, userId);
-    if (imageAllowance.ok) {
-      const pieceNames = items.filter((i: any) => ids.includes(i.id)).map((i: any) => i.name).join(", ");
-      await generateIllustration(c, userId, lookId, ids, `${name || "look"} (${occasion || "sem ocasião"}): ${pieceNames}`);
-    }
   }
   return { createdCount: created, note: parsed.note };
 }
@@ -118,8 +133,6 @@ export async function createLook(f: FormData) {
   const itemIds = f.getAll("items").map(String).filter(Boolean);
   if (itemIds.length === 0) bounce("/looks", "Selecione ao menos uma peça para o look.");
   await withProfile(async (c, userId) => {
-    const allowance = await checkLookAllowance(c, userId);
-    if (!allowance.ok) bounce("/looks", allowance.message || "Limite de looks atingido.");
     const valid = await c.query("SELECT id FROM closet_items WHERE id = ANY($1::uuid[])", [itemIds]);
     if (valid.rowCount !== itemIds.length) bounce("/looks", "Alguma peça selecionada não pertence ao seu closet.");
     const look = await c.query(
@@ -142,14 +155,14 @@ export async function suggestLooks(f: FormData) {
   const request = String(f.get("request") || "").trim();
   if (!request) bounce("/looks", 'Descreva o que você precisa (ex.: "3 looks para reuniões essa semana").');
   await withProfile(async (c, userId) => {
-    const result = await generateLooksFromRequest(c, userId, request, 5, "SUGGESTED", "", false, "/looks");
+    const result = await generateLooksFromRequest(c, userId, request, 5, "SUGGESTED", "", "/looks");
     if (result.createdCount === 0) bounce("/looks", "Não foi possível montar nenhum look com as peças atuais do seu closet para esse pedido.");
     return true;
   });
   redirect("/looks");
 }
 
-/** Botão "Look de hoje": sempre gera 3 opções; reaproveita as de hoje se já existirem. Não conta na cota de looks criados (só no orçamento de IA). */
+/** Botão "Look de hoje": sempre gera 3 opções; reaproveita as de hoje se já existirem. */
 export async function generateTodayLook(f: FormData) {
   const baseItemId = String(f.get("base_item_id") || "").trim();
   await withProfile(async (c, userId) => {
@@ -160,7 +173,7 @@ export async function generateTodayLook(f: FormData) {
       const base = await c.query("SELECT name FROM closet_items WHERE id=$1 AND status='ACTIVE'", [baseItemId]);
       if (base.rowCount) request = `A cliente quer usar esta peça como base em todas as opções: "${base.rows[0].name}". ${request}`;
     }
-    await generateLooksFromRequest(c, userId, request, 3, "DAILY", "", true, "/home");
+    await generateLooksFromRequest(c, userId, request, 3, "DAILY", "", "/home");
     return true;
   });
   redirect("/home");
@@ -174,7 +187,7 @@ export async function suggestTrip(f: FormData) {
   if (!destino) bounce("/mala", "Informe o destino da viagem.");
   await withProfile(async (c, userId) => {
     const request = `Mala de viagem para ${destino}, ${dias} dia${dias === 1 ? "" : "s"}. ${observacoes || ""}`.trim();
-    const result = await generateLooksFromRequest(c, userId, request, dias, "TRIP", destino, false, "/mala");
+    const result = await generateLooksFromRequest(c, userId, request, dias, "TRIP", destino, "/mala");
     if (result.createdCount === 0) bounce("/mala", "Não foi possível montar looks para essa viagem com as peças atuais do seu closet.");
     return true;
   });
@@ -190,7 +203,8 @@ export async function deleteLook(f: FormData) {
   redirect("/looks");
 }
 
-/** Sobe uma foto real da cliente usando o look e pede à IA para avaliar (caimento, harmonia, e o que já avisamos: roupa amassada, sapato sujo etc). */
+/** Sobe uma foto real da cliente usando o look e pede à IA para avaliar com sinceridade
+ * (nunca elogiar por padrão) -- distinguindo o que é observação visual do que é inferência. */
 export async function uploadLookPhoto(f: FormData) {
   const lookId = String(f.get("look_id") || "");
   const file = f.get("photo");
@@ -226,14 +240,15 @@ export async function uploadLookPhoto(f: FormData) {
                 {
                   type: "input_text",
                   text:
-                    `Você é uma consultora de imagem gentil e direta. A cliente está usando este look de verdade (foto real, não ilustração). ` +
+                    `Você é uma consultora de imagem sincera e direta, nunca bajuladora. A cliente está usando este look de verdade (foto real, não ilustração). ` +
                     `Peças que deveriam compor o look: ${(pieces || []).join(", ") || "não informado"}. Ocasião: ${occasion || "não informada"}.\n` +
-                    `Avalie APENAS o que está visível na foto, sem inventar, e responda em 4 partes curtas (1-2 frases cada, tom encorajador):\n` +
-                    `- caimento: como a roupa cai no corpo dela (ajuste, comprimento, amassados).\n` +
-                    `- proporcao: o equilíbrio das proporções e silhueta dessa combinação.\n` +
-                    `- cores: a harmonia das cores entre as peças e com o tom de pele, se visível.\n` +
-                    `- sugestao: uma sugestão prática e específica pra melhorar esse look (troca de peça, ajuste, acessório) — ou um elogio específico se já estiver ótimo.\n` +
-                    `Se notar algo prático a corrigir (peça amassada, sapato sujo ou gasto, etiqueta pra fora), mencione em "caimento" ou "sugestao". ` +
+                    `REGRA OBRIGATÓRIA: não elogie automaticamente. Se algo não funcionou, diga isso claramente (ex.: "não combinou", "a proporção não favoreceu", "está visivelmente amarrotada", "o sapato prejudicou o resultado"). ` +
+                    `Distinga observação visual (o que está mesmo visível na foto) de inferência (sua opinião de estilo) -- nunca afirme como fato algo que não é visível (ex. evite "esse tecido é de baixa qualidade"; prefira "pela imagem, o tecido aparenta pouca estrutura"). ` +
+                    `Responda em 4 partes curtas (1-2 frases cada):\n` +
+                    `- caimento: observação visual de como a roupa cai no corpo (ajuste, comprimento, amassados, sujeira ou desgaste visível).\n` +
+                    `- proporcao: sua avaliação sincera do equilíbrio de proporções e silhueta -- diga se não favoreceu, sem medo de ser direta.\n` +
+                    `- cores: harmonia real das cores entre as peças e com o tom de pele, se visível.\n` +
+                    `- sugestao: o que você mudaria especificamente (troca de peça, ajuste, acessório) -- só elogie sem ressalva se genuinamente não houver nada a melhorar.\n` +
                     `Responda apenas JSON: {"caimento":"...","proporcao":"...","cores":"...","sugestao":"..."}.`,
                 },
                 { type: "input_image", image_url: dataUrl, detail: "low" },

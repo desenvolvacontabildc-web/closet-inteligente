@@ -62,3 +62,33 @@ export async function adminImageSpend(){
   });
   return result||{month_count:0,estimated_cents:0};
 }
+export async function adminListPlanConfig(){
+  const result=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_list_plan_config($1)",[userId])).rows}
+    catch{return null}
+  });
+  return result||[];
+}
+export async function setPlanConfig(f:FormData){
+  const plan=String(f.get("plan")||"");
+  const priceReais=Number(String(f.get("price")||"0").replace(",","."))||0;
+  const aiLimitRaw=String(f.get("ai_limit")||"").trim();
+  const imageLimitRaw=String(f.get("image_limit")||"").trim();
+  const aiLimit=aiLimitRaw===""?null:Math.max(0,Math.floor(Number(aiLimitRaw)));
+  const imageLimit=imageLimitRaw===""?null:Math.max(0,Math.floor(Number(imageLimitRaw)));
+  await withProfile(async(c,userId)=>{
+    await c.query("SELECT admin_set_plan_config($1,$2,$3,$4,$5)",[userId,plan,Math.round(priceReais*100),aiLimit,imageLimit]);
+    return true;
+  });
+  redirect("/admin");
+}
+export async function grantModule(f:FormData){
+  const target=String(f.get("user_id")||"");
+  const module=String(f.get("module")||"COLORIMETRIA");
+  const origin=String(f.get("origin")||"CORTESIA_ADMIN");
+  await withProfile(async(c,userId)=>{
+    await c.query("SELECT admin_grant_module($1,$2,$3,$4)",[userId,target,module,origin]);
+    return true;
+  });
+  redirect("/admin");
+}

@@ -1,4 +1,4 @@
-import { adminListAccounts, setSubscription, resetPassword, recordPayment, adminListAudit, adminImageSpend } from "@/server/admin-actions";
+import { adminListAccounts, setSubscription, resetPassword, recordPayment, adminListAudit, adminImageSpend, adminListPlanConfig, setPlanConfig, grantModule } from "@/server/admin-actions";
 
 const AUDIT_LABEL: Record<string, string> = { SET_SUBSCRIPTION: "Alteração de plano/status", RESET_PASSWORD: "Senha resetada", PAYMENT_RECEIVED: "Pagamento registrado" };
 const IMAGE_SPEND_ALERT_CENTS = 10000; // R$ 100/mês — avisa quando o gasto estimado com geração de imagem passar disso
@@ -18,6 +18,8 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
   const historyAccount=historico?accounts.find((a:any)=>a.user_id===historico):null;
   const imageSpend=await adminImageSpend();
   const imageSpendOverLimit=Number(imageSpend.estimated_cents)>=IMAGE_SPEND_ALERT_CENTS;
+  const planConfig=await adminListPlanConfig();
+  const PLAN_TITLE:Record<string,string>={ARRUMADA:"Arrumada",FASHION:"Fashion",SUPER_STAR:"Super Star"};
 
   return <main className="shell narrow">
     <a href="/home">← Voltar</a>
@@ -38,6 +40,20 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
       {imageSpendOverLimit
         ? <p role="alert">⚠️ Passou de R$ {(IMAGE_SPEND_ALERT_CENTS/100).toFixed(2)} este mês. Vale checar o consumo direto na OpenAI.</p>
         : <p className="look-meta">Aviso automático se passar de R$ {(IMAGE_SPEND_ALERT_CENTS/100).toFixed(2)}/mês.</p>}
+    </section>
+
+    <section className="card">
+      <h2>Preços e limites por plano</h2>
+      {planConfig.map((p:any)=>(
+        <form action={setPlanConfig} className="form" key={p.plan}>
+          <input type="hidden" name="plan" value={p.plan}/>
+          <h3>{PLAN_TITLE[p.plan]||p.plan}</h3>
+          <label>Preço-base (R$/mês)<input name="price" defaultValue={(p.base_price_cents/100).toFixed(2)}/></label>
+          <label>Operações de IA/mês (vazio = ilimitado)<input name="ai_limit" defaultValue={p.ai_ops_monthly_limit??""}/></label>
+          <label>Gerações de imagem/mês (vazio = ilimitado)<input name="image_limit" defaultValue={p.image_gen_monthly_limit??""}/></label>
+          <button>Salvar</button>
+        </form>
+      ))}
     </section>
 
     {historico&&<section className="card">
@@ -72,9 +88,9 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
           </label>
           <label>Plano
             <select name="plan" defaultValue={a.plan} disabled={a.user_id===actorId}>
-              <option value="ARRUMADA">Arrumada (15 looks / 40 usos de IA / 10 ilustrações por mês)</option>
-              <option value="FASHION">Fashion (40 looks / 100 usos de IA / 30 ilustrações por mês + Closet Cápsula)</option>
-              <option value="SUPER_STAR">Super Star (tudo ilimitado + Colorimetria)</option>
+              <option value="ARRUMADA">Arrumada</option>
+              <option value="FASHION">Fashion (+ Closet Cápsula)</option>
+              <option value="SUPER_STAR">Super Star (+ Colorimetria)</option>
             </select>
           </label>
           <label>Mensalidade (R$)<input name="fee" defaultValue={(a.monthly_fee_cents/100).toFixed(2)} disabled={a.user_id===actorId}/></label>
@@ -92,6 +108,12 @@ export default async function Admin({searchParams}:{searchParams:Promise<{temp?:
         <div className="look-actions">
           <a href={`/admin?historico=${a.user_id}`} className="link">Ver histórico</a>
           {a.user_id!==actorId&&<form action={resetPassword}><input type="hidden" name="user_id" value={a.user_id}/><button className="link">Resetar senha</button></form>}
+          {a.user_id!==actorId&&<form action={grantModule}>
+            <input type="hidden" name="user_id" value={a.user_id}/>
+            <input type="hidden" name="module" value="COLORIMETRIA"/>
+            <input type="hidden" name="origin" value="CORTESIA_ADMIN"/>
+            <button className="link">Liberar Colorimetria</button>
+          </form>}
         </div>
       </section>
     ))}

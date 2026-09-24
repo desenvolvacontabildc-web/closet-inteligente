@@ -38,7 +38,7 @@ export default async function Perfil() {
     <nav className="nav-links">
       <Link href="/mala">Mala de Viagem</Link>
       <Link href="/capsula">Closet Cápsula</Link>
-      <Link href="/colorimetria">Colorimetria</Link>
+      <Link href="/cuidese">Cuide-se</Link>
       <Link href="/tendencias">Radar de Tendências</Link>
       {isAdmin && <Link href="/admin">Administração de contas</Link>}
       {isAdmin && <Link href="/admin/parceiras">Administração de parceiras</Link>}

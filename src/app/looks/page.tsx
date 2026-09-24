@@ -1,4 +1,4 @@
-import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createLook, deleteLook, suggestLooks, uploadLookPhoto } from "@/server/look-actions"; import { checkLookAllowance } from "@/server/limits";
+import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createLook, deleteLook, suggestLooks, uploadLookPhoto, generateLookIllustration } from "@/server/look-actions"; import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits";
 const STATUS_LABEL: Record<string, string> = { SUGGESTED: "Sugestão da IA", PHOTOGRAPHED: "Com foto e avaliação", APPROVED: "Aprovado", WORN: "Já usei", REJECTED: "Rejeitado", OUTDATED: "Desatualizado" };
 const EVAL_LABEL: Record<string, string> = { caimento: "👗 Caimento", proporcao: "📐 Proporção", cores: "🎨 Cores", sugestao: "💡 Sugestão" };
 function parseEvaluation(raw: string | null): Record<string, string> | null {
@@ -21,23 +21,26 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
         ) ORDER BY ci.category)
        FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS items
       FROM looks l WHERE l.kind NOT IN ('DAILY','TRIP') ORDER BY l.created_at DESC`)).rows;
-    const allowance=await checkLookAllowance(c,userId);
-    return {items,looks,allowance};
+    const aiRemaining=await aiUsageRemaining(c,userId);
+    const imgRemaining=await imageGenerationsRemaining(c,userId);
+    return {items,looks,aiRemaining,imgRemaining};
   });
   if(!data)redirect("/");
-  const {items,looks,allowance}=data;
-  const remaining=allowance.remaining;
+  const {items,looks,aiRemaining,imgRemaining}=data;
   return <main className="shell">
     <div className="top"><span className="eyebrow">MEUS LOOKS</span><Link href="/home">Voltar</Link></div>
     <h1>Seus looks</h1>
     {error&&<p role="alert" className="trial-banner">{error}</p>}
-    {remaining!==null&&<div className="trial-banner"><p>{remaining>0?`Você tem ${remaining} geração${remaining===1?"":"ões"} hoje${allowance.isTrial?" (35 no total, durante os 7 dias de teste)":""}.`:(allowance.message||"Limite de gerações atingido neste período.")}</p></div>}
+    <div className="trial-banner">
+      <p>🧠 {aiRemaining===null?"Operações de IA ilimitadas no seu plano.":`${aiRemaining} operação${aiRemaining===1?"":"ões"} de IA disponíve${aiRemaining===1?"l":"is"} (pedir sugestão, analisar peça, avaliar foto).`}</p>
+      <p>🖼️ {imgRemaining===null?"Gerações de imagem ilimitadas no seu plano.":`${imgRemaining} geração${imgRemaining===1?"":"ões"} de imagem disponíve${imgRemaining===1?"l":"is"} este período.`}</p>
+    </div>
     <div className="grid">
       {looks.map((l:any)=>(
         <div className="look-card" key={l.id}>
           {l.has_photo?<img src={`/api/looks/${l.id}/photo`} alt={`Foto real do look ${l.name||""}`}/>
             :l.has_illustration?<img src={`/api/looks/${l.id}/illustration`} alt={`Ilustração do look ${l.name||""}`}/>
-            :<span className="look-thumb-placeholder">✨<small>Sem foto ainda</small></span>}
+            :<span className="look-thumb-placeholder">✨<small>Sem imagem ainda</small></span>}
           <h3>{l.name||"Look sem nome"}</h3>
           <p className="look-meta">{l.occasion||"Ocasião não informada"} · {STATUS_LABEL[l.status]||l.status}</p>
           <p className="look-pieces">{(l.items||[]).map((it:any)=>it.name).join(" + ")||"Sem peças"}</p>
@@ -63,6 +66,11 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
             </div>
           )}
           <div className="look-actions">
+            {!l.has_illustration&&<form action={generateLookIllustration}>
+              <input type="hidden" name="look_id" value={l.id}/>
+              <input type="hidden" name="return_path" value="/looks"/>
+              <button disabled={imgRemaining===0}>🖼️ Gerar inspiração em imagem</button>
+            </form>}
             <form action={uploadLookPhoto} encType="multipart/form-data">
               <input type="hidden" name="look_id" value={l.id}/>
               <input type="file" name="photo" accept="image/*" required/>
@@ -76,7 +84,7 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
     <form action={suggestLooks} className="form">
       <h2>Pedir sugestão de looks</h2>
       <input name="request" placeholder='Ex.: "Preciso de 3 looks pra reuniões essa semana"' required/>
-      <button disabled={remaining===0}>Gerar sugestão com IA</button>
+      <button disabled={aiRemaining===0}>Gerar sugestão com IA</button>
     </form>
     <form action={createLook} className="form">
       <h2>Ou monte você mesma</h2>
@@ -88,7 +96,7 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
           <label key={i.id} className="checkbox"><input type="checkbox" name="items" value={i.id}/> {i.name} · {i.category}</label>
         ))}
       </fieldset>
-      <button disabled={remaining===0}>Salvar look</button>
+      <button>Salvar look</button>
     </form>
   </main>;
 }
