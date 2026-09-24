@@ -3,6 +3,7 @@ import { generateTodayLook, generateLookIllustration } from "@/server/look-actio
 import Link from "next/link";
 import { withProfile } from "@/server/profile-session";
 import { aiUsageRemaining, PLAN_LABEL, type Plan } from "@/server/limits";
+import SubmitButton from "@/components/submit-button";
 export default async function Home({searchParams}:{searchParams:Promise<{error?:string}>}){
  const {error}=await searchParams;
  const profile=await withProfile(async(c,id)=>{
@@ -47,7 +48,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
              {!l.has_illustration&&<form action={generateLookIllustration}>
                <input type="hidden" name="look_id" value={l.id}/>
                <input type="hidden" name="return_path" value="/home"/>
-               <button className="link">🖼️ Gerar inspiração em imagem</button>
+               <SubmitButton className="link" pendingText="Gerando imagem... (até 30s)">🖼️ Gerar inspiração em imagem</SubmitButton>
              </form>}
            </div>
          ))}
@@ -58,7 +59,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
              {activeItems.map((i:any)=><option key={i.id} value={i.id}>{i.name} · {i.category}</option>)}
            </select>
          </label>
-         <button>Gerar 3 opções de look para hoje</button>
+         <SubmitButton pendingText="Pensando... (pode levar até 20s)">Gerar 3 opções de look para hoje</SubmitButton>
        </form>}
      </div>
      <div className="quick-actions">

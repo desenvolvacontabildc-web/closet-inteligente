@@ -1,4 +1,4 @@
-import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createLook, deleteLook, suggestLooks, uploadLookPhoto, generateLookIllustration } from "@/server/look-actions"; import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits";
+import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createLook, deleteLook, suggestLooks, uploadLookPhoto, generateLookIllustration } from "@/server/look-actions"; import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits"; import SubmitButton from "@/components/submit-button";
 const STATUS_LABEL: Record<string, string> = { SUGGESTED: "Sugestão da IA", PHOTOGRAPHED: "Com foto e avaliação", APPROVED: "Aprovado", WORN: "Já usei", REJECTED: "Rejeitado", OUTDATED: "Desatualizado" };
 const EVAL_LABEL: Record<string, string> = { caimento: "👗 Caimento", proporcao: "📐 Proporção", cores: "🎨 Cores", sugestao: "💡 Sugestão" };
 function parseEvaluation(raw: string | null): Record<string, string> | null {
@@ -69,12 +69,12 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
             {!l.has_illustration&&<form action={generateLookIllustration}>
               <input type="hidden" name="look_id" value={l.id}/>
               <input type="hidden" name="return_path" value="/looks"/>
-              <button disabled={imgRemaining===0}>🖼️ Gerar inspiração em imagem</button>
+              <SubmitButton disabled={imgRemaining===0} pendingText="Gerando imagem... (até 30s)">🖼️ Gerar inspiração em imagem</SubmitButton>
             </form>}
             <form action={uploadLookPhoto} encType="multipart/form-data">
               <input type="hidden" name="look_id" value={l.id}/>
               <input type="file" name="photo" accept="image/*" required/>
-              <button>{l.has_photo?"Avaliar de novo":"Avalie esse look"}</button>
+              <SubmitButton pendingText="Avaliando...">{l.has_photo?"Avaliar de novo":"Avalie esse look"}</SubmitButton>
             </form>
             <form action={deleteLook}><input type="hidden" name="id" value={l.id}/><button className="link">Excluir</button></form>
           </div>
@@ -84,7 +84,7 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
     <form action={suggestLooks} className="form">
       <h2>Pedir sugestão de looks</h2>
       <input name="request" placeholder='Ex.: "Preciso de 3 looks pra reuniões essa semana"' required/>
-      <button disabled={aiRemaining===0}>Gerar sugestão com IA</button>
+      <SubmitButton disabled={aiRemaining===0} pendingText="Pensando... (pode levar até 20s)">Gerar sugestão com IA</SubmitButton>
     </form>
     <form action={createLook} className="form">
       <h2>Ou monte você mesma</h2>

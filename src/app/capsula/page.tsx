@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { generateCapsule } from "@/server/capsule-actions"; import { mySubscription, hasPlanAtLeast } from "@/server/limits";
+import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { generateCapsule } from "@/server/capsule-actions"; import { mySubscription, hasPlanAtLeast } from "@/server/limits"; import SubmitButton from "@/components/submit-button";
 export default async function Capsula({searchParams}:{searchParams:Promise<{error?:string}>}){
   const {error}=await searchParams;
   const data=await withProfile(async(c,userId)=>{
@@ -18,7 +18,7 @@ export default async function Capsula({searchParams}:{searchParams:Promise<{erro
     {!allowed&&<div className="trial-banner"><p>Exclusivo dos planos <strong>Fashion</strong> e <strong>Super Star</strong> (ou durante o teste gratuito). Fale com a administradora para migrar de plano.</p></div>}
     {allowed&&<form action={generateCapsule} className="form">
       <label>Quantas peças na cápsula?<input name="target" type="number" min={5} max={30} defaultValue={15}/></label>
-      <button>Gerar minha cápsula</button>
+      <SubmitButton pendingText="Analisando seu closet... (pode levar até 20s)">Gerar minha cápsula</SubmitButton>
     </form>}
     {capsule&&<section className="card">
       <h2>Sua cápsula atual</h2>

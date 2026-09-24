@@ -1,4 +1,4 @@
-import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { suggestTrip, deleteLook, generateLookIllustration } from "@/server/look-actions"; import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits";
+import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { suggestTrip, deleteLook, generateLookIllustration } from "@/server/look-actions"; import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits"; import SubmitButton from "@/components/submit-button";
 export default async function Mala({searchParams}:{searchParams:Promise<{error?:string}>}){
   const {error}=await searchParams;
   const data=await withProfile(async(c,userId)=>{
@@ -28,7 +28,7 @@ export default async function Mala({searchParams}:{searchParams:Promise<{error?:
       <input name="destino" placeholder="Destino (ex.: São Paulo)" required/>
       <input name="dias" type="number" min={1} max={7} placeholder="Quantos dias (máx. 7)" required/>
       <textarea name="observacoes" placeholder="Compromissos e clima (ex.: 1 reunião, 1 jantar, clima frio)"/>
-      <button disabled={aiRemaining===0}>Gerar mala com IA</button>
+      <SubmitButton disabled={aiRemaining===0} pendingText="Montando mala... (pode levar até 30s)">Gerar mala com IA</SubmitButton>
     </form>
     {[...trips.entries()].map(([label,tripLooks])=>{
       const allPieces=new Map<string,string>();
@@ -50,7 +50,7 @@ export default async function Mala({searchParams}:{searchParams:Promise<{error?:
                 {!l.has_illustration&&<form action={generateLookIllustration}>
                   <input type="hidden" name="look_id" value={l.id}/>
                   <input type="hidden" name="return_path" value="/mala"/>
-                  <button disabled={imgRemaining===0}>🖼️ Gerar inspiração em imagem</button>
+                  <SubmitButton disabled={imgRemaining===0} pendingText="Gerando imagem... (até 30s)">🖼️ Gerar inspiração em imagem</SubmitButton>
                 </form>}
                 <form action={deleteLook}><input type="hidden" name="id" value={l.id}/><button className="link">Excluir</button></form>
               </div>

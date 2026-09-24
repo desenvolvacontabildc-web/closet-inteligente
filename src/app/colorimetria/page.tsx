@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { generateColorimetria } from "@/server/style-actions";
+import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { generateColorimetria } from "@/server/style-actions"; import SubmitButton from "@/components/submit-button";
 export default async function Colorimetria({searchParams}:{searchParams:Promise<{error?:string}>}){
   const {error}=await searchParams;
   const data=await withProfile(async(c,userId)=>{
@@ -48,7 +48,7 @@ export default async function Colorimetria({searchParams}:{searchParams:Promise<
           <option>Já sou morena/negra, pele naturalmente escura</option>
         </select>
       </label>
-      <button>Descobrir minha paleta</button>
+      <SubmitButton pendingText="Analisando sua foto... (pode levar até 20s)">Descobrir minha paleta</SubmitButton>
     </form>}
     {status==="CONCLUIDA"?<>
       {dossier?<section className="card">

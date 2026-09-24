@@ -16,9 +16,9 @@ async function readObject(key: string): Promise<Buffer> {
  * Sunburst tem mais precisão pra edição com fotos de referência; Flare é mais rápido pra gerar do zero.
  * Só é chamada sob demanda (botão "Gerar inspiração em imagem"), nunca automaticamente ao montar o look. */
 async function generateIllustration(c: any, userId: string, lookId: string, itemIds: string[], description: string) {
-  const openai = new OpenAI();
+  const openai = new OpenAI({ timeout: 120000 });
   const photos = (await c.query(
-    "SELECT DISTINCT ON (item_id) item_id, object_key, content_type FROM closet_item_photos WHERE item_id = ANY($1::uuid[]) ORDER BY item_id, created_at DESC LIMIT 4",
+    "SELECT DISTINCT ON (item_id) item_id, object_key, content_type FROM closet_item_photos WHERE item_id = ANY($1::uuid[]) ORDER BY item_id, created_at DESC LIMIT 2",
     [itemIds],
   )).rows;
   const promptBase =
@@ -28,9 +28,9 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
   try {
     if (photos.length > 0) {
       const files = await Promise.all(photos.map(async (p: any, i: number) => toFile(await readObject(p.object_key), `ref-${i}.png`, { type: p.content_type })));
-      img = await openai.images.edit({ model: "gpt-image-2.5-sunburst", image: files, size: "1024x1024", quality: "high", prompt: `Use estas fotos reais das peças como referência de cor, textura e caimento. ${promptBase}` });
+      img = await openai.images.edit({ model: "gpt-image-2.5-sunburst", image: files, size: "1024x1024", quality: "medium", prompt: `Use estas fotos reais das peças como referência de cor, textura e caimento. ${promptBase}` });
     } else {
-      img = await openai.images.generate({ model: "gpt-image-2.5-flare", size: "1024x1024", quality: "high", prompt: promptBase });
+      img = await openai.images.generate({ model: "gpt-image-2.5-flare", size: "1024x1024", quality: "medium", prompt: promptBase });
     }
   } catch {
     return false;
