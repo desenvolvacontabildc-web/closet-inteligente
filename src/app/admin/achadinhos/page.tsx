@@ -1,4 +1,4 @@
-import { adminListFinds, createFind, setFindActive } from "@/server/find-actions";
+import { adminListFinds, createFind, setFindActive, updateFind } from "@/server/find-actions";
 
 export default async function AdminAchadinhos() {
   const finds = await adminListFinds();
@@ -21,8 +21,15 @@ export default async function AdminAchadinhos() {
       <section className="card" key={f.id}>
         {f.object_key && <img src={`/api/achadinhos/photos/${f.id}`} alt={f.title} style={{ width: "100%", borderRadius: 12, marginBottom: 8 }}/>}
         <h3>{f.title} {!f.active && "· oculto"}</h3>
-        {f.description && <p>{f.description}</p>}
-        <p className="look-meta">{f.price_cents != null && `R$ ${(f.price_cents / 100).toFixed(2)} · `}<a href={f.external_url} target="_blank" rel="noopener noreferrer">{f.external_url}</a></p>
+        <form action={updateFind} encType="multipart/form-data" className="form">
+          <input type="hidden" name="id" value={f.id}/>
+          <label>Título<input name="title" defaultValue={f.title} required/></label>
+          <label>Descrição<textarea name="description" rows={2} defaultValue={f.description}/></label>
+          <label>Preço (R$)<input name="price" defaultValue={f.price_cents != null ? (f.price_cents / 100).toFixed(2).replace(".", ",") : ""} placeholder="Ex.: 89,90"/></label>
+          <label>Link do produto<input name="external_url" type="url" defaultValue={f.external_url} required/></label>
+          <label>{f.object_key ? "Trocar foto" : "Adicionar foto"}<input type="file" name="photo" accept="image/*"/></label>
+          <button>Salvar alterações</button>
+        </form>
         <form action={setFindActive}>
           <input type="hidden" name="id" value={f.id}/>
           <input type="hidden" name="active" value={f.active ? "off" : "on"}/>
