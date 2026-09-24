@@ -33,8 +33,10 @@ export function hasPlanAtLeast(sub: { status: string; plan: Plan }, minPlan: Pla
   return PLAN_RANK[sub.plan] >= PLAN_RANK[minPlan];
 }
 
-/** Colorimetria é módulo avulso (liberação única, não mensal) -- não depende do plano atual. */
+/** Colorimetria é módulo avulso (liberação única, não mensal) -- não depende do plano atual.
+ * A administradora tem tudo liberado, independente de módulo concedido. */
 export async function hasColorimetria(c: PoolClient, userId: string): Promise<boolean> {
+  if (await isUnlimitedAdmin(c, userId)) return true;
   const r = await c.query("SELECT status FROM my_module_status($1,'COLORIMETRIA')", [userId]);
   return ["LIBERADA", "EM_ANALISE", "CONCLUIDA"].includes(r.rows[0]?.status);
 }
