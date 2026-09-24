@@ -7,6 +7,7 @@ import { getPool } from "./db"; import { SESSION_COOKIE, SESSION_COOKIE_OPTIONS 
 import { withProfile } from "./profile-session";
 import { resolveAccent } from "./accent";
 import { bounce } from "./action-error";
+import { generateBodyAvatar } from "./avatar-actions";
 const store=new Client({endPoint:(process.env.S3_ENDPOINT||"http://storage:9000").replace(/^https?:\/\//,'').split(':')[0],port:9000,useSSL:false,accessKey:process.env.S3_ACCESS_KEY_ID||"closet-web",secretKey:process.env.S3_SECRET_ACCESS_KEY||""});
 const scrypt=promisify(sc), hash=(v:string)=>createHash("sha256").update(v).digest("hex");
 async function makeHash(p:string){if(p.length<6)throw new Error("A senha deve ter pelo menos 6 caracteres.");const salt=randomBytes(16),key=await scrypt(p,salt,64) as Buffer;return `scrypt$${salt.toString("hex")}$${key.toString("hex")}`}
@@ -45,17 +46,34 @@ export async function saveOnboarding(f:FormData){
   const hasAvatar=avatar instanceof File && avatar.size>0;
   if(hasAvatar&&!(avatar as File).type.startsWith("image/")) bounce("/onboarding","Envie um arquivo de imagem pra foto.");
   const avatarBuf=hasAvatar?Buffer.from(await (avatar as File).arrayBuffer()):null;
+  const bodyPhoto=f.get("body_photo");
+  const bodyConsent=f.get("body_photo_consent")==="on";
+  const hasBodyPhoto=bodyPhoto instanceof File && bodyPhoto.size>0 && bodyConsent;
+  if(hasBodyPhoto&&!(bodyPhoto as File).type.startsWith("image/")) bounce("/onboarding","Envie um arquivo de imagem pra foto de corpo.");
+  const bodyPhotoBuf=hasBodyPhoto?Buffer.from(await (bodyPhoto as File).arrayBuffer()):null;
   const saved=await withProfile(async(c,id)=>{
     let avatarKey:string|null=null;
     if(hasAvatar&&avatarBuf){
       avatarKey=`avatars/${id}-${Date.now()}`;
       await store.putObject(process.env.S3_BUCKET||"closet-private",avatarKey,avatarBuf,avatarBuf.length,{"Content-Type":(avatar as File).type});
     }
+    let bodyPhotoKey:string|null=null;
+    if(hasBodyPhoto&&bodyPhotoBuf){
+      bodyPhotoKey=`avatars/${id}-body-${Date.now()}`;
+      await store.putObject(process.env.S3_BUCKET||"closet-private",bodyPhotoKey,bodyPhotoBuf,bodyPhotoBuf.length,{"Content-Type":(bodyPhoto as File).type});
+    }
     const q=await c.query(
-      "UPDATE profiles SET answers=$1,experience_tokens=$2,onboarding_completed=true"+(avatarKey?",avatar_object_key=$4,avatar_content_type=$5":"")+",updated_at=now() WHERE user_id=$3 RETURNING user_id",
-      avatarKey?[answers,tokens,id,avatarKey,(avatar as File).type]:[answers,tokens,id],
+      "UPDATE profiles SET answers=$1,experience_tokens=$2,onboarding_completed=true"
+      +(avatarKey?",avatar_object_key=$4,avatar_content_type=$5":"")
+      +(bodyPhotoKey?",body_photo_object_key=$6,body_photo_content_type=$7,body_photo_consent_at=now()":"")
+      +",updated_at=now() WHERE user_id=$3 RETURNING user_id",
+      [answers,tokens,id,
+        ...(avatarKey?[avatarKey,(avatar as File).type]:(bodyPhotoKey?[null,null]:[])),
+        ...(bodyPhotoKey?[bodyPhotoKey,(bodyPhoto as File).type]:[]),
+      ],
     );
     if(q.rowCount!==1) bounce("/onboarding","Não foi possível salvar seu perfil.");
+    if(bodyPhotoKey) await generateBodyAvatar(c,id,bodyPhotoKey,(bodyPhoto as File).type);
     return true;
   });
   if(!saved) redirect("/");

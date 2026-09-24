@@ -21,14 +21,22 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
     "SELECT DISTINCT ON (item_id) item_id, object_key, content_type FROM closet_item_photos WHERE item_id = ANY($1::uuid[]) ORDER BY item_id, created_at DESC LIMIT 2",
     [itemIds],
   )).rows;
+  const avatarRow = (await c.query("SELECT avatar_illustration_object_key FROM profiles WHERE user_id=$1", [userId])).rows[0];
+  const avatarKey = avatarRow?.avatar_illustration_object_key || null;
+  const figureInstruction = avatarKey
+    ? "Use a primeira imagem de referência como o avatar/silhueta da cliente (mantenha as mesmas proporções de corpo e a pose), sem copiar roupa nem rosto dela. "
+    : "Figura genérica de moda. ";
   const promptBase =
     `Ilustração editorial de moda, estilo croqui/silhueta estilizada, sem rosto detalhado e sem identidade real de nenhuma pessoa. ` +
-    `Figura genérica de moda vestindo esta combinação: ${description}. Fundo neutro claro, traço elegante, sem texto na imagem.`;
+    `${figureInstruction}Vestindo esta combinação: ${description}. Fundo neutro claro, traço elegante, sem texto na imagem.`;
   let img;
   try {
-    if (photos.length > 0) {
-      const files = await Promise.all(photos.map(async (p: any, i: number) => toFile(await readObject(p.object_key), `ref-${i}.png`, { type: p.content_type })));
-      img = await openai.images.edit({ model: "gpt-image-2.5-sunburst", image: files, size: "1024x1024", quality: "medium", prompt: `Use estas fotos reais das peças como referência de cor, textura e caimento. ${promptBase}` });
+    if (avatarKey || photos.length > 0) {
+      const refs: { key: string; type: string }[] = [];
+      if (avatarKey) refs.push({ key: avatarKey, type: "image/png" });
+      for (const p of photos) refs.push({ key: p.object_key, type: p.content_type });
+      const files = await Promise.all(refs.map(async (r, i) => toFile(await readObject(r.key), `ref-${i}.png`, { type: r.type })));
+      img = await openai.images.edit({ model: "gpt-image-2.5-sunburst", image: files, size: "1024x1024", quality: "medium", prompt: `${avatarKey ? "" : "Use estas fotos reais das peças como referência de cor, textura e caimento. "}${promptBase}` });
     } else {
       img = await openai.images.generate({ model: "gpt-image-2.5-flare", size: "1024x1024", quality: "medium", prompt: promptBase });
     }

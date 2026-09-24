@@ -16,11 +16,21 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      FROM looks l WHERE l.kind='DAILY' AND l.created_at::date=current_date ORDER BY l.created_at`)).rows;
    const activeItems=(await c.query("SELECT id,name,category FROM closet_items WHERE status='ACTIVE' ORDER BY category,name")).rows;
    const trend=(await c.query("SELECT * FROM list_active_trends(1)")).rows[0]||null;
-   return {...p,sub,aiRemaining,todayLooks,activeItems,trend};
+   const forgotten=(await c.query(`SELECT ci.id,ci.name,ci.category,
+       (SELECT p.id FROM closet_item_photos p WHERE p.item_id=ci.id ORDER BY p.created_at DESC LIMIT 1) AS photo_id,
+       (SELECT MAX(l.created_at) FROM look_items li JOIN looks l ON l.id=li.look_id WHERE li.item_id=ci.id) AS last_used_at
+     FROM closet_items ci WHERE ci.status='ACTIVE'
+       AND ((SELECT MAX(l.created_at) FROM look_items li JOIN looks l ON l.id=li.look_id WHERE li.item_id=ci.id) IS NULL
+         OR (SELECT MAX(l.created_at) FROM look_items li JOIN looks l ON l.id=li.look_id WHERE li.item_id=ci.id) < now() - interval '60 days')
+     ORDER BY last_used_at ASC NULLS FIRST LIMIT 1`)).rows[0]||null;
+   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,forgotten};
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key}=profile;
+ const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,forgotten}=profile;
+ const dayOfYear=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0).getTime())/86400000);
+ const showForgottenToday=forgotten&&todayLooks.length===0&&dayOfYear%2===0;
+ const forgottenDays=forgotten?.last_used_at?Math.floor((Date.now()-new Date(forgotten.last_used_at).getTime())/86400000):null;
  const trialDaysLeft=sub?.status==="TRIAL"&&sub.trial_ends_at?Math.max(0,Math.ceil((new Date(sub.trial_ends_at).getTime()-Date.now())/86400000)):null;
  return <main className="shell">
    <span className="eyebrow">CLOSET INTELIGENTE</span>
@@ -52,6 +62,17 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
              </form>}
            </div>
          ))}
+       </div>:showForgottenToday?<div className="trend-teaser" style={{flexDirection:"column",alignItems:"flex-start"}}>
+         {forgotten.photo_id&&<img src={`/api/closet/photos/${forgotten.photo_id}`} alt={forgotten.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>}
+         <div>
+           <span className="eyebrow">PEÇA ESQUECIDA</span>
+           <strong>{forgotten.name}</strong>
+           <p className="look-meta">{forgottenDays===null?"Você ainda não usou essa peça em nenhum look.":`Você não usa essa peça há ${forgottenDays} dias.`} Que tal incluir ela hoje?</p>
+         </div>
+         <form action={generateTodayLook}>
+           <input type="hidden" name="base_item_id" value={forgotten.id}/>
+           <SubmitButton pendingText="Pensando... (pode levar até 20s)">Montar look com essa peça</SubmitButton>
+         </form>
        </div>:<form action={generateTodayLook} className="form">
          <label>Quer usar alguma peça específica como base? (opcional)
            <select name="base_item_id" defaultValue="">
