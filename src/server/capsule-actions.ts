@@ -14,20 +14,25 @@ export async function generateCapsule(f: FormData) {
     if (!budget.ok) bounce("/capsula", budget.message || "Limite de uso de IA atingido.");
     const items = (await c.query("SELECT id,name,category,color FROM closet_items WHERE status='ACTIVE'")).rows;
     if (items.length === 0) bounce("/capsula", "Cadastre peças no closet antes de gerar uma cápsula.");
-    const out = await new OpenAI().responses.create({
-      model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
-      input: [{
-        role: "user",
-        content: [{
-          type: "input_text",
-          text:
-            `Você é uma consultora de imagem especialista em guarda-roupa cápsula. Peças reais disponíveis (use SOMENTE estas, nunca invente):\n${JSON.stringify(items)}\n` +
-            `Selecione até ${target} peças que, juntas, formem a cápsula mais versátil possível (o maior número de combinações diferentes entre si). ` +
-            `Responda apenas JSON: {"item_ids":["..."],"reasoning":"...","combinations_estimate":numero}. ` +
-            `item_ids deve conter só ids da lista fornecida, no máximo ${target}. Em reasoning, explique brevemente a lógica da seleção.`,
+    let out: any;
+    try {
+      out = await new OpenAI().responses.create({
+        model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+        input: [{
+          role: "user",
+          content: [{
+            type: "input_text",
+            text:
+              `Você é uma consultora de imagem especialista em guarda-roupa cápsula. Peças reais disponíveis (use SOMENTE estas, nunca invente):\n${JSON.stringify(items)}\n` +
+              `Selecione até ${target} peças que, juntas, formem a cápsula mais versátil possível (o maior número de combinações diferentes entre si). ` +
+              `Responda apenas JSON: {"item_ids":["..."],"reasoning":"...","combinations_estimate":numero}. ` +
+              `item_ids deve conter só ids da lista fornecida, no máximo ${target}. Em reasoning, explique brevemente a lógica da seleção.`,
+          }],
         }],
-      }],
-    });
+      });
+    } catch {
+      bounce("/capsula", "A IA está indisponível no momento (sem créditos ou fora do ar). Tente de novo mais tarde.");
+    }
     let parsed: any;
     try { parsed = JSON.parse(out.output_text); } catch { bounce("/capsula", "A IA não retornou uma cápsula válida. Tente novamente."); }
     const validIds = new Set(items.map((i: any) => i.id));

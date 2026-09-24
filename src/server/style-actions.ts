@@ -23,24 +23,29 @@ export async function generateColorimetria(f: FormData) {
     if (!process.env.OPENAI_API_KEY) bounce("/colorimetria", "Recurso de IA não configurado.");
     const budget = await bumpAndCheckAiUsage(c, userId);
     if (!budget.ok) bounce("/colorimetria", budget.message || "Limite de uso de IA atingido.");
-    const out = await new OpenAI().responses.create({
-      model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
-      input: [{
-        role: "user",
-        content: [
-          {
-            type: "input_text",
-            text:
-              `Você é uma consultora de colorimetria pessoal. A cliente autorizou o uso desta foto (rosto e/ou pulso) só para esta análise. ` +
-              `Informações complementares (opcionais, podem estar em branco): cor natural do cabelo: ${cabelo || "não informado"}; cor dos olhos: ${olhos || "não informado"}; como a pele reage ao sol: ${bronzeamento || "não informado"}.\n` +
-              `Observando a pele, o cabelo e os olhos visíveis na foto (e as veias do pulso, se aparecerem), determine o subtom provável (quente, frio ou neutro) e sugira uma paleta de cores que favorecem perto do rosto e cores a evitar. ` +
-              `Seja honesta sobre a incerteza: mesmo com foto, isso é uma estimativa por IA, não substitui uma análise presencial de uma colorista profissional. ` +
-              `Responda apenas JSON: {"subtom":"...","favorable_colors":"...","avoid_colors":"...","notes":"..."}. notes deve mencionar essa limitação.`,
-          },
-          { type: "input_image", image_url: dataUrl, detail: "low" },
-        ],
-      }],
-    });
+    let out: any;
+    try {
+      out = await new OpenAI().responses.create({
+        model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+        input: [{
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text:
+                `Você é uma consultora de colorimetria pessoal. A cliente autorizou o uso desta foto (rosto e/ou pulso) só para esta análise. ` +
+                `Informações complementares (opcionais, podem estar em branco): cor natural do cabelo: ${cabelo || "não informado"}; cor dos olhos: ${olhos || "não informado"}; como a pele reage ao sol: ${bronzeamento || "não informado"}.\n` +
+                `Observando a pele, o cabelo e os olhos visíveis na foto (e as veias do pulso, se aparecerem), determine o subtom provável (quente, frio ou neutro) e sugira uma paleta de cores que favorecem perto do rosto e cores a evitar. ` +
+                `Seja honesta sobre a incerteza: mesmo com foto, isso é uma estimativa por IA, não substitui uma análise presencial de uma colorista profissional. ` +
+                `Responda apenas JSON: {"subtom":"...","favorable_colors":"...","avoid_colors":"...","notes":"..."}. notes deve mencionar essa limitação.`,
+            },
+            { type: "input_image", image_url: dataUrl, detail: "low" },
+          ],
+        }],
+      });
+    } catch {
+      bounce("/colorimetria", "A IA está indisponível no momento (sem créditos ou fora do ar). Tente de novo mais tarde.");
+    }
     let parsed: any;
     try { parsed = JSON.parse(out.output_text); } catch { bounce("/colorimetria", "A IA não retornou um resultado válido. Tente novamente."); }
     await c.query(
