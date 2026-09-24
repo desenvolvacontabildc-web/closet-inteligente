@@ -2,7 +2,7 @@ import "server-only";
 import type { PoolClient } from "pg";
 
 // Teste gratuito: limites diários fixos (7 dias).
-export const TRIAL_DAILY_LOOK_LIMIT = 2;
+export const TRIAL_DAILY_LOOK_LIMIT = 5;
 export const TRIAL_DAILY_AI_LIMIT = 15;
 
 // Planos pagos (nomes voltados à moda). null = sem limite.

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "minio";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
-import { checkLookAllowance, bumpAndCheckAiUsage } from "./limits";
+import { checkLookAllowance, bumpAndCheckAiUsage, checkImageAllowance } from "./limits";
 import { bounce } from "./action-error";
 const store = new Client({ endPoint: (process.env.S3_ENDPOINT || "http://storage:9000").replace(/^https?:\/\//, "").split(":")[0], port: 9000, useSSL: false, accessKey: process.env.S3_ACCESS_KEY_ID || "closet-web", secretKey: process.env.S3_SECRET_ACCESS_KEY || "" });
 async function readObject(key: string): Promise<Buffer> {
@@ -12,8 +12,8 @@ async function readObject(key: string): Promise<Buffer> {
   for await (const ch of await store.getObject(process.env.S3_BUCKET || "closet-private", key) as any) chunks.push(Buffer.from(ch));
   return Buffer.concat(chunks);
 }
-/** Reservada para a Fase 3 (Experimentar em mim) -- não é chamada automaticamente aqui;
- * a curadoria de looks agora entrega texto + fotos reais, sem gerar imagem por IA. */
+/** Gera a ilustração do look a partir das peças reais (quando há foto) ou só do texto.
+ * Sunburst tem mais precisão pra edição com fotos de referência; Flare é mais rápido pra gerar do zero. */
 async function generateIllustration(c: any, userId: string, lookId: string, itemIds: string[], description: string) {
   const openai = new OpenAI();
   const photos = (await c.query(
@@ -24,11 +24,15 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
     `Ilustração editorial de moda, estilo croqui/silhueta estilizada, sem rosto detalhado e sem identidade real de nenhuma pessoa. ` +
     `Figura genérica de moda vestindo esta combinação: ${description}. Fundo neutro claro, traço elegante, sem texto na imagem.`;
   let img;
-  if (photos.length > 0) {
-    const files = await Promise.all(photos.map(async (p: any, i: number) => toFile(await readObject(p.object_key), `ref-${i}.png`, { type: p.content_type })));
-    img = await openai.images.edit({ model: "gpt-image-1", image: files, size: "1024x1024", prompt: `Use estas fotos reais das peças como referência de cor, textura e caimento. ${promptBase}` });
-  } else {
-    img = await openai.images.generate({ model: "gpt-image-1", size: "1024x1024", prompt: promptBase });
+  try {
+    if (photos.length > 0) {
+      const files = await Promise.all(photos.map(async (p: any, i: number) => toFile(await readObject(p.object_key), `ref-${i}.png`, { type: p.content_type })));
+      img = await openai.images.edit({ model: "gpt-image-2.5-sunburst", image: files, size: "1024x1024", quality: "high", prompt: `Use estas fotos reais das peças como referência de cor, textura e caimento. ${promptBase}` });
+    } else {
+      img = await openai.images.generate({ model: "gpt-image-2.5-flare", size: "1024x1024", quality: "high", prompt: promptBase });
+    }
+  } catch {
+    return;
   }
   const b64 = img.data?.[0]?.b64_json;
   if (!b64) return;
@@ -91,13 +95,19 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
       "INSERT INTO looks(tenant_id,user_id,name,occasion,kind,trip_label) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,$3,$4,$5) RETURNING id",
       [userId, name, occasion, kind, tripLabel],
     );
+    const lookId = look.rows[0].id;
     for (const id of ids) {
       await c.query(
         "INSERT INTO look_items(look_id,item_id,tenant_id,user_id) VALUES($1,$2,current_setting('app.tenant_id')::uuid,$3)",
-        [look.rows[0].id, id, userId],
+        [lookId, id, userId],
       );
     }
     created++;
+    const imageAllowance = await checkImageAllowance(c, userId);
+    if (imageAllowance.ok) {
+      const pieceNames = items.filter((i: any) => ids.includes(i.id)).map((i: any) => i.name).join(", ");
+      await generateIllustration(c, userId, lookId, ids, `${name || "look"} (${occasion || "sem ocasião"}): ${pieceNames}`);
+    }
   }
   return { createdCount: created, note: parsed.note };
 }
