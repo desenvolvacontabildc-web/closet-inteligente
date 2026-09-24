@@ -19,7 +19,7 @@ export default async function Mala({searchParams}:{searchParams:Promise<{error?:
     <h1>Sua mala inteligente</h1>
     <p>Diga o destino e quantos dias — a IA monta um look por dia usando só peças reais do seu closet, e a mala vira a lista de tudo que precisa levar.</p>
     {error&&<p role="alert" className="trial-banner">{error}</p>}
-    {remaining!==null&&<div className="trial-banner"><p>{remaining>0?`Você ainda pode gerar ${remaining} look${remaining===1?"":"s"} neste período.`:(allowance.message||"Limite de looks atingido neste período.")}</p></div>}
+    {remaining!==null&&<div className="trial-banner"><p>{remaining>0?`Você tem ${remaining} geração${remaining===1?"":"ões"} hoje${allowance.isTrial?" (35 no total, durante os 7 dias de teste)":""}.`:(allowance.message||"Limite de gerações atingido neste período.")}</p></div>}
     <form action={suggestTrip} className="form">
       <h2>Montar mala</h2>
       <input name="destino" placeholder="Destino (ex.: São Paulo)" required/>

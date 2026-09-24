@@ -1,9 +1,9 @@
 import "server-only";
 import type { PoolClient } from "pg";
 
-// Teste gratuito: limites diários fixos (7 dias).
+// Teste gratuito: limite diário, recarrega todo dia (7 dias de teste = até 35 gerações no total).
 export const TRIAL_DAILY_LOOK_LIMIT = 5;
-export const TRIAL_DAILY_AI_LIMIT = 15;
+export const TRIAL_DAILY_AI_LIMIT = 40;
 
 // Planos pagos (nomes voltados à moda). null = sem limite.
 export type Plan = "ARRUMADA" | "FASHION" | "SUPER_STAR";
@@ -32,13 +32,13 @@ async function countLooksThisPeriod(c: PoolClient, monthly: boolean): Promise<nu
 }
 
 /** Verifica se ainda há cota para criar mais um look. Não faz nenhuma escrita. */
-export async function checkLookAllowance(c: PoolClient, userId: string): Promise<{ ok: boolean; remaining: number | null; message?: string }> {
+export async function checkLookAllowance(c: PoolClient, userId: string): Promise<{ ok: boolean; remaining: number | null; message?: string; isTrial?: boolean }> {
   const sub = await mySubscription(c, userId);
   if (sub.status === "TRIAL") {
     const used = await countLooksThisPeriod(c, false);
     const remaining = Math.max(0, TRIAL_DAILY_LOOK_LIMIT - used);
-    if (remaining === 0) return { ok: false, remaining: 0, message: `No teste gratuito, o limite é de ${TRIAL_DAILY_LOOK_LIMIT} looks por dia. Assine para continuar.` };
-    return { ok: true, remaining };
+    if (remaining === 0) return { ok: false, remaining: 0, isTrial: true, message: `No teste gratuito, o limite é de ${TRIAL_DAILY_LOOK_LIMIT} gerações por dia (35 no total, durante os 7 dias). Volte amanhã ou assine para continuar.` };
+    return { ok: true, remaining, isTrial: true };
   }
   const limit = PLAN_MONTHLY_LOOK_LIMIT[sub.plan] ?? null;
   if (limit === null) return { ok: true, remaining: null };

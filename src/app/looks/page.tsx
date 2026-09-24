@@ -31,7 +31,7 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
     <div className="top"><span className="eyebrow">MEUS LOOKS</span><Link href="/home">Voltar</Link></div>
     <h1>Seus looks</h1>
     {error&&<p role="alert" className="trial-banner">{error}</p>}
-    {remaining!==null&&<div className="trial-banner"><p>{remaining>0?`Você ainda pode criar ${remaining} look${remaining===1?"":"s"} neste período.`:(allowance.message||"Limite de looks atingido neste período.")}</p></div>}
+    {remaining!==null&&<div className="trial-banner"><p>{remaining>0?`Você tem ${remaining} geração${remaining===1?"":"ões"} hoje${allowance.isTrial?" (35 no total, durante os 7 dias de teste)":""}.`:(allowance.message||"Limite de gerações atingido neste período.")}</p></div>}
     <div className="grid">
       {looks.map((l:any)=>(
         <div className="look-card" key={l.id}>

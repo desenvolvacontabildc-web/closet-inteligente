@@ -14,7 +14,7 @@ export default async function Colorimetria({searchParams}:{searchParams:Promise<
     <h1>Colorimetria pessoal</h1>
     <p>A IA analisa uma foto sua (rosto ou pulso, em boa iluminação) para estimar seu subtom de pele e sugerir cores. É uma estimativa — não substitui uma análise profissional presencial.</p>
     {error&&<p role="alert" className="trial-banner">{error}</p>}
-    {!allowed&&<div className="trial-banner"><p>Exclusiva do plano <strong>Super Star</strong> (ou durante o teste gratuito). Fale com a administradora para migrar de plano.</p></div>}
+    {!allowed&&<div className="trial-banner"><p>Recurso exclusivo do plano <strong>Super Star</strong> — não incluído no teste gratuito nem nos outros planos. Assine o Super Star para desbloquear.</p></div>}
     {allowed&&<form action={generateColorimetria} encType="multipart/form-data" className="form">
       <label>Sua foto (rosto e/ou pulso, luz natural, sem filtro)<input name="photo" type="file" accept="image/*" required/></label>
       <label className="checkbox"><input type="checkbox" name="consent" required/> Autorizo o uso desta foto pela IA, só para gerar esta análise de colorimetria. A foto não fica salva depois da análise.</label>
