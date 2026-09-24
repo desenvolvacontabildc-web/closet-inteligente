@@ -20,8 +20,8 @@ export default async function Mala({searchParams}:{searchParams:Promise<{error?:
     <p>Diga o destino e quantos dias — a IA monta um look por dia usando só peças reais do seu closet, e a mala vira a lista de tudo que precisa levar.</p>
     {error&&<p role="alert" className="trial-banner">{error}</p>}
     <div className="trial-banner">
-      <p>🧠 {aiRemaining===null?"Operações de IA ilimitadas no seu plano.":`${aiRemaining} operação${aiRemaining===1?"":"ões"} de IA disponíve${aiRemaining===1?"l":"is"}.`}</p>
-      <p>🖼️ {imgRemaining===null?"Gerações de imagem ilimitadas no seu plano.":`${imgRemaining} geração${imgRemaining===1?"":"ões"} de imagem disponíve${imgRemaining===1?"l":"is"} este período.`}</p>
+      <p>🧠 {aiRemaining===null?"Operações de IA ilimitadas no seu plano.":`${aiRemaining} operaç${aiRemaining===1?"ão":"ões"} de IA disponíve${aiRemaining===1?"l":"is"}.`}</p>
+      <p>🖼️ {imgRemaining===null?"Gerações de imagem ilimitadas no seu plano.":`${imgRemaining} geraç${imgRemaining===1?"ão":"ões"} de imagem disponíve${imgRemaining===1?"l":"is"} este período.`}</p>
     </div>
     <form action={suggestTrip} className="form">
       <h2>Montar mala</h2>
