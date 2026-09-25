@@ -1,36 +1,41 @@
 import { redirect } from "next/navigation";
-import { generateTodayLook, generateLookIllustration } from "@/server/look-actions";
+import { generateTodayLook, generateLookIllustration, submitLookFeedback } from "@/server/look-actions";
 import Link from "next/link";
 import { withProfile } from "@/server/profile-session";
 import { aiUsageRemaining, PLAN_LABEL, type Plan } from "@/server/limits";
 import SubmitButton from "@/components/submit-button";
-export default async function Home({searchParams}:{searchParams:Promise<{error?:string}>}){
- const {error}=await searchParams;
+export default async function Home({searchParams}:{searchParams:Promise<{error?:string,skip?:string}>}){
+ const {error,skip}=await searchParams;
+ const skipIds=(skip||"").split(",").filter(Boolean);
  const profile=await withProfile(async(c,id)=>{
    const p=(await c.query("SELECT p.display_name,p.onboarding_completed,p.avatar_object_key FROM profiles p WHERE p.user_id=$1",[id])).rows[0];
    if(!p)return null;
    const sub=(await c.query("SELECT * FROM my_subscription($1)",[id])).rows[0];
    const aiRemaining=await aiUsageRemaining(c,id);
    const todayLooks=(await c.query(`SELECT l.id,l.name,l.occasion,l.illustration_object_key IS NOT NULL AS has_illustration,
-     (SELECT json_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
+     (SELECT lf.kind FROM look_feedback lf WHERE lf.look_id=l.id ORDER BY lf.created_at DESC LIMIT 1) AS last_feedback,
+     (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
      FROM looks l WHERE l.kind='DAILY' AND l.created_at::date=current_date ORDER BY l.created_at`)).rows;
    const activeItems=(await c.query("SELECT id,name,category FROM closet_items WHERE status='ACTIVE' ORDER BY category,name")).rows;
    const trend=(await c.query("SELECT * FROM list_active_trends(1)")).rows[0]||null;
-   const forgotten=(await c.query(`SELECT ci.id,ci.name,ci.category,
+   // LOOK DO DIA: prioriza um look já aprovado (peças reais, sem gerar imagem nova) que não
+   // foi usado recentemente. PEÇA DO DIA: se não houver look aprovado disponível, cai pra
+   // uma peça real pouco usada -- nunca gera imagem automaticamente só pra preencher a Home.
+   const approvedLook=skipIds.length?null:(await c.query(`SELECT l.id,l.name,l.occasion,l.illustration_object_key IS NOT NULL AS has_illustration,l.photo_object_key IS NOT NULL AS has_photo,
+       (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
+     FROM looks l WHERE l.status='APPROVED' AND l.id::text != ALL($1::text[]) AND (l.worn_at IS NULL OR l.worn_at < now() - interval '14 days')
+     ORDER BY l.approved_at DESC NULLS LAST, random() LIMIT 1`,[skipIds])).rows[0]||null;
+   const dayPiece=approvedLook?null:(await c.query(`SELECT ci.id,ci.name,ci.category,
        (SELECT p.id FROM closet_item_photos p WHERE p.item_id=ci.id ORDER BY p.created_at DESC LIMIT 1) AS photo_id,
        (SELECT MAX(l.created_at) FROM look_items li JOIN looks l ON l.id=li.look_id WHERE li.item_id=ci.id) AS last_used_at
-     FROM closet_items ci WHERE ci.status='ACTIVE'
-       AND ((SELECT MAX(l.created_at) FROM look_items li JOIN looks l ON l.id=li.look_id WHERE li.item_id=ci.id) IS NULL
-         OR (SELECT MAX(l.created_at) FROM look_items li JOIN looks l ON l.id=li.look_id WHERE li.item_id=ci.id) < now() - interval '60 days')
-     ORDER BY last_used_at ASC NULLS FIRST LIMIT 1`)).rows[0]||null;
-   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,forgotten};
+     FROM closet_items ci WHERE ci.status='ACTIVE' AND ci.id::text != ALL($1::text[])
+     ORDER BY last_used_at ASC NULLS FIRST LIMIT 1`,[skipIds])).rows[0]||null;
+   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,approvedLook,dayPiece};
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,forgotten}=profile;
- const dayOfYear=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0).getTime())/86400000);
- const showForgottenToday=forgotten&&todayLooks.length===0&&dayOfYear%2===0;
- const forgottenDays=forgotten?.last_used_at?Math.floor((Date.now()-new Date(forgotten.last_used_at).getTime())/86400000):null;
+ const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,approvedLook,dayPiece}=profile;
+ const dayPieceDays=dayPiece?.last_used_at?Math.floor((Date.now()-new Date(dayPiece.last_used_at).getTime())/86400000):null;
  const trialDaysLeft=sub?.status==="TRIAL"&&sub.trial_ends_at?Math.max(0,Math.ceil((new Date(sub.trial_ends_at).getTime()-Date.now())/86400000)):null;
  return <main className="shell">
    <span className="eyebrow">CLOSET INTELIGENTE</span>
@@ -60,28 +65,57 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
                <input type="hidden" name="return_path" value="/home"/>
                <SubmitButton className="link" pendingText="Gerando imagem... (até 30s)">🖼️ Gerar inspiração em imagem</SubmitButton>
              </form>}
+             <div className="action-row">
+               <form action={submitLookFeedback}>
+                 <input type="hidden" name="look_id" value={l.id}/><input type="hidden" name="kind" value="LIKE"/><input type="hidden" name="return_path" value="/home"/>
+                 <button className={l.last_feedback==="LIKE"?"active":""}>♡ Gostei</button>
+               </form>
+               <form action={submitLookFeedback}>
+                 <input type="hidden" name="look_id" value={l.id}/><input type="hidden" name="kind" value="DISLIKE"/><input type="hidden" name="return_path" value="/home"/>
+                 <button className={l.last_feedback==="DISLIKE"?"active":""}>Não é pra mim</button>
+               </form>
+             </div>
            </div>
          ))}
-       </div>:showForgottenToday?<div className="trend-teaser" style={{flexDirection:"column",alignItems:"flex-start"}}>
-         {forgotten.photo_id&&<img src={`/api/closet/photos/${forgotten.photo_id}`} alt={forgotten.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>}
+       </div>:approvedLook?<div className="trend-teaser" style={{flexDirection:"column",alignItems:"flex-start"}}>
+         {approvedLook.has_photo?<img src={`/api/looks/${approvedLook.id}/photo`} alt={approvedLook.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>
+           :approvedLook.has_illustration?<img src={`/api/looks/${approvedLook.id}/illustration`} alt={approvedLook.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>:null}
          <div>
-           <span className="eyebrow">PEÇA ESQUECIDA</span>
-           <strong>{forgotten.name}</strong>
-           <p className="look-meta">{forgottenDays===null?"Você ainda não usou essa peça em nenhum look.":`Você não usa essa peça há ${forgottenDays} dias.`} Que tal incluir ela hoje?</p>
+           <span className="eyebrow">LOOK DO DIA</span>
+           <strong>{approvedLook.name||"Um look que você já aprovou"}</strong>
+           <p className="look-meta">{(approvedLook.pieces||[]).join(" + ")}</p>
          </div>
-         <form action={generateTodayLook}>
-           <input type="hidden" name="base_item_id" value={forgotten.id}/>
-           <SubmitButton pendingText="Pensando... (pode levar até 20s)">Montar look com essa peça</SubmitButton>
+         <div className="action-row">
+           <Link href="/looks?filtro=aprovados">Ver look</Link>
+           <Link href={`/home?skip=${approvedLook.id}`}>Gerar outra sugestão</Link>
+         </div>
+       </div>:dayPiece?<div className="trend-teaser" style={{flexDirection:"column",alignItems:"flex-start"}}>
+         {dayPiece.photo_id&&<img src={`/api/closet/photos/${dayPiece.photo_id}`} alt={dayPiece.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>}
+         <div>
+           <span className="eyebrow">PEÇA DO DIA</span>
+           <strong>{dayPiece.name}</strong>
+           <p className="look-meta">{dayPieceDays===null?"Você ainda não usou essa peça em nenhum look.":`Você não usa essa peça há ${dayPieceDays} dias.`} Que tal incluir ela hoje?</p>
+         </div>
+         <div className="action-row">
+           <form action={generateTodayLook}>
+             <input type="hidden" name="base_item_id" value={dayPiece.id}/>
+             <SubmitButton pendingText="Pensando... (pode levar até 20s)">Montar look com esta peça</SubmitButton>
+           </form>
+           <Link href={`/home?skip=${dayPiece.id}`}>Gerar outra sugestão</Link>
+         </div>
+       </div>:null}
+       <details>
+         <summary>Ou monte um novo look para hoje do zero</summary>
+         <form action={generateTodayLook} className="form">
+           <label>Quer usar alguma peça específica como base? (opcional)
+             <select name="base_item_id" defaultValue="">
+               <option value="">Nenhuma — gerar do zero</option>
+               {activeItems.map((i:any)=><option key={i.id} value={i.id}>{i.name} · {i.category}</option>)}
+             </select>
+           </label>
+           <SubmitButton pendingText="Pensando... (pode levar até 20s)">Gerar 3 opções de look para hoje</SubmitButton>
          </form>
-       </div>:<form action={generateTodayLook} className="form">
-         <label>Quer usar alguma peça específica como base? (opcional)
-           <select name="base_item_id" defaultValue="">
-             <option value="">Nenhuma — gerar do zero</option>
-             {activeItems.map((i:any)=><option key={i.id} value={i.id}>{i.name} · {i.category}</option>)}
-           </select>
-         </label>
-         <SubmitButton pendingText="Pensando... (pode levar até 20s)">Gerar 3 opções de look para hoje</SubmitButton>
-       </form>}
+       </details>
      </div>
      <div className="quick-actions">
        <Link href="/looks">Criar look</Link>

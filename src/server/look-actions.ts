@@ -14,21 +14,37 @@ async function readObject(key: string): Promise<Buffer> {
 }
 /** Gera a ilustração do look a partir das peças reais (quando há foto) ou só do texto.
  * Sunburst tem mais precisão pra edição com fotos de referência; Flare é mais rápido pra gerar do zero.
- * Só é chamada sob demanda (botão "Gerar inspiração em imagem"), nunca automaticamente ao montar o look. */
-async function generateIllustration(c: any, userId: string, lookId: string, itemIds: string[], description: string) {
+ * Só é chamada sob demanda (botão "Gerar inspiração em imagem"), nunca automaticamente ao montar o look.
+ * `style` controla COMO VOCÊ QUER VISUALIZAR ESTE LOOK: REALISTA (foto-realista, sem estética de
+ * desenho), AVATAR (usa o avatar personalizado da cliente como figura) ou ILUSTRACAO (croqui
+ * genérico de moda, sem personalizar a figura mesmo se houver avatar). */
+async function generateIllustration(c: any, userId: string, lookId: string, itemIds: string[], description: string, style: "REALISTA" | "AVATAR" | "ILUSTRACAO") {
   const openai = new OpenAI({ timeout: 120000 });
   const photos = (await c.query(
     "SELECT DISTINCT ON (item_id) item_id, object_key, content_type FROM closet_item_photos WHERE item_id = ANY($1::uuid[]) ORDER BY item_id, created_at DESC LIMIT 2",
     [itemIds],
   )).rows;
-  const avatarRow = (await c.query("SELECT avatar_illustration_object_key FROM profiles WHERE user_id=$1", [userId])).rows[0];
-  const avatarKey = avatarRow?.avatar_illustration_object_key || null;
-  const figureInstruction = avatarKey
-    ? "Use a primeira imagem de referência como o avatar/silhueta da cliente (mantenha as mesmas proporções de corpo e a pose), sem copiar roupa nem rosto dela. "
-    : "Figura genérica de moda. ";
-  const promptBase =
-    `Ilustração editorial de moda, estilo croqui/silhueta estilizada, sem rosto detalhado e sem identidade real de nenhuma pessoa. ` +
-    `${figureInstruction}Vestindo esta combinação: ${description}. Fundo neutro claro, traço elegante, sem texto na imagem.`;
+  let avatarKey: string | null = null;
+  if (style === "AVATAR") {
+    const avatarRow = (await c.query("SELECT avatar_illustration_object_key FROM profiles WHERE user_id=$1", [userId])).rows[0];
+    avatarKey = avatarRow?.avatar_illustration_object_key || null;
+    if (!avatarKey) return "NO_AVATAR" as const;
+  }
+  let promptBase: string;
+  if (style === "REALISTA") {
+    promptBase =
+      `Fotografia de moda realista, aparência fotográfica (NÃO desenho, NÃO ilustração, NÃO croqui), modelo genérica de corpo inteiro sem identidade real de nenhuma pessoa, ` +
+      `iluminação natural de estúdio. Vestindo esta combinação: ${description}. Fundo neutro claro, sem texto na imagem.`;
+  } else if (style === "AVATAR") {
+    promptBase =
+      `Ilustração editorial de moda, estilo croqui/silhueta estilizada, sem rosto detalhado e sem identidade real de nenhuma pessoa. ` +
+      `Use a primeira imagem de referência como o avatar/silhueta da cliente (mantenha as mesmas proporções de corpo e a pose), sem copiar roupa nem rosto dela. ` +
+      `Vestindo esta combinação: ${description}. Fundo neutro claro, traço elegante, sem texto na imagem.`;
+  } else {
+    promptBase =
+      `Ilustração editorial de moda, estilo croqui/silhueta estilizada, figura genérica de moda, sem rosto detalhado e sem identidade real de nenhuma pessoa. ` +
+      `Vestindo esta combinação: ${description}. Fundo neutro claro, traço elegante, sem texto na imagem.`;
+  }
   let img;
   try {
     if (avatarKey || photos.length > 0) {
@@ -41,16 +57,16 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
       img = await openai.images.generate({ model: "gpt-image-2.5-flare", size: "1024x1024", quality: "medium", prompt: promptBase });
     }
   } catch {
-    return false;
+    return "FAILED" as const;
   }
   const b64 = img.data?.[0]?.b64_json;
-  if (!b64) return false;
+  if (!b64) return "FAILED" as const;
   const buf = Buffer.from(b64, "base64");
   const key = `looks/${lookId}/illustration.png`;
   await store.putObject(process.env.S3_BUCKET || "closet-private", key, buf, buf.length, { "Content-Type": "image/png" });
-  await c.query("UPDATE looks SET illustration_object_key=$1 WHERE id=$2", [key, lookId]);
+  await c.query("UPDATE looks SET illustration_object_key=$1, visual_style=$2 WHERE id=$3", [key, style, lookId]);
   await c.query("SELECT log_image_generation($1,current_setting('app.tenant_id')::uuid)", [userId]);
-  return true;
+  return "OK" as const;
 }
 
 /** Botão "Gerar inspiração em imagem" em cada look -- consome só o orçamento de geração de
@@ -58,9 +74,12 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
 export async function generateLookIllustration(f: FormData) {
   const lookId = String(f.get("look_id") || "");
   const returnPath = String(f.get("return_path") || "/looks");
+  const requestedStyle = String(f.get("visual_style") || "");
   await withProfile(async (c, userId) => {
     const allowance = await checkImageAllowance(c, userId);
     if (!allowance.ok) bounce(returnPath, allowance.message || "Limite de gerações de imagem atingido.");
+    const prof = (await c.query("SELECT default_visual_style FROM profiles WHERE user_id=$1", [userId])).rows[0];
+    const style = (["REALISTA", "AVATAR", "ILUSTRACAO"].includes(requestedStyle) ? requestedStyle : prof?.default_visual_style || "ILUSTRACAO") as "REALISTA" | "AVATAR" | "ILUSTRACAO";
     const look = await c.query(
       `SELECT l.name, l.occasion, (SELECT array_agg(ci.id::text) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS item_ids,
         (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
@@ -69,8 +88,63 @@ export async function generateLookIllustration(f: FormData) {
     );
     if (!look.rowCount) bounce(returnPath, "Look não encontrado.");
     const { name, occasion, item_ids, pieces } = look.rows[0];
-    const ok = await generateIllustration(c, userId, lookId, item_ids || [], `${name || "look"} (${occasion || "sem ocasião"}): ${(pieces || []).join(", ")}`);
-    if (!ok) bounce(returnPath, "Não foi possível gerar a imagem agora (sem créditos ou fora do ar). Tente de novo mais tarde.");
+    const result = await generateIllustration(c, userId, lookId, item_ids || [], `${name || "look"} (${occasion || "sem ocasião"}): ${(pieces || []).join(", ")}`, style);
+    if (result === "NO_AVATAR") bounce(returnPath, "Você ainda não tem um avatar personalizado. Crie o seu avatar no Perfil primeiro.");
+    if (result === "FAILED") bounce(returnPath, "Não foi possível gerar a imagem agora (sem créditos ou fora do ar). Tente de novo mais tarde.");
+    return true;
+  });
+  redirect(returnPath);
+}
+
+/** "Gostei" (salva o look em Looks Aprovados) / "Não é pra mim" -- feedback simples numa
+ * imagem/composição gerada. Não interpreta "não gostei" como rejeição das peças do look. */
+export async function submitLookFeedback(f: FormData) {
+  const lookId = String(f.get("look_id") || "");
+  const kind = String(f.get("kind") || "");
+  const returnPath = String(f.get("return_path") || "/looks");
+  if (kind !== "LIKE" && kind !== "DISLIKE") bounce(returnPath, "Feedback inválido.");
+  await withProfile(async (c, userId) => {
+    const look = await c.query("SELECT status FROM looks WHERE id=$1", [lookId]);
+    if (!look.rowCount) bounce(returnPath, "Look não encontrado.");
+    await c.query(
+      "INSERT INTO look_feedback(tenant_id,user_id,look_id,kind,context) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,$3,$4)",
+      [userId, lookId, kind, returnPath],
+    );
+    if (kind === "LIKE" && look.rows[0].status !== "WORN") {
+      await c.query("UPDATE looks SET status='APPROVED', approved_at=now(), updated_at=now() WHERE id=$1", [lookId]);
+    }
+    return true;
+  });
+  redirect(returnPath);
+}
+
+/** Marca que a cliente de fato USOU o look (diferente de só ter aprovado a imagem) e
+ * pede o feedback pós-uso, que pesa mais na personalização do que um "gostei". */
+export async function markLookWorn(f: FormData) {
+  const lookId = String(f.get("look_id") || "");
+  const returnPath = String(f.get("return_path") || "/looks");
+  await withProfile(async (c) => {
+    const look = await c.query("SELECT id FROM looks WHERE id=$1", [lookId]);
+    if (!look.rowCount) bounce(returnPath, "Look não encontrado.");
+    await c.query("UPDATE looks SET status='WORN', worn_at=now(), updated_at=now() WHERE id=$1", [lookId]);
+    return true;
+  });
+  redirect(returnPath);
+}
+
+export async function submitPostUseFeedback(f: FormData) {
+  const lookId = String(f.get("look_id") || "");
+  const sentiment = String(f.get("sentiment") || "");
+  const returnPath = String(f.get("return_path") || "/looks");
+  const valid = ["AMEI", "GOSTEI", "MUDARIA", "NAO_REPETIRIA"];
+  if (!valid.includes(sentiment)) bounce(returnPath, "Escolha uma opção válida.");
+  await withProfile(async (c, userId) => {
+    const look = await c.query("SELECT id FROM looks WHERE id=$1", [lookId]);
+    if (!look.rowCount) bounce(returnPath, "Look não encontrado.");
+    await c.query(
+      "INSERT INTO look_feedback(tenant_id,user_id,look_id,kind,sentiment,context) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,'POST_USE',$3,$4)",
+      [userId, lookId, sentiment, returnPath],
+    );
     return true;
   });
   redirect(returnPath);
@@ -159,9 +233,14 @@ export async function createLook(f: FormData) {
   redirect("/looks");
 }
 
+const APPROVED_LOOK_INTENT = /aprovad|j[áa]\s+aprovei|repetir\s+aquele|repetir\s+o\s+look/i;
+
 export async function suggestLooks(f: FormData) {
   const request = String(f.get("request") || "").trim();
   if (!request) bounce("/looks", 'Descreva o que você precisa (ex.: "3 looks para reuniões essa semana").');
+  if (APPROVED_LOOK_INTENT.test(request)) {
+    redirect("/looks?filtro=aprovados");
+  }
   await withProfile(async (c, userId) => {
     const result = await generateLooksFromRequest(c, userId, request, 5, "SUGGESTED", "", "/looks");
     if (result.createdCount === 0) bounce("/looks", "Não foi possível montar nenhum look com as peças atuais do seu closet para esse pedido.");
