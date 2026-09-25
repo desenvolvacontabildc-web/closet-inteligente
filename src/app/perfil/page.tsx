@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { withProfile } from "@/server/profile-session";
 import { logout } from "@/server/auth-actions";
-import { uploadAvatar, setBodyAvatarReference, setDefaultVisualStyle } from "@/server/avatar-actions";
+import { uploadAvatar, setBodyAvatarReference, setDefaultVisualStyle, setCity } from "@/server/avatar-actions";
 import { mySubscription, PLAN_LABEL } from "@/server/limits";
 import SubmitButton from "@/components/submit-button";
 
@@ -11,17 +11,17 @@ const STYLE_LABEL: Record<string, string> = { REALISTA: "Fotografia realista", A
 export default async function Perfil({searchParams}:{searchParams:Promise<{error?:string}>}) {
   const {error} = await searchParams;
   const data = await withProfile(async (c, userId) => {
-    const p = (await c.query("SELECT display_name, avatar_object_key, avatar_illustration_object_key, default_visual_style FROM profiles WHERE user_id=$1", [userId])).rows[0];
+    const p = (await c.query("SELECT display_name, avatar_object_key, avatar_illustration_object_key, default_visual_style, city FROM profiles WHERE user_id=$1", [userId])).rows[0];
     const u = (await c.query("SELECT email, is_admin FROM app_users WHERE id=$1", [userId])).rows[0];
     const sub = await mySubscription(c, userId);
     return {
       displayName: p?.display_name || "", hasAvatar: !!p?.avatar_object_key,
       hasStyleAvatar: !!p?.avatar_illustration_object_key, defaultVisualStyle: p?.default_visual_style || "ILUSTRACAO",
-      email: u.email, isAdmin: u.is_admin, sub,
+      city: p?.city || "", email: u.email, isAdmin: u.is_admin, sub,
     };
   });
   if (!data) redirect("/");
-  const { displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, email, isAdmin, sub } = data;
+  const { displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, email, isAdmin, sub } = data;
 
   return <main className="shell narrow">
     <span className="eyebrow">PERFIL</span>
@@ -64,6 +64,15 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
           {Object.entries(STYLE_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}
         </select>
         <button>Salvar preferência</button>
+      </form>
+    </div>
+
+    <div className="card">
+      <h2>Sua cidade</h2>
+      <p className="look-meta">Usamos pra puxar o clima na hora de sugerir looks (peça mais leve se estiver quente, casaco se estiver frio).</p>
+      <form action={setCity} className="form">
+        <input name="city" placeholder="Ex.: Recife, PE" defaultValue={city}/>
+        <button>Salvar cidade</button>
       </form>
     </div>
 

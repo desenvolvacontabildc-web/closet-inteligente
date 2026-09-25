@@ -87,6 +87,17 @@ export async function setDefaultVisualStyle(f: FormData) {
   redirect("/perfil");
 }
 
+/** Cidade da cliente, usada pra puxar o clima e ajustar as sugestões de look
+ * (peças mais leves se estiver quente, casaco se estiver frio, etc). */
+export async function setCity(f: FormData) {
+  const city = String(f.get("city") || "").trim().slice(0, 120);
+  await withProfile(async (c, userId) => {
+    await c.query("UPDATE profiles SET city=$1, updated_at=now() WHERE user_id=$2", [city, userId]);
+    return true;
+  });
+  redirect("/perfil");
+}
+
 export async function uploadAvatar(f: FormData) {
   const file = f.get("avatar");
   const redirectTo = String(f.get("redirect_to") || "/perfil");

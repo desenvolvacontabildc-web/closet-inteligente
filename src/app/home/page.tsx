@@ -18,23 +18,28 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      FROM looks l WHERE l.kind='DAILY' AND l.created_at::date=current_date ORDER BY l.created_at`)).rows;
    const activeItems=(await c.query("SELECT id,name,category FROM closet_items WHERE status='ACTIVE' ORDER BY category,name")).rows;
    const trend=(await c.query("SELECT * FROM list_active_trends(1)")).rows[0]||null;
-   // LOOK DO DIA: prioriza um look já aprovado (peças reais, sem gerar imagem nova) que não
-   // foi usado recentemente. PEÇA DO DIA: se não houver look aprovado disponível, cai pra
-   // uma peça real pouco usada -- nunca gera imagem automaticamente só pra preencher a Home.
-   const approvedLook=skipIds.length?null:(await c.query(`SELECT l.id,l.name,l.occasion,l.illustration_object_key IS NOT NULL AS has_illustration,l.photo_object_key IS NOT NULL AS has_photo,
+   // LOOK DO DIA: muda todo dia (chave de desempate estável por data), priorizando looks já
+   // aprovados, depois looks salvos não usados recentemente -- podem ser novos, já salvos ou
+   // aprovados, sempre variando. A ideia é ela sempre ter uma opção pronta sem precisar gerar
+   // (e gastar crédito de imagem). PEÇA DO DIA: se não houver nenhum look salvo com peças, cai
+   // pra uma peça real pouco usada -- nunca gera imagem automaticamente só pra preencher a Home.
+   const dayLook=skipIds.length?null:(await c.query(`SELECT l.id,l.name,l.occasion,l.status,l.illustration_object_key IS NOT NULL AS has_illustration,l.photo_object_key IS NOT NULL AS has_photo,
        (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
-     FROM looks l WHERE l.status='APPROVED' AND l.id::text != ALL($1::text[]) AND (l.worn_at IS NULL OR l.worn_at < now() - interval '14 days')
-     ORDER BY l.approved_at DESC NULLS LAST, random() LIMIT 1`,[skipIds])).rows[0]||null;
-   const dayPiece=approvedLook?null:(await c.query(`SELECT ci.id,ci.name,ci.category,
+     FROM looks l WHERE l.kind NOT IN ('DAILY','TRIP') AND l.status NOT IN ('REJECTED','OUTDATED')
+       AND l.id::text != ALL($1::text[]) AND EXISTS (SELECT 1 FROM look_items li WHERE li.look_id=l.id)
+     ORDER BY (l.status='APPROVED') DESC, (l.worn_at IS NULL OR l.worn_at < now() - interval '14 days') DESC, md5(l.id::text||current_date::text)
+     LIMIT 1`,[skipIds])).rows[0]||null;
+   const dayPiece=dayLook?null:(await c.query(`SELECT ci.id,ci.name,ci.category,
        (SELECT p.id FROM closet_item_photos p WHERE p.item_id=ci.id ORDER BY p.created_at DESC LIMIT 1) AS photo_id,
        (SELECT MAX(l.created_at) FROM look_items li JOIN looks l ON l.id=li.look_id WHERE li.item_id=ci.id) AS last_used_at
      FROM closet_items ci WHERE ci.status='ACTIVE' AND ci.id::text != ALL($1::text[])
      ORDER BY last_used_at ASC NULLS FIRST LIMIT 1`,[skipIds])).rows[0]||null;
-   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,approvedLook,dayPiece};
+   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece};
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,approvedLook,dayPiece}=profile;
+ const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece}=profile;
+ const poucasPecas=activeItems.length<8;
  const dayPieceDays=dayPiece?.last_used_at?Math.floor((Date.now()-new Date(dayPiece.last_used_at).getTime())/86400000):null;
  const trialDaysLeft=sub?.status==="TRIAL"&&sub.trial_ends_at?Math.max(0,Math.ceil((new Date(sub.trial_ends_at).getTime()-Date.now())/86400000)):null;
  return <main className="shell">
@@ -52,7 +57,8 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      </div>
      <div className="empty">
        <h2>Look para hoje</h2>
-       {todayLooks.length>0?<div className="grid">
+       {poucasPecas&&<p className="look-meta">Suas sugestões ainda vão melhorar: quanto mais peças você cadastrar e mais looks usar/avaliar, mais o app entende sua rotina e seu estilo e mais certeiras ficam as opções.</p>}
+       {todayLooks.length>0?<div className="grid two-col">
          {todayLooks.map((l:any)=>(
            <div className="look-card" key={l.id}>
              {l.has_illustration?<img src={`/api/looks/${l.id}/illustration`} alt="Ilustração do look de hoje"/>
@@ -77,17 +83,21 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
              </div>
            </div>
          ))}
-       </div>:approvedLook?<div className="trend-teaser" style={{flexDirection:"column",alignItems:"flex-start"}}>
-         {approvedLook.has_photo?<img src={`/api/looks/${approvedLook.id}/photo`} alt={approvedLook.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>
-           :approvedLook.has_illustration?<img src={`/api/looks/${approvedLook.id}/illustration`} alt={approvedLook.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>:null}
+       </div>:dayLook?<div className="trend-teaser" style={{flexDirection:"column",alignItems:"flex-start"}}>
+         {dayLook.has_photo?<img src={`/api/looks/${dayLook.id}/photo`} alt={dayLook.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>
+           :dayLook.has_illustration?<img src={`/api/looks/${dayLook.id}/illustration`} alt={dayLook.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>:null}
          <div>
            <span className="eyebrow">LOOK DO DIA</span>
-           <strong>{approvedLook.name||"Um look que você já aprovou"}</strong>
-           <p className="look-meta">{(approvedLook.pieces||[]).join(" + ")}</p>
+           <strong>{dayLook.name||(dayLook.status==="APPROVED"?"Um look que você já aprovou":"Uma opção pronta pra hoje")}</strong>
+           <p className="look-meta">{(dayLook.pieces||[]).join(" + ")}</p>
          </div>
          <div className="action-row">
-           <Link href="/looks?filtro=aprovados">Ver look</Link>
-           <Link href={`/home?skip=${approvedLook.id}`}>Gerar outra sugestão</Link>
+           <Link href="/looks">Ver look</Link>
+           {!dayLook.has_illustration&&!dayLook.has_photo&&<form action={generateLookIllustration}>
+             <input type="hidden" name="look_id" value={dayLook.id}/><input type="hidden" name="return_path" value="/home"/>
+             <SubmitButton className="link" pendingText="Gerando... (até 30s)">🖼️ Gerar imagem</SubmitButton>
+           </form>}
+           <Link href={`/home?skip=${dayLook.id}`}>Gerar outra sugestão</Link>
          </div>
        </div>:dayPiece?<div className="trend-teaser" style={{flexDirection:"column",alignItems:"flex-start"}}>
          {dayPiece.photo_id&&<img src={`/api/closet/photos/${dayPiece.photo_id}`} alt={dayPiece.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>}
@@ -113,7 +123,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
                {activeItems.map((i:any)=><option key={i.id} value={i.id}>{i.name} · {i.category}</option>)}
              </select>
            </label>
-           <SubmitButton pendingText="Pensando... (pode levar até 20s)">Gerar 3 opções de look para hoje</SubmitButton>
+           <SubmitButton pendingText="Pensando... (pode levar até 20s)">Gerar 2 opções de look para hoje</SubmitButton>
          </form>
        </details>
      </div>

@@ -30,11 +30,18 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
     avatarKey = avatarRow?.avatar_illustration_object_key || null;
     if (!avatarKey) return "NO_AVATAR" as const;
   }
+  let likenessRef: { key: string; type: string } | null = null;
+  if (style === "REALISTA") {
+    const bodyRow = (await c.query("SELECT body_photo_object_key, body_photo_content_type FROM profiles WHERE user_id=$1", [userId])).rows[0];
+    if (bodyRow?.body_photo_object_key) likenessRef = { key: bodyRow.body_photo_object_key, type: bodyRow.body_photo_content_type || "image/jpeg" };
+  }
   let promptBase: string;
   if (style === "REALISTA") {
-    promptBase =
-      `Fotografia de moda realista, aparência fotográfica (NÃO desenho, NÃO ilustração, NÃO croqui), modelo genérica de corpo inteiro sem identidade real de nenhuma pessoa, ` +
-      `iluminação natural de estúdio. Vestindo esta combinação: ${description}. Fundo neutro claro, sem texto na imagem.`;
+    promptBase = likenessRef
+      ? `Fotografia de moda realista, aparência fotográfica (NÃO desenho, NÃO ilustração, NÃO croqui). Use a primeira imagem de referência para manter o mesmo rosto, tom de pele e aparência da pessoa nela (é uma foto real dela, autorizada por ela mesma), de corpo inteiro, ` +
+        `iluminação natural de estúdio. Vestindo esta combinação: ${description}. Fundo neutro claro, sem texto na imagem.`
+      : `Fotografia de moda realista, aparência fotográfica (NÃO desenho, NÃO ilustração, NÃO croqui), modelo genérica de corpo inteiro sem identidade real de nenhuma pessoa (a cliente ainda não enviou uma foto de referência), ` +
+        `iluminação natural de estúdio. Vestindo esta combinação: ${description}. Fundo neutro claro, sem texto na imagem.`;
   } else if (style === "AVATAR") {
     promptBase =
       `Ilustração editorial de moda, estilo croqui/silhueta estilizada, sem rosto detalhado e sem identidade real de nenhuma pessoa. ` +
@@ -47,12 +54,13 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
   }
   let img;
   try {
-    if (avatarKey || photos.length > 0) {
+    if (avatarKey || likenessRef || photos.length > 0) {
       const refs: { key: string; type: string }[] = [];
       if (avatarKey) refs.push({ key: avatarKey, type: "image/png" });
+      if (likenessRef) refs.push(likenessRef);
       for (const p of photos) refs.push({ key: p.object_key, type: p.content_type });
       const files = await Promise.all(refs.map(async (r, i) => toFile(await readObject(r.key), `ref-${i}.png`, { type: r.type })));
-      img = await openai.images.edit({ model: "gpt-image-2.5-sunburst", image: files, size: "1024x1024", quality: "medium", prompt: `${avatarKey ? "" : "Use estas fotos reais das peças como referência de cor, textura e caimento. "}${promptBase}` });
+      img = await openai.images.edit({ model: "gpt-image-2.5-sunburst", image: files, size: "1024x1024", quality: "medium", prompt: `${avatarKey || likenessRef ? "" : "Use estas fotos reais das peças como referência de cor, textura e caimento. "}${promptBase}` });
     } else {
       img = await openai.images.generate({ model: "gpt-image-2.5-flare", size: "1024x1024", quality: "medium", prompt: promptBase });
     }
@@ -150,6 +158,28 @@ export async function submitPostUseFeedback(f: FormData) {
   redirect(returnPath);
 }
 
+/** Busca o clima atual da cidade cadastrada no perfil (geocodificação + previsão via
+ * Open-Meteo, sem chave de API) e devolve um trecho pra incluir no pedido à IA. Falha
+ * aqui (sem cidade cadastrada, API fora do ar, cidade não encontrada) nunca deve travar
+ * a geração do look -- só volta string vazia. */
+async function weatherContext(c: any, userId: string): Promise<string> {
+  const row = (await c.query("SELECT city FROM profiles WHERE user_id=$1", [userId])).rows[0];
+  const city = String(row?.city || "").trim();
+  if (!city) return "";
+  try {
+    const geo: any = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pt&format=json`, { signal: AbortSignal.timeout(4000) }).then(r => r.json());
+    const loc = geo?.results?.[0];
+    if (!loc) return "";
+    const fc: any = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current=temperature_2m,precipitation&timezone=auto`, { signal: AbortSignal.timeout(4000) }).then(r => r.json());
+    const temp = fc?.current?.temperature_2m;
+    if (temp === undefined || temp === null) return "";
+    const chovendo = Number(fc?.current?.precipitation || 0) > 0;
+    return ` Clima agora em ${loc.name || city}: ${Math.round(temp)}°C${chovendo ? ", chovendo" : ""}. Leve isso em conta na escolha das peças (mais leves se estiver quente, com casaco/blazer se estiver frio, evite tecidos delicados se estiver chovendo).`;
+  } catch {
+    return "";
+  }
+}
+
 /** Núcleo compartilhado: pede N looks à IA usando somente peças reais ativas e salva.
  * Looks salvos são ilimitados -- só a operação de IA (esta chamada) é contada. */
 async function generateLooksFromRequest(c: any, userId: string, request: string, maxLooks: number, kind: "SUGGESTED" | "DAILY" | "TRIP", tripLabel = "", returnPath = "/looks"): Promise<{ createdCount: number; note?: string }> {
@@ -162,6 +192,8 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
     `SELECT l.name, l.occasion, (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
      FROM looks l WHERE l.created_at >= now() - interval '14 days' ORDER BY l.created_at DESC LIMIT 10`,
   )).rows;
+  const weather = kind === "TRIP" ? "" : await weatherContext(c, userId);
+  const requestWithWeather = `${request}${weather}`;
   let out: any;
   try {
     out = await new OpenAI().responses.create({
@@ -171,7 +203,7 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
         content: [{
           type: "input_text",
           text:
-            `Você é uma consultora de imagem (personal stylist). Pedido da cliente: "${request}".\n` +
+            `Você é uma consultora de imagem (personal stylist). Pedido da cliente: "${requestWithWeather}".\n` +
             `Peças reais disponíveis no closet, com atributos de estilo já analisados (use SOMENTE estas peças, nunca invente peças novas; use os atributos — estilo, formalidade, estação, ocasiões, combina_com — pra decidir a curadoria):\n${JSON.stringify(items)}\n` +
             (recent.length > 0 ? `Looks já sugeridos ou usados nos últimos 14 dias (evite repetir exatamente a mesma combinação; pode reutilizar peças individuais, mas varie a composição):\n${JSON.stringify(recent)}\n` : "") +
             `Monte até ${maxLooks} looks distintos e coerentes com o pedido, usando apenas essas peças. ` +
@@ -249,18 +281,19 @@ export async function suggestLooks(f: FormData) {
   redirect("/looks");
 }
 
-/** Botão "Look de hoje": sempre gera 3 opções; reaproveita as de hoje se já existirem. */
+/** Botão "Look de hoje": gera 2 opções (cabem lado a lado na tela e custa menos em geração
+ * de imagem), reaproveita as de hoje se já existirem. */
 export async function generateTodayLook(f: FormData) {
   const baseItemId = String(f.get("base_item_id") || "").trim();
   await withProfile(async (c, userId) => {
     const existing = await c.query("SELECT id FROM looks WHERE kind='DAILY' AND created_at::date=current_date LIMIT 1");
     if (existing.rowCount) return true;
-    let request = "Monte 3 opções de look para hoje, variadas entre si, práticas e alinhadas com o estilo da cliente para um dia comum, usando peças reais do closet ativo.";
+    let request = "Monte 2 opções de look para hoje, variadas entre si, práticas e alinhadas com o estilo da cliente para um dia comum, usando peças reais do closet ativo.";
     if (baseItemId) {
       const base = await c.query("SELECT name FROM closet_items WHERE id=$1 AND status='ACTIVE'", [baseItemId]);
       if (base.rowCount) request = `A cliente quer usar esta peça como base em todas as opções: "${base.rows[0].name}". ${request}`;
     }
-    await generateLooksFromRequest(c, userId, request, 3, "DAILY", "", "/home");
+    await generateLooksFromRequest(c, userId, request, 2, "DAILY", "", "/home");
     return true;
   });
   redirect("/home");

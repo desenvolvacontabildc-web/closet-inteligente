@@ -10,6 +10,8 @@ body{margin:0;padding-bottom:88px}
 .hero p,.welcome>p{font-size:18px;line-height:1.6;max-width:560px}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:20px}
+.grid.two-col{grid-template-columns:repeat(2,1fr)}
+@media (max-width:600px){.grid.two-col{grid-template-columns:1fr}}
 .card,.form{background:#fff;border:1px solid #ece1d2;border-radius:20px;padding:26px;box-shadow:0 8px 30px #6b3b4810}
 .alert-card{border-color:#c0392b;background:#fdf0ee}
 .alert-card [role=alert]{color:#c0392b;font-weight:700;margin:0}
