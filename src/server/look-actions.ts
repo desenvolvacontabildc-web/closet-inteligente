@@ -35,22 +35,25 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
     const bodyRow = (await c.query("SELECT body_photo_object_key, body_photo_content_type FROM profiles WHERE user_id=$1", [userId])).rows[0];
     if (bodyRow?.body_photo_object_key) likenessRef = { key: bodyRow.body_photo_object_key, type: bodyRow.body_photo_content_type || "image/jpeg" };
   }
+  // Nunca inventar peça de destaque (bolsa, sapato, acessório) que não esteja na lista real
+  // de peças do look -- pra não parecer que a cliente tem algo que ela não tem.
+  const semInvencao = "IMPORTANTE: mostre somente as peças listadas na combinação. Para qualquer item não descrito (sapato, bolsa, acessório), use algo básico, neutro e discreto (ex.: sapato nude simples, sem bolsa à vista) -- nunca invente uma peça de destaque, cor ou estampa chamativa que não esteja na lista, pra não parecer uma peça real que a cliente não tem.";
   let promptBase: string;
   if (style === "REALISTA") {
     promptBase = likenessRef
       ? `Fotografia de moda realista, aparência fotográfica (NÃO desenho, NÃO ilustração, NÃO croqui). Use a primeira imagem de referência para manter o mesmo rosto, tom de pele e aparência da pessoa nela (é uma foto real dela, autorizada por ela mesma), de corpo inteiro, ` +
-        `iluminação natural de estúdio. Vestindo esta combinação: ${description}. Fundo neutro claro, sem texto na imagem.`
+        `iluminação natural de estúdio. Vestindo esta combinação: ${description}. ${semInvencao} Fundo neutro claro, sem texto na imagem.`
       : `Fotografia de moda realista, aparência fotográfica (NÃO desenho, NÃO ilustração, NÃO croqui), modelo genérica de corpo inteiro sem identidade real de nenhuma pessoa (a cliente ainda não enviou uma foto de referência), ` +
-        `iluminação natural de estúdio. Vestindo esta combinação: ${description}. Fundo neutro claro, sem texto na imagem.`;
+        `iluminação natural de estúdio. Vestindo esta combinação: ${description}. ${semInvencao} Fundo neutro claro, sem texto na imagem.`;
   } else if (style === "AVATAR") {
     promptBase =
       `Ilustração editorial de moda, estilo croqui/silhueta estilizada, sem rosto detalhado e sem identidade real de nenhuma pessoa. ` +
       `Use a primeira imagem de referência como o avatar/silhueta da cliente (mantenha as mesmas proporções de corpo e a pose), sem copiar roupa nem rosto dela. ` +
-      `Vestindo esta combinação: ${description}. Fundo neutro claro, traço elegante, sem texto na imagem.`;
+      `Vestindo esta combinação: ${description}. ${semInvencao} Fundo neutro claro, traço elegante, sem texto na imagem.`;
   } else {
     promptBase =
       `Ilustração editorial de moda, estilo croqui/silhueta estilizada, figura genérica de moda, sem rosto detalhado e sem identidade real de nenhuma pessoa. ` +
-      `Vestindo esta combinação: ${description}. Fundo neutro claro, traço elegante, sem texto na imagem.`;
+      `Vestindo esta combinação: ${description}. ${semInvencao} Fundo neutro claro, traço elegante, sem texto na imagem.`;
   }
   let img;
   try {

@@ -60,3 +60,50 @@ export async function generateColorimetria(f: FormData) {
   });
   redirect("/colorimetria");
 }
+
+/** "Peças coringa pra comprar" -- analisa o closet real (só nomes/categorias, sem inventar
+ * peça que ela não tem) e sugere, no máximo, algumas peças versáteis que fariam falta.
+ * Se o closet já for amplo e variado, diz claramente que está suficiente em vez de sugerir
+ * por sugerir. Sob demanda (botão em Looks), nunca automático. */
+export async function generateWardrobeGaps(f: FormData) {
+  const returnPath = String(f.get("return_path") || "/looks");
+  await withProfile(async (c, userId) => {
+    if (!process.env.OPENAI_API_KEY) bounce(returnPath, "Recurso de IA não configurado.");
+    const budget = await bumpAndCheckAiUsage(c, userId);
+    if (!budget.ok) bounce(returnPath, budget.message || "Limite de operações de IA atingido.");
+    const items = (await c.query("SELECT name, category FROM closet_items WHERE status='ACTIVE' ORDER BY category, name")).rows;
+    if (items.length === 0) bounce(returnPath, "Cadastre ao menos uma peça no closet antes de pedir essa sugestão.");
+    const dossier = (await c.query("SELECT dossier FROM style_profiles WHERE user_id=$1", [userId])).rows[0]?.dossier || null;
+    let out: any;
+    try {
+      out = await new OpenAI().responses.create({
+        model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+        input: [{
+          role: "user",
+          content: [{
+            type: "input_text",
+            text:
+              `Você é uma consultora de imagem. Peças reais e ativas no closet da cliente (nomes já indicam cor/estampa):\n${JSON.stringify(items)}\n` +
+              (dossier ? `Colorimetria já feita da cliente (cores favoráveis e a evitar), leve em conta pra sugerir cores que funcionem nela:\n${JSON.stringify(dossier)}\n` : "") +
+              `Analise se o closet tem peças "coringa" suficientes (básicos versáteis que combinam entre si e cobrem as categorias principais: parte de cima, parte de baixo, calçado, bolsa, uma peça de destaque/estruturada). ` +
+              `Se o closet já for amplo, variado em cor e cobre bem essas categorias, responda que está suficiente -- não sugira por sugerir. ` +
+              `Se estiver faltando algo, sugira no máximo 3 peças ESPECÍFICAS (categoria + cor, ex.: "bolsa dourada estruturada", "sandália branca de tiras", "blazer rosa") seguindo regras de estilo de contraste e versatilidade -- ` +
+              `por exemplo, se o closet for majoritariamente monocromático ou escuro (muito preto/neutro), priorize UMA peça ou acessório de cor viva ou metálica pra dar destaque e contraste (ex.: bolsa dourada, sandália branca, blazer rosa), em vez de sugerir mais peças na mesma paleta. Nunca sugira algo que ela já tem. ` +
+              `Responda apenas JSON: {"sufficient":true|false,"reasoning":"1-2 frases explicando o motivo","suggestions":[{"item":"categoria + cor","why":"1 frase, regra de estilo aplicada"}]}. Se sufficient=true, suggestions deve ser [].`,
+          }],
+        }],
+      });
+    } catch {
+      bounce(returnPath, "A IA está indisponível no momento (sem créditos ou fora do ar). Tente de novo mais tarde.");
+    }
+    let parsed: any;
+    try { parsed = JSON.parse(out.output_text); } catch { bounce(returnPath, "A IA não retornou um resultado válido. Tente novamente."); }
+    const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 3).map((s: any) => ({ item: String(s.item || "").slice(0, 120), why: String(s.why || "").slice(0, 300) })) : [];
+    await c.query(
+      "UPDATE profiles SET wardrobe_gap_sufficient=$1, wardrobe_gap_reasoning=$2, wardrobe_gap_suggestions=$3::jsonb, wardrobe_gap_updated_at=now() WHERE user_id=$4",
+      [!!parsed.sufficient, String(parsed.reasoning || "").slice(0, 500), JSON.stringify(suggestions), userId],
+    );
+    return true;
+  });
+  redirect(returnPath);
+}

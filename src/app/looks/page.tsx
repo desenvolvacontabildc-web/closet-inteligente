@@ -1,4 +1,4 @@
-import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createLook, deleteLook, suggestLooks, uploadLookPhoto, generateLookIllustration, submitLookFeedback, markLookWorn, submitPostUseFeedback } from "@/server/look-actions"; import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits"; import SubmitButton from "@/components/submit-button";
+import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createLook, deleteLook, suggestLooks, uploadLookPhoto, generateLookIllustration, submitLookFeedback, markLookWorn, submitPostUseFeedback } from "@/server/look-actions"; import { generateWardrobeGaps } from "@/server/style-actions"; import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits"; import SubmitButton from "@/components/submit-button";
 const STATUS_LABEL: Record<string, string> = { SUGGESTED: "Sugestão da IA", PHOTOGRAPHED: "Com foto e avaliação", APPROVED: "Aprovado", WORN: "Já usei", REJECTED: "Rejeitado", OUTDATED: "Desatualizado" };
 const EVAL_LABEL: Record<string, string> = { caimento: "👗 Caimento", proporcao: "📐 Proporção", cores: "🎨 Cores", sugestao: "💡 Sugestão" };
 const STYLE_LABEL: Record<string, string> = { REALISTA: "Fotografia realista", AVATAR: "Meu avatar", ILUSTRACAO: "Ilustração" };
@@ -28,13 +28,13 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
        FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS items,
       (SELECT lf.kind FROM look_feedback lf WHERE lf.look_id=l.id ORDER BY lf.created_at DESC LIMIT 1) AS last_feedback
       FROM looks l WHERE l.kind NOT IN ('DAILY','TRIP') ${statusFilter} ${favFilter} ORDER BY l.created_at DESC`)).rows;
-    const prof=(await c.query("SELECT default_visual_style FROM profiles WHERE user_id=$1",[userId])).rows[0];
+    const prof=(await c.query("SELECT default_visual_style, wardrobe_gap_sufficient, wardrobe_gap_reasoning, wardrobe_gap_suggestions, wardrobe_gap_updated_at FROM profiles WHERE user_id=$1",[userId])).rows[0];
     const aiRemaining=await aiUsageRemaining(c,userId);
     const imgRemaining=await imageGenerationsRemaining(c,userId);
-    return {items,looks,aiRemaining,imgRemaining,defaultVisualStyle:prof?.default_visual_style||"ILUSTRACAO"};
+    return {items,looks,aiRemaining,imgRemaining,defaultVisualStyle:prof?.default_visual_style||"ILUSTRACAO",wardrobeGap:prof};
   });
   if(!data)redirect("/");
-  const {items,looks,aiRemaining,imgRemaining,defaultVisualStyle}=data;
+  const {items,looks,aiRemaining,imgRemaining,defaultVisualStyle,wardrobeGap}=data;
   return <main className="shell">
     <div className="top"><span className="eyebrow">MEUS LOOKS</span><Link href="/home">Voltar</Link></div>
     <h1>Seus looks</h1>
@@ -119,6 +119,25 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
           </div>
         </div>
       ))}
+    </div>
+    <div className="card">
+      <h2>Peças coringa pra comprar</h2>
+      {wardrobeGap?.wardrobe_gap_updated_at?(
+        wardrobeGap.wardrobe_gap_sufficient?(
+          <p className="look-meta">Você já tem peças coringa suficientes no closet. {wardrobeGap.wardrobe_gap_reasoning}</p>
+        ):(<>
+          <p className="look-meta">{wardrobeGap.wardrobe_gap_reasoning}</p>
+          <ul>
+            {(wardrobeGap.wardrobe_gap_suggestions||[]).map((s:any,idx:number)=>(
+              <li key={idx}><strong>{s.item}</strong> — {s.why}</li>
+            ))}
+          </ul>
+        </>)
+      ):<p className="look-meta">Ainda não analisei seu closet pra isso.</p>}
+      <form action={generateWardrobeGaps}>
+        <input type="hidden" name="return_path" value="/looks"/>
+        <SubmitButton disabled={aiRemaining===0} pendingText="Analisando seu closet...">{wardrobeGap?.wardrobe_gap_updated_at?"Analisar de novo":"Analisar meu closet"}</SubmitButton>
+      </form>
     </div>
     <form action={suggestLooks} className="form">
       <h2>Pedir sugestão de looks</h2>
