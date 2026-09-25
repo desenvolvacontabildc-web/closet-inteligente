@@ -9,7 +9,7 @@ export default async function Tendencias() {
     <a href="/home">← Voltar</a>
     <span className="eyebrow">RADAR DE TENDÊNCIAS</span>
     <h1>O que está em alta.</h1>
-    <p>Dicas de estilo selecionadas pela Ilka, pensadas pra você usar o que já tem no closet.</p>
+    <p>Dicas de estilo selecionadas por stylists e profissionais da moda, pensadas pra você usar o que já tem no closet.</p>
     {trends.length === 0 && <p>Nenhuma dica publicada ainda. Volte em breve!</p>}
     <div className="grid">
       {trends.map((t: any) => (
