@@ -20,8 +20,10 @@ async function readObject(key: string): Promise<Buffer> {
  * genérico de moda, sem personalizar a figura mesmo se houver avatar). */
 async function generateIllustration(c: any, userId: string, lookId: string, itemIds: string[], description: string, style: "REALISTA" | "AVATAR" | "ILUSTRACAO") {
   const openai = new OpenAI({ timeout: 120000 });
+  // Uma foto de referência por peça do look (até 4) -- com menos peças com foto real, a IA
+  // precisa "adivinhar" as demais só pelo nome e acaba inventando cor/corte errado.
   const photos = (await c.query(
-    "SELECT DISTINCT ON (item_id) item_id, object_key, content_type FROM closet_item_photos WHERE item_id = ANY($1::uuid[]) ORDER BY item_id, created_at DESC LIMIT 2",
+    "SELECT DISTINCT ON (item_id) item_id, object_key, content_type FROM closet_item_photos WHERE item_id = ANY($1::uuid[]) ORDER BY item_id, created_at DESC LIMIT 4",
     [itemIds],
   )).rows;
   let avatarKey: string | null = null;
@@ -35,9 +37,13 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
     const bodyRow = (await c.query("SELECT body_photo_object_key, body_photo_content_type FROM profiles WHERE user_id=$1", [userId])).rows[0];
     if (bodyRow?.body_photo_object_key) likenessRef = { key: bodyRow.body_photo_object_key, type: bodyRow.body_photo_content_type || "image/jpeg" };
   }
-  // Nunca inventar peça de destaque (bolsa, sapato, acessório) que não esteja na lista real
-  // de peças do look -- pra não parecer que a cliente tem algo que ela não tem.
-  const semInvencao = "IMPORTANTE: mostre somente as peças listadas na combinação. Para qualquer item não descrito (sapato, bolsa, acessório), use algo básico, neutro e discreto (ex.: sapato nude simples, sem bolsa à vista) -- nunca invente uma peça de destaque, cor ou estampa chamativa que não esteja na lista, pra não parecer uma peça real que a cliente não tem.";
+  // Nunca inventar peça de roupa ou acessório extra, nem alterar cor/estampa das peças reais
+  // referenciadas -- pra não parecer que a cliente tem algo que ela não tem.
+  const semInvencao =
+    "IMPORTANTE, siga rigorosamente: a cliente veste SOMENTE estas peças, nada além disso: " + description + ". " +
+    "NÃO adicione nenhuma peça de roupa extra que não esteja nessa lista (sem blazer, casaco, cardigã, colete, lenço, cinto vistoso ou camada extra por conta própria). " +
+    "Cada peça de roupa que tiver uma imagem de referência real deve aparecer EXATAMENTE como está na foto de referência -- mesma cor, tecido, corte e estampa, sem inventar variação. " +
+    "Para qualquer item não descrito na lista e sem referência (ex.: sapato, bolsa), use algo básico, neutro e discreto (ex.: sapato nude simples, sem bolsa à vista) -- nunca invente uma peça de destaque, cor ou estampa chamativa que não esteja na lista.";
   let promptBase: string;
   if (style === "REALISTA") {
     promptBase = likenessRef
