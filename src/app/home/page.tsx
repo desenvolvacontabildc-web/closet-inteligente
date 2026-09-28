@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { generateTodayLook, generateLookIllustration, submitLookFeedback } from "@/server/look-actions";
 import Link from "next/link";
 import { withProfile } from "@/server/profile-session";
-import { aiUsageRemaining, PLAN_LABEL, type Plan } from "@/server/limits";
+import { aiUsageRemaining, imageGenerationsRemaining, checkAndGrantMilestones, MILESTONE_LABEL, PLAN_LABEL, type Plan } from "@/server/limits";
 import SubmitButton from "@/components/submit-button";
 export default async function Home({searchParams}:{searchParams:Promise<{error?:string,skip?:string}>}){
  const {error,skip}=await searchParams;
@@ -12,6 +12,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
    if(!p)return null;
    const sub=(await c.query("SELECT * FROM my_subscription($1)",[id])).rows[0];
    const aiRemaining=await aiUsageRemaining(c,id);
+   const novasConquistas=await checkAndGrantMilestones(c,id);
    const todayLooks=(await c.query(`SELECT l.id,l.name,l.occasion,l.illustration_object_key IS NOT NULL AS has_illustration,
      (SELECT lf.kind FROM look_feedback lf WHERE lf.look_id=l.id ORDER BY lf.created_at DESC LIMIT 1) AS last_feedback,
      (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
@@ -34,17 +35,20 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        (SELECT MAX(l.created_at) FROM look_items li JOIN looks l ON l.id=li.look_id WHERE li.item_id=ci.id) AS last_used_at
      FROM closet_items ci WHERE ci.status='ACTIVE' AND ci.id::text != ALL($1::text[])
      ORDER BY last_used_at ASC NULLS FIRST LIMIT 1`,[skipIds])).rows[0]||null;
-   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece};
+   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas};
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece}=profile;
+ const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas}=profile;
  const poucasPecas=activeItems.length<8;
  const dayPieceDays=dayPiece?.last_used_at?Math.floor((Date.now()-new Date(dayPiece.last_used_at).getTime())/86400000):null;
  const trialDaysLeft=sub?.status==="TRIAL"&&sub.trial_ends_at?Math.max(0,Math.ceil((new Date(sub.trial_ends_at).getTime()-Date.now())/86400000)):null;
  return <main className="shell">
    <span className="eyebrow">CLOSET INTELIGENTE</span>
    {error&&<p role="alert" className="trial-banner">{error}</p>}
+   {novasConquistas.map((m:any)=>(
+     <div className="trial-banner" key={m.reason}><p>🎉 Parabéns! Você completa {MILESTONE_LABEL[m.reason]||m.reason} de Closet Inteligente e ganhou {m.credits} créditos bônus de geração de imagem!</p></div>
+   ))}
    {trialDaysLeft!==null&&<div className="trial-banner"><p>{trialDaysLeft>0?`Faltam ${trialDaysLeft} dia${trialDaysLeft===1?"":"s"} do seu teste gratuito.`:"Seu teste gratuito termina hoje."} Fale com a administradora para assinar e manter o acesso ao seu Closet.</p></div>}
    {sub?.status==="ACTIVE"&&<div className="trial-banner"><p>Plano {PLAN_LABEL[sub.plan as Plan]||sub.plan}{aiRemaining!==null?` · restam ${aiRemaining} operações de IA este mês`:" · operações de IA ilimitadas"}.</p></div>}
    <section className="welcome">

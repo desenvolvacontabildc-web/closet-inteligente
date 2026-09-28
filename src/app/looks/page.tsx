@@ -56,7 +56,7 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
           <p className="look-meta">{l.occasion||"Ocasião não informada"} · {STATUS_LABEL[l.status]||l.status}</p>
           <p className="look-pieces">{(l.items||[]).map((it:any)=>it.name).join(" + ")||"Sem peças"}</p>
           {(l.items||[]).length>0&&<>
-            <p className="look-meta">👗 Ver com minhas peças</p>
+            <p className="look-meta">👗 Ver com minhas peças <small>(fotos reais do seu closet — não usa seu limite de geração de imagem)</small></p>
             <div className="outfit-collage">
               {(l.items||[]).map((it:any)=>(
                 <div className="outfit-collage-item" key={it.id}>
@@ -109,6 +109,7 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
                 </select>
               </label>
               <SubmitButton disabled={imgRemaining===0} pendingText="Gerando imagem... (até 30s)">🖼️ {l.has_illustration?"Gerar de novo":"Gerar inspiração em imagem"}</SubmitButton>
+              <p className="look-meta">{imgRemaining===0?"⚠️ Seu limite de gerações de imagem deste mês acabou. Fale com a administradora para comprar mais créditos ou mudar de plano.":imgRemaining!==null?`Isso usa 1 das suas ${imgRemaining} gerações de imagem restantes este mês.`:"Gerações de imagem ilimitadas no seu plano."}</p>
             </form>
             <form action={uploadLookPhoto} encType="multipart/form-data">
               <input type="hidden" name="look_id" value={l.id}/>
@@ -138,11 +139,14 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
         <input type="hidden" name="return_path" value="/looks"/>
         <SubmitButton disabled={aiRemaining===0} pendingText="Analisando seu closet...">{wardrobeGap?.wardrobe_gap_updated_at?"Analisar de novo":"Analisar meu closet"}</SubmitButton>
       </form>
+      {aiRemaining===0&&<p className="look-meta">⚠️ Seu limite de operações de IA deste mês acabou. Fale com a administradora para comprar mais créditos ou mudar de plano.</p>}
     </div>
     <form action={suggestLooks} className="form">
       <h2>Pedir sugestão de looks</h2>
+      <p className="look-meta">Monta a combinação só com peças reais do seu closet (texto, sem gerar imagem) — não usa seu limite de imagem, só o de operações de IA.</p>
       <input name="request" placeholder='Ex.: "Preciso de 3 looks pra reuniões essa semana"' required/>
       <SubmitButton disabled={aiRemaining===0} pendingText="Pensando... (pode levar até 20s)">Gerar sugestão com IA</SubmitButton>
+      {aiRemaining===0&&<p className="look-meta">⚠️ Seu limite de operações de IA deste mês acabou. Fale com a administradora para comprar mais créditos ou mudar de plano.</p>}
     </form>
     <form action={createLook} className="form">
       <h2>Ou monte você mesma</h2>

@@ -6,7 +6,7 @@ import { Client } from "minio";
 import type { PoolClient } from "pg";
 import { withProfile } from "./profile-session";
 import { bounce } from "./action-error";
-import { checkImageAllowance } from "./limits";
+import { checkImageAllowance, consumeImageAllowance } from "./limits";
 export type BodyAvatarResult = "OK" | "NO_ALLOWANCE" | "FAILED";
 const store = new Client({ endPoint: (process.env.S3_ENDPOINT || "http://storage:9000").replace(/^https?:\/\//, "").split(":")[0], port: 9000, useSSL: false, accessKey: process.env.S3_ACCESS_KEY_ID || "closet-web", secretKey: process.env.S3_SECRET_ACCESS_KEY || "" });
 
@@ -41,6 +41,7 @@ export async function generateBodyAvatar(c: PoolClient, userId: string, bodyPhot
     await store.putObject(process.env.S3_BUCKET || "closet-private", key, outBuf, outBuf.length, { "Content-Type": "image/png" });
     await c.query("UPDATE profiles SET avatar_illustration_object_key=$1 WHERE user_id=$2", [key, userId]);
     await c.query("SELECT log_image_generation($1,current_setting('app.tenant_id')::uuid)", [userId]);
+    await consumeImageAllowance(c, userId, allowance.source);
     return "OK";
   } catch {
     return "FAILED";

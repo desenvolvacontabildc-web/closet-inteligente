@@ -15,6 +15,7 @@ async function checkHash(p:string,v:string|null){if(!v?.startsWith("scrypt$"))re
 async function issue(c:any,id:string){const t=randomBytes(32).toString("base64url");await c.query("SELECT create_auth_session($1,$2)",[hash(t),id]);(await cookies()).set(SESSION_COOKIE,t,SESSION_COOKIE_OPTIONS)}
 export async function register(f:FormData){
   const email=String(f.get("email")||"").trim().toLowerCase(),name=String(f.get("name")||"").trim(),terms=f.get("terms")==="on",password=String(f.get("password")||"");
+  const referralCode=String(f.get("referral_code")||"").trim().toLowerCase()||null;
   if(!/^\S+@\S+\.\S+$/.test(email)||!name)bounce("/","Informe nome e e-mail válidos.");
   if(!terms)bounce("/","É necessário aceitar os Termos de Uso e a Política de Privacidade.");
   if(password.length<6)bounce("/","A senha deve ter pelo menos 6 caracteres.");
@@ -22,7 +23,7 @@ export async function register(f:FormData){
   const c=getPool();const x=await c.connect();
   try{
     await x.query("BEGIN");
-    const id=(await x.query("SELECT user_id FROM register_account($1,$2,$3,$4)",[email,ph,name,terms])).rows[0].user_id;
+    const id=(await x.query("SELECT user_id FROM register_account($1,$2,$3,$4,$5)",[email,ph,name,terms,referralCode])).rows[0].user_id;
     await issue(x,id);
     await x.query("COMMIT");
     redirect("/onboarding");

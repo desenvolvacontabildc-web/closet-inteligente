@@ -11,17 +11,20 @@ const STYLE_LABEL: Record<string, string> = { REALISTA: "Fotografia realista", A
 export default async function Perfil({searchParams}:{searchParams:Promise<{error?:string}>}) {
   const {error} = await searchParams;
   const data = await withProfile(async (c, userId) => {
-    const p = (await c.query("SELECT display_name, avatar_object_key, avatar_illustration_object_key, default_visual_style, city FROM profiles WHERE user_id=$1", [userId])).rows[0];
-    const u = (await c.query("SELECT email, is_admin FROM app_users WHERE id=$1", [userId])).rows[0];
+    const p = (await c.query("SELECT display_name, avatar_object_key, avatar_illustration_object_key, default_visual_style, city, bonus_image_credits FROM profiles WHERE user_id=$1", [userId])).rows[0];
+    const u = (await c.query("SELECT email, is_admin, referral_code FROM app_users WHERE id=$1", [userId])).rows[0];
+    const indicacoes = (await c.query("SELECT count(*)::int n FROM app_users WHERE referred_by=$1", [userId])).rows[0].n;
     const sub = await mySubscription(c, userId);
     return {
       displayName: p?.display_name || "", hasAvatar: !!p?.avatar_object_key,
       hasStyleAvatar: !!p?.avatar_illustration_object_key, defaultVisualStyle: p?.default_visual_style || "ILUSTRACAO",
-      city: p?.city || "", email: u.email, isAdmin: u.is_admin, sub,
+      city: p?.city || "", bonusCredits: p?.bonus_image_credits || 0, referralCode: u.referral_code, indicacoes,
+      email: u.email, isAdmin: u.is_admin, sub,
     };
   });
   if (!data) redirect("/");
-  const { displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, email, isAdmin, sub } = data;
+  const { displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, bonusCredits, referralCode, indicacoes, email, isAdmin, sub } = data;
+  const referralLink = `${process.env.APP_URL || ""}/?ref=${referralCode}`;
 
   return <main className="shell narrow">
     <span className="eyebrow">PERFIL</span>
@@ -79,6 +82,12 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
     <div className="card">
       <h2>Sua assinatura</h2>
       <p>{sub.status === "TRIAL" ? "Teste gratuito" : `Plano ${PLAN_LABEL[sub.plan]}`} · status {sub.status}</p>
+      <p className="look-meta">🎁 {bonusCredits>0?`Você tem ${bonusCredits} crédito${bonusCredits===1?"":"s"} bônus de geração de imagem (não expiram, usados depois do limite do plano).`:"Sem créditos bônus no momento -- ganhe cadastrando-se, indicando amigas ou completando marcos de uso."}</p>
+    </div>
+    <div className="card">
+      <h2>Indique uma amiga</h2>
+      <p className="look-meta">Quando ela virar assinante, você ganha 10 créditos bônus de geração de imagem. {indicacoes>0?`Já trouxe ${indicacoes} amiga${indicacoes===1?"":"s"} pro Closet.`:""}</p>
+      <p className="look-meta">Seu link: <strong>{referralLink}</strong></p>
     </div>
     <nav className="nav-links">
       <Link href="/mala">Mala de Viagem</Link>

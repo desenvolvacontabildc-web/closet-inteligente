@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "minio";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
-import { bumpAndCheckAiUsage, checkImageAllowance } from "./limits";
+import { bumpAndCheckAiUsage, checkImageAllowance, consumeImageAllowance } from "./limits";
 import { bounce } from "./action-error";
 const store = new Client({ endPoint: (process.env.S3_ENDPOINT || "http://storage:9000").replace(/^https?:\/\//, "").split(":")[0], port: 9000, useSSL: false, accessKey: process.env.S3_ACCESS_KEY_ID || "closet-web", secretKey: process.env.S3_SECRET_ACCESS_KEY || "" });
 async function readObject(key: string): Promise<Buffer> {
@@ -106,6 +106,7 @@ export async function generateLookIllustration(f: FormData) {
     if (!look.rowCount) bounce(returnPath, "Look não encontrado.");
     const { name, occasion, item_ids, pieces } = look.rows[0];
     const result = await generateIllustration(c, userId, lookId, item_ids || [], `${name || "look"} (${occasion || "sem ocasião"}): ${(pieces || []).join(", ")}`, style);
+    if (result === "OK") await consumeImageAllowance(c, userId, allowance.source);
     if (result === "NO_AVATAR") bounce(returnPath, "Você ainda não tem um avatar personalizado. Crie o seu avatar no Perfil primeiro.");
     if (result === "FAILED") bounce(returnPath, "Não foi possível gerar a imagem agora (sem créditos ou fora do ar). Tente de novo mais tarde.");
     return true;

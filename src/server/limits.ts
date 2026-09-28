@@ -55,28 +55,59 @@ export async function aiUsageRemaining(c: PoolClient, userId: string): Promise<n
   return Math.max(0, cfg.ai_ops_monthly_limit - Number(used.rows[0].n));
 }
 
-/** Apenas leitura -- para exibir "restam X gerações de imagem" na interface. */
+async function bonusImageCredits(c: PoolClient, userId: string): Promise<number> {
+  const r = await c.query("SELECT bonus_image_credits FROM profiles WHERE user_id=$1", [userId]);
+  return Number(r.rows[0]?.bonus_image_credits || 0);
+}
+
+/** Apenas leitura -- para exibir "restam X gerações de imagem" na interface. Soma o que resta
+ * do limite mensal do plano com os créditos bônus (cadastro, marcos de uso, indicação), que
+ * não expiram por mês. */
 export async function imageGenerationsRemaining(c: PoolClient, userId: string): Promise<number | null> {
   if (await isUnlimitedAdmin(c, userId)) return null;
   const sub = await mySubscription(c, userId);
   const plan: Plan = sub.status === "TRIAL" ? "FASHION" : sub.plan;
   const cfg = await planConfig(c, plan);
+  const bonus = await bonusImageCredits(c, userId);
   if (cfg.image_gen_monthly_limit === null) return null;
   const used = Number((await c.query("SELECT count_my_images_this_month($1) n", [userId])).rows[0].n);
-  return Math.max(0, cfg.image_gen_monthly_limit - used);
+  return Math.max(0, cfg.image_gen_monthly_limit - used) + bonus;
 }
 
-/** Geração de imagem é seu próprio contador, separado do uso geral de IA (raciocínio/texto). */
-export async function checkImageAllowance(c: PoolClient, userId: string): Promise<{ ok: boolean; message?: string }> {
-  if (await isUnlimitedAdmin(c, userId)) return { ok: true };
+/** Geração de imagem é seu próprio contador, separado do uso geral de IA (raciocínio/texto).
+ * Quando o limite mensal do plano já foi usado, cai pros créditos bônus (cadastro, marcos de
+ * uso, indicação) antes de bloquear -- por isso devolve de onde vai sair o crédito, pra
+ * `consumeImageAllowance` descontar do lugar certo só quando a geração realmente funcionar. */
+export async function checkImageAllowance(c: PoolClient, userId: string): Promise<{ ok: boolean; message?: string; source?: "PLAN" | "BONUS" }> {
+  if (await isUnlimitedAdmin(c, userId)) return { ok: true, source: "PLAN" };
   const sub = await mySubscription(c, userId);
   const plan: Plan = sub.status === "TRIAL" ? "FASHION" : sub.plan;
   const cfg = await planConfig(c, plan);
-  if (cfg.image_gen_monthly_limit === null) return { ok: true };
+  if (cfg.image_gen_monthly_limit === null) return { ok: true, source: "PLAN" };
   const used = Number((await c.query("SELECT count_my_images_this_month($1) n", [userId])).rows[0].n);
-  if (used >= cfg.image_gen_monthly_limit) return { ok: false, message: `Seu plano ${PLAN_LABEL[plan]} permite ${cfg.image_gen_monthly_limit} gerações de imagem por mês. Esse limite já foi atingido — considere um plano com mais gerações.` };
-  return { ok: true };
+  if (used < cfg.image_gen_monthly_limit) return { ok: true, source: "PLAN" };
+  const bonus = await bonusImageCredits(c, userId);
+  if (bonus > 0) return { ok: true, source: "BONUS" };
+  return { ok: false, message: `Seu plano ${PLAN_LABEL[plan]} permite ${cfg.image_gen_monthly_limit} gerações de imagem por mês. Esse limite já foi atingido — fale com a administradora para comprar mais créditos ou mudar de plano.` };
 }
+
+/** Chamar só depois que a geração de imagem funcionou de verdade -- o contador do plano já se
+ * ajusta sozinho (conta o log), aqui só precisa descontar 1 crédito bônus quando foi ele que
+ * cobriu essa geração. */
+export async function consumeImageAllowance(c: PoolClient, userId: string, source?: "PLAN" | "BONUS"): Promise<void> {
+  if (source !== "BONUS") return;
+  await c.query("UPDATE profiles SET bonus_image_credits = bonus_image_credits - 1 WHERE user_id=$1 AND bonus_image_credits > 0", [userId]);
+}
+
+/** Chamado ao abrir a Home -- credita marcos de tempo de uso (1/3/6/12 meses) uma única vez
+ * cada, e devolve o que foi concedido agora mesmo (pra mostrar o aviso de "parabéns"). */
+export async function checkAndGrantMilestones(c: PoolClient, userId: string): Promise<{ reason: string; credits: number }[]> {
+  const r = await c.query("SELECT * FROM check_and_grant_milestones($1)", [userId]);
+  return r.rows;
+}
+export const MILESTONE_LABEL: Record<string, string> = {
+  MILESTONE_1M: "1 mês", MILESTONE_3M: "3 meses", MILESTONE_6M: "6 meses", MILESTONE_1Y: "1 ano",
+};
 
 /** Incrementa o uso de IA (operações de raciocínio: montar look, avaliar, analisar peça etc.)
  * e diz se ainda está dentro do orçamento do período (dia no teste, mês nos planos pagos). */
@@ -94,6 +125,6 @@ export async function bumpAndCheckAiUsage(c: PoolClient, userId: string): Promis
   const cfg = await planConfig(c, sub.plan);
   if (cfg.ai_ops_monthly_limit === null) return { ok: true };
   const monthly = await c.query("SELECT COALESCE(SUM(count),0) n FROM ai_usage WHERE user_id=$1 AND day >= date_trunc('month', current_date)::date", [userId]);
-  if (Number(monthly.rows[0].n) > cfg.ai_ops_monthly_limit) return { ok: false, message: `Seu plano ${PLAN_LABEL[sub.plan]} permite ${cfg.ai_ops_monthly_limit} operações de IA por mês. Esse limite já foi atingido este mês — considere um plano com mais operações.` };
+  if (Number(monthly.rows[0].n) > cfg.ai_ops_monthly_limit) return { ok: false, message: `Seu plano ${PLAN_LABEL[sub.plan]} permite ${cfg.ai_ops_monthly_limit} operações de IA por mês. Esse limite já foi atingido este mês — fale com a administradora para comprar mais créditos ou mudar de plano.` };
   return { ok: true };
 }
