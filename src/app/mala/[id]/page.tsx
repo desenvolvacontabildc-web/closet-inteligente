@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
+import { saveTripStep, generateTripPlan, toggleChecklistItem, removeTripItem } from "@/server/trip-actions";
 import {
-  saveTripStep, generateTripPlan, toggleChecklistItem, removeTripItem,
   TRANSPORTE_OPCOES, BAGAGEM_OPCOES, SENSIBILIDADE_OPCOES, ATIVIDADE_OPCOES, DRESS_CODE_OPCOES,
   ESTILO_OPCOES, PRIORIDADE_OPCOES, REPETICAO_OPCOES, LAVANDERIA_OPCOES, ESTRATEGIA_OPCOES,
   NECESSIDADE_OPCOES, INCLUIR_OPCOES,
-} from "@/server/trip-actions";
+} from "@/server/trip-options";
 import { generateLookIllustration, deleteLook } from "@/server/look-actions";
 import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits";
 import SubmitButton from "@/components/submit-button";
