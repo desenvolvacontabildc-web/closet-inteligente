@@ -1,5 +1,5 @@
 import { withPartner, partnerLogout } from "@/server/partner-auth";
-import { addPartnerItem, removePartnerItem } from "@/server/partner-items-actions";
+import { addPartnerItem, removePartnerItem, setPartnerLogo } from "@/server/partner-items-actions";
 import { PARTNER_PACKAGE_LIMIT, PARTNER_PACKAGE_LABEL } from "@/server/partner-limits";
 import { redirect } from "next/navigation";
 
@@ -7,10 +7,11 @@ export default async function PainelParceira({ searchParams }: { searchParams: P
   const { novo, error } = await searchParams;
   const data = await withPartner(async (c, partnerId, storeName, pkg, approved) => {
     const items = (await c.query("SELECT * FROM partner_list_own_items($1)", [partnerId])).rows;
-    return { storeName, pkg, approved, items };
+    const hasLogo = (await c.query("SELECT logo_object_key IS NOT NULL AS x FROM partners WHERE id=$1", [partnerId])).rows[0]?.x;
+    return { storeName, pkg, approved, items, hasLogo, partnerId };
   });
   if (!data) redirect("/parceiras");
-  const { storeName, pkg, approved, items } = data;
+  const { storeName, pkg, approved, items, hasLogo, partnerId } = data;
   const limit = PARTNER_PACKAGE_LIMIT[pkg] ?? null;
   const used = items.length;
 
@@ -23,6 +24,16 @@ export default async function PainelParceira({ searchParams }: { searchParams: P
       {!approved && <p role="alert">Sua loja ainda não foi aprovada pela equipe do Closet Inteligente. Ela não aparece na vitrine pública até a aprovação.</p>}
       <p>Pacote atual: <strong>{PARTNER_PACKAGE_LABEL[pkg] || pkg}</strong> · {used}{limit != null ? `/${limit}` : ""} peças publicadas</p>
       <form action={partnerLogout}><button className="link">Sair</button></form>
+    </section>
+
+    <section className="card">
+      <h2>Logo da loja</h2>
+      <p>Aparece ao lado do nome da sua loja na Vitrine.</p>
+      {hasLogo && <img src={`/api/vitrine/logos/${partnerId}`} alt={storeName} style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover" }} />}
+      <form action={setPartnerLogo} encType="multipart/form-data" className="form">
+        <label>{hasLogo ? "Trocar logo" : "Adicionar logo"}<input type="file" name="logo" accept="image/*" required /></label>
+        <button>Salvar logo</button>
+      </form>
     </section>
 
     <section className="card">

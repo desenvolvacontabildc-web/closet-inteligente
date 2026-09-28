@@ -36,6 +36,22 @@ export async function addPartnerItem(f: FormData) {
   redirect("/parceiras/painel");
 }
 
+export async function setPartnerLogo(f: FormData) {
+  const file = f.get("logo");
+  if (!(file instanceof File) || file.size === 0) bounce("/parceiras/painel", "Envie uma imagem para o logo.");
+  if (!file.type.startsWith("image/")) bounce("/parceiras/painel", "Envie um arquivo de imagem.");
+  if (file.size > 4 * 1024 * 1024) bounce("/parceiras/painel", "O logo é muito grande. Envie uma imagem de até 4MB.");
+  const buf = Buffer.from(await file.arrayBuffer());
+  const objectKey = `partners/logo-${randomUUID()}`;
+  await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": file.type });
+  const result = await withPartner(async (c, partnerId) => {
+    await c.query("SELECT partner_set_logo($1,$2,$3)", [partnerId, objectKey, file.type]);
+    return true;
+  });
+  if (!result) redirect("/parceiras");
+  redirect("/parceiras/painel");
+}
+
 export async function removePartnerItem(f: FormData) {
   const itemId = String(f.get("item_id") || "");
   const result = await withPartner(async (c, partnerId) => {

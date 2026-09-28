@@ -9,6 +9,14 @@ body{margin:0;padding-bottom:88px}
 .hero h1,h1{font-family:Georgia,serif;font-weight:500;font-size:clamp(36px,7vw,64px);line-height:1.05;margin:18px 0}
 .hero p,.welcome>p{font-size:18px;line-height:1.6;max-width:560px}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.product-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.product-grid .card{padding:10px}
+.product-grid img{aspect-ratio:1;object-fit:cover;width:100%;border-radius:10px}
+.product-grid h3{font-size:13px;margin:6px 0 2px}
+.product-grid p{font-size:12px;margin:2px 0}
+.store-header{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.store-header img{width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.store-header h2{margin:0}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:20px}
 .grid.two-col{grid-template-columns:repeat(2,1fr)}
 @media (max-width:600px){.grid.two-col{grid-template-columns:1fr}}

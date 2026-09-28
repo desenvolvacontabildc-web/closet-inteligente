@@ -10,9 +10,9 @@ export default async function Vitrine() {
   if (!data) redirect("/");
   const { partnerRows, finds } = data;
 
-  const stores = new Map<string, { store_name: string; instagram: string; whatsapp: string; items: any[] }>();
+  const stores = new Map<string, { store_name: string; instagram: string; whatsapp: string; logo_object_key: string | null; items: any[] }>();
   for (const r of partnerRows) {
-    if (!stores.has(r.partner_id)) stores.set(r.partner_id, { store_name: r.store_name, instagram: r.instagram, whatsapp: r.whatsapp, items: [] });
+    if (!stores.has(r.partner_id)) stores.set(r.partner_id, { store_name: r.store_name, instagram: r.instagram, whatsapp: r.whatsapp, logo_object_key: r.logo_object_key, items: [] });
     stores.get(r.partner_id)!.items.push(r);
   }
 
@@ -26,15 +26,18 @@ export default async function Vitrine() {
     {stores.size === 0 && <p>Nenhuma loja parceira publicou peças ainda.</p>}
     {[...stores.entries()].map(([id, store]) => (
       <section key={id} className="card">
-        <h2>{store.store_name}</h2>
+        <div className="store-header">
+          {store.logo_object_key && <img src={`/api/vitrine/logos/${id}`} alt={store.store_name} />}
+          <h2>{store.store_name}</h2>
+        </div>
         <p className="links">
           {store.instagram && <a href={`https://instagram.com/${store.instagram}`} target="_blank" rel="noopener noreferrer">Instagram @{store.instagram}</a>}
           {store.whatsapp && <a href={`https://wa.me/${store.whatsapp}`} target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>}
         </p>
-        <div className="cards">
+        <div className="product-grid">
           {store.items.map((it) => (
             <div className="card secondary" key={it.item_id}>
-              {it.object_key && <img src={`/api/vitrine/photos/${it.item_id}`} alt={it.item_name} style={{ width: "100%", borderRadius: 12 }} />}
+              {it.object_key && <img src={`/api/vitrine/photos/${it.item_id}`} alt={it.item_name} />}
               <h3>{it.item_name}</h3>
               {it.description && <p>{it.description}</p>}
               <p>
@@ -54,10 +57,10 @@ export default async function Vitrine() {
       <p>Peças encontradas em outras lojas (Shopee, Shein e afins) e recomendadas por aqui — clique e compre direto na loja de origem.</p>
     </section>
     {finds.length === 0 && <p>Nenhum achadinho publicado ainda.</p>}
-    <div className="cards">
+    <div className="product-grid">
       {finds.map((f: any) => (
         <a className="card secondary find-card" href={f.external_url} target="_blank" rel="noopener noreferrer" key={f.id}>
-          {f.object_key && <img src={`/api/achadinhos/photos/${f.id}`} alt={f.title} style={{ width: "100%", borderRadius: 12 }} />}
+          {f.object_key && <img src={`/api/achadinhos/photos/${f.id}`} alt={f.title} />}
           <h3>{f.title}</h3>
           {f.description && <p>{f.description}</p>}
           {f.price_cents != null && <p>R$ {(f.price_cents / 100).toFixed(2).replace(".", ",")}</p>}
