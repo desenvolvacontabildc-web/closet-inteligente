@@ -4,40 +4,50 @@ import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
 import { mySubscription, hasPlanAtLeast, bumpAndCheckAiUsage } from "./limits";
 import { bounce } from "./action-error";
+/** Segue o padrão de 3 fases (ler / chamar IA / gravar) pra nunca manter uma conexão do
+ * pool presa durante a chamada à OpenAI. */
 export async function generateCapsule(f: FormData) {
   const target = Math.min(30, Math.max(5, Number(f.get("target") || 15)));
-  await withProfile(async (c, userId) => {
+  const ctx = await withProfile(async (c, userId) => {
     const sub = await mySubscription(c, userId);
-    if (!hasPlanAtLeast(sub, "FASHION")) bounce("/capsula", "O Closet Cápsula é exclusivo dos planos Fashion e Super Star (ou do teste gratuito). Fale com a administradora para migrar de plano.");
-    if (!process.env.OPENAI_API_KEY) bounce("/capsula", "Recurso de IA não configurado.");
+    if (!hasPlanAtLeast(sub, "FASHION")) return { ok: false as const, message: "O Closet Cápsula é exclusivo dos planos Fashion e Super Star (ou do teste gratuito). Fale com a administradora para migrar de plano." };
+    if (!process.env.OPENAI_API_KEY) return { ok: false as const, message: "Recurso de IA não configurado." };
     const budget = await bumpAndCheckAiUsage(c, userId);
-    if (!budget.ok) bounce("/capsula", budget.message || "Limite de uso de IA atingido.");
+    if (!budget.ok) return { ok: false as const, message: budget.message || "Limite de uso de IA atingido." };
     const items = (await c.query("SELECT id,name,category,color FROM closet_items WHERE status='ACTIVE'")).rows;
-    if (items.length === 0) bounce("/capsula", "Cadastre peças no closet antes de gerar uma cápsula.");
-    let out: any;
-    try {
-      out = await new OpenAI().responses.create({
-        model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
-        input: [{
-          role: "user",
-          content: [{
-            type: "input_text",
-            text:
-              `Você é uma consultora de imagem especialista em guarda-roupa cápsula. Peças reais disponíveis (use SOMENTE estas, nunca invente):\n${JSON.stringify(items)}\n` +
-              `Selecione até ${target} peças que, juntas, formem a cápsula mais versátil possível (o maior número de combinações diferentes entre si). ` +
-              `Responda apenas JSON: {"item_ids":["..."],"reasoning":"...","combinations_estimate":numero}. ` +
-              `item_ids deve conter só ids da lista fornecida, no máximo ${target}. Em reasoning, explique brevemente a lógica da seleção.`,
-          }],
+    if (items.length === 0) return { ok: false as const, message: "Cadastre peças no closet antes de gerar uma cápsula." };
+    return { ok: true as const, items };
+  });
+  if (!ctx) redirect("/capsula");
+  if (!ctx.ok) bounce("/capsula", ctx.message);
+
+  let out: any;
+  try {
+    out = await new OpenAI().responses.create({
+      model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+      input: [{
+        role: "user",
+        content: [{
+          type: "input_text",
+          text:
+            `Você é uma consultora de imagem especialista em guarda-roupa cápsula. Peças reais disponíveis (use SOMENTE estas, nunca invente):\n${JSON.stringify(ctx.items)}\n` +
+            `Selecione até ${target} peças que, juntas, formem a cápsula mais versátil possível (o maior número de combinações diferentes entre si). ` +
+            `Responda apenas JSON: {"item_ids":["..."],"reasoning":"...","combinations_estimate":numero}. ` +
+            `item_ids deve conter só ids da lista fornecida, no máximo ${target}. Em reasoning, explique brevemente a lógica da seleção.`,
         }],
-      });
-    } catch {
-      bounce("/capsula", "A IA está indisponível no momento (sem créditos ou fora do ar). Tente de novo mais tarde.");
-    }
-    let parsed: any;
-    try { parsed = JSON.parse(out.output_text); } catch { bounce("/capsula", "A IA não retornou uma cápsula válida. Tente novamente."); }
-    const validIds = new Set(items.map((i: any) => i.id));
-    const ids = (Array.isArray(parsed.item_ids) ? parsed.item_ids : []).filter((id: string) => validIds.has(id));
-    if (ids.length === 0) bounce("/capsula", "Não foi possível montar uma cápsula com as peças atuais do seu closet.");
+      }],
+    });
+  } catch (e) {
+    console.error("generateCapsule falhou (IA):", e);
+    bounce("/capsula", "A IA está indisponível no momento (sem créditos ou fora do ar). Tente de novo mais tarde.");
+  }
+  let parsed: any;
+  try { parsed = JSON.parse(out.output_text); } catch (e) { console.error("generateCapsule JSON inválido:", e); bounce("/capsula", "A IA não retornou uma cápsula válida. Tente novamente."); }
+  const validIds = new Set(ctx.items.map((i: any) => i.id));
+  const ids = (Array.isArray(parsed.item_ids) ? parsed.item_ids : []).filter((id: string) => validIds.has(id));
+  if (ids.length === 0) bounce("/capsula", "Não foi possível montar uma cápsula com as peças atuais do seu closet.");
+
+  const saved = await withProfile(async (c, userId) => {
     await c.query("DELETE FROM capsule_items WHERE user_id=$1", [userId]);
     for (const id of ids) {
       await c.query("INSERT INTO capsule_items(user_id,tenant_id,item_id) VALUES($1,current_setting('app.tenant_id')::uuid,$2)", [userId, id]);
@@ -48,5 +58,6 @@ export async function generateCapsule(f: FormData) {
     );
     return true;
   });
+  if (!saved) redirect("/capsula");
   redirect("/capsula");
 }

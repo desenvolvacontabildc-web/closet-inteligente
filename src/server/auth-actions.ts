@@ -76,9 +76,9 @@ export async function saveOnboarding(f:FormData){
       ],
     );
     if(q.rowCount!==1) bounce("/onboarding","Não foi possível salvar seu perfil.");
-    if(bodyPhotoKey) await generateBodyAvatar(c,id,bodyPhotoKey,(bodyPhoto as File).type);
-    return true;
+    return {id,bodyPhotoKey};
   });
   if(!saved) redirect("/");
+  if(saved.bodyPhotoKey) await generateBodyAvatar(saved.id,saved.bodyPhotoKey,(bodyPhoto as File).type);
   redirect("/home");
 }

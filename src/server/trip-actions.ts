@@ -84,61 +84,72 @@ export async function saveTripStep(f: FormData) {
 }
 
 /** Motor de seleção: cruza tudo que foi respondido com o closet real e monta a mala.
- * Nunca inventa peça -- só usa closet_items reais; o que faltar vira alerta, não peça. */
+ * Nunca inventa peça -- só usa closet_items reais; o que faltar vira alerta, não peça.
+ * Segue o padrão de 3 fases (ler / chamar IA / gravar) pra nunca manter uma conexão do
+ * pool presa durante a chamada à OpenAI (esta é a mais longa do app, pelo tamanho do
+ * prompt -- era o ponto de maior risco pra esgotar o pool). */
 export async function generateTripPlan(f: FormData) {
   const tripId = String(f.get("trip_id") || "");
-  await withProfile(async (c, userId) => {
+  const ctx = await withProfile(async (c, userId) => {
     const budget = await bumpAndCheckAiUsage(c, userId);
-    if (!budget.ok) bounce(`/mala/${tripId}?step=10`, budget.message || "Limite de operações de IA atingido.");
+    if (!budget.ok) return { ok: false as const, message: budget.message || "Limite de operações de IA atingido." };
     const tripRow = (await c.query("SELECT * FROM trip_plans WHERE id=$1", [tripId])).rows[0];
-    if (!tripRow) bounce("/mala", "Mala não encontrada.");
+    if (!tripRow) return { ok: false as const, message: "Mala não encontrada.", notFound: true };
     const items = (await c.query("SELECT id,name,category FROM closet_items WHERE status='ACTIVE'")).rows;
-    if (items.length === 0) bounce(`/mala/${tripId}?step=10`, "Cadastre ao menos uma peça no closet antes de gerar a mala.");
-    const dias = tripRow.data_ida && tripRow.data_volta
-      ? Math.max(1, Math.round((new Date(tripRow.data_volta).getTime() - new Date(tripRow.data_ida).getTime()) / 86400000) + 1)
-      : 3;
-    const metaQtd: Record<string, string> = { ESSENCIAL: "entre 8 e 10 peças principais", EQUILIBRADA: "entre 12 e 16 peças principais", MAIS_OPCOES: "entre 18 e 22 peças principais" };
-    const levarNomes = items.filter((i: any) => (tripRow.levar_ids || []).includes(i.id)).map((i: any) => i.name);
-    const evitarIds = new Set(tripRow.evitar_ids || []);
-    const candidatos = items.filter((i: any) => !evitarIds.has(i.id));
+    if (items.length === 0) return { ok: false as const, message: "Cadastre ao menos uma peça no closet antes de gerar a mala." };
+    return { ok: true as const, tripRow, items };
+  });
+  if (!ctx) redirect(`/mala/${tripId}?step=10`);
+  if (!ctx.ok) bounce(ctx.notFound ? "/mala" : `/mala/${tripId}?step=10`, ctx.message);
+  const { tripRow, items } = ctx;
 
-    let out: any;
-    try {
-      out = await new OpenAI().responses.create({
-        model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
-        input: [{
-          role: "user",
-          content: [{
-            type: "input_text",
-            text:
-              `Você é uma consultora de imagem montando uma mala de viagem real, usando SOMENTE peças que a cliente realmente tem no closet (nunca invente peça nova).\n` +
-              `Destino: ${tripRow.destino}. Duração: ${dias} dia(s)/noite(s). Transporte: ${tripRow.transporte || "não informado"}. Bagagem: ${tripRow.bagagem || "não informado"}.\n` +
-              `Clima esperado: ${JSON.stringify(tripRow.clima)}. Sensibilidade térmica da cliente: ${tripRow.sensibilidade_termica}.\n` +
-              `Atividades previstas: ${(tripRow.atividades || []).join(", ") || "não informado"}. Dress codes envolvidos: ${(tripRow.dress_codes || []).join(", ") || "nenhum"}.\n` +
-              `Como ela quer se sentir/se apresentar (até 3): ${(tripRow.estilo || []).join(", ") || "não informado"}.\n` +
-              `Peças que ela FAZ QUESTÃO de levar (inclua todas se possível): ${levarNomes.join(", ") || "nenhuma exigência"}.\n` +
-              `Prioridade: ${tripRow.prioridade || "não informado"}. Sobre repetir peças: ${tripRow.repeticao || "não informado"}. Acesso a lavanderia: ${tripRow.lavanderia || "não informado"}.\n` +
-              `Estratégia de mala escolhida: ${tripRow.estrategia} -- monte aproximadamente ${metaQtd[tripRow.estrategia] || metaQtd.EQUILIBRADA}.\n` +
-              `Necessidades especiais da viagem: ${(tripRow.necessidades || []).join(", ") || "nenhuma"}.\n` +
-              `Peças reais disponíveis (use SOMENTE estas, nunca invente outra):\n${JSON.stringify(candidatos)}\n` +
-              `Priorize peças versáteis (que combinam com várias outras, atendem mais de uma ocasião/clima) sobre peças que só formam um único look, exceto quando a ocasião exigir algo específico (ex. evento formal).\n` +
-              `Monte também os looks da viagem, organizados por dia (1 a ${dias}) e período/ocasião (ex.: "Dia 1 - Viagem", "Dia 2 - Reunião", "Dia 2 - Jantar"), reaproveitando as mesmas peças selecionadas em looks diferentes sempre que possível.\n` +
-              `Se identificar uma necessidade da agenda que o closet dela não atende bem (ex. evento formal sem peça adequada), NÃO invente uma peça -- registre isso em "alerts".\n` +
-              `Responda apenas JSON: {"selected_item_ids":["..."],"looks":[{"day":1,"period":"Dia 1 - Viagem","occasion":"...","item_ids":["..."]}],"alerts":["..."],"reasoning":"1-3 frases explicando a lógica da mala"}.`,
-          }],
+  const dias = tripRow.data_ida && tripRow.data_volta
+    ? Math.max(1, Math.round((new Date(tripRow.data_volta).getTime() - new Date(tripRow.data_ida).getTime()) / 86400000) + 1)
+    : 3;
+  const metaQtd: Record<string, string> = { ESSENCIAL: "entre 8 e 10 peças principais", EQUILIBRADA: "entre 12 e 16 peças principais", MAIS_OPCOES: "entre 18 e 22 peças principais" };
+  const levarNomes = items.filter((i: any) => (tripRow.levar_ids || []).includes(i.id)).map((i: any) => i.name);
+  const evitarIds = new Set(tripRow.evitar_ids || []);
+  const candidatos = items.filter((i: any) => !evitarIds.has(i.id));
+
+  let out: any;
+  try {
+    out = await new OpenAI().responses.create({
+      model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+      input: [{
+        role: "user",
+        content: [{
+          type: "input_text",
+          text:
+            `Você é uma consultora de imagem montando uma mala de viagem real, usando SOMENTE peças que a cliente realmente tem no closet (nunca invente peça nova).\n` +
+            `Destino: ${tripRow.destino}. Duração: ${dias} dia(s)/noite(s). Transporte: ${tripRow.transporte || "não informado"}. Bagagem: ${tripRow.bagagem || "não informado"}.\n` +
+            `Clima esperado: ${JSON.stringify(tripRow.clima)}. Sensibilidade térmica da cliente: ${tripRow.sensibilidade_termica}.\n` +
+            `Atividades previstas: ${(tripRow.atividades || []).join(", ") || "não informado"}. Dress codes envolvidos: ${(tripRow.dress_codes || []).join(", ") || "nenhum"}.\n` +
+            `Como ela quer se sentir/se apresentar (até 3): ${(tripRow.estilo || []).join(", ") || "não informado"}.\n` +
+            `Peças que ela FAZ QUESTÃO de levar (inclua todas se possível): ${levarNomes.join(", ") || "nenhuma exigência"}.\n` +
+            `Prioridade: ${tripRow.prioridade || "não informado"}. Sobre repetir peças: ${tripRow.repeticao || "não informado"}. Acesso a lavanderia: ${tripRow.lavanderia || "não informado"}.\n` +
+            `Estratégia de mala escolhida: ${tripRow.estrategia} -- monte aproximadamente ${metaQtd[tripRow.estrategia] || metaQtd.EQUILIBRADA}.\n` +
+            `Necessidades especiais da viagem: ${(tripRow.necessidades || []).join(", ") || "nenhuma"}.\n` +
+            `Peças reais disponíveis (use SOMENTE estas, nunca invente outra):\n${JSON.stringify(candidatos)}\n` +
+            `Priorize peças versáteis (que combinam com várias outras, atendem mais de uma ocasião/clima) sobre peças que só formam um único look, exceto quando a ocasião exigir algo específico (ex. evento formal).\n` +
+            `Monte também os looks da viagem, organizados por dia (1 a ${dias}) e período/ocasião (ex.: "Dia 1 - Viagem", "Dia 2 - Reunião", "Dia 2 - Jantar"), reaproveitando as mesmas peças selecionadas em looks diferentes sempre que possível.\n` +
+            `Se identificar uma necessidade da agenda que o closet dela não atende bem (ex. evento formal sem peça adequada), NÃO invente uma peça -- registre isso em "alerts".\n` +
+            `Responda apenas JSON: {"selected_item_ids":["..."],"looks":[{"day":1,"period":"Dia 1 - Viagem","occasion":"...","item_ids":["..."]}],"alerts":["..."],"reasoning":"1-3 frases explicando a lógica da mala"}.`,
         }],
-      });
-    } catch {
-      bounce(`/mala/${tripId}?step=10`, "A IA está indisponível no momento (sem créditos ou fora do ar). Tente de novo mais tarde.");
-    }
-    let parsed: any;
-    try { parsed = JSON.parse(out.output_text); } catch { bounce(`/mala/${tripId}?step=10`, "A IA não retornou um resultado válido. Tente novamente."); }
+      }],
+    });
+  } catch (e) {
+    console.error("generateTripPlan falhou (IA):", e);
+    bounce(`/mala/${tripId}?step=10`, "A IA está indisponível no momento (sem créditos ou fora do ar). Tente de novo mais tarde.");
+  }
+  let parsed: any;
+  try { parsed = JSON.parse(out.output_text); } catch (e) { console.error("generateTripPlan JSON inválido:", e); bounce(`/mala/${tripId}?step=10`, "A IA não retornou um resultado válido. Tente novamente."); }
 
-    const validIds = new Set(items.map((i: any) => i.id));
-    const selected = (Array.isArray(parsed.selected_item_ids) ? parsed.selected_item_ids : []).filter((id: string) => validIds.has(id));
-    const looksProposals = Array.isArray(parsed.looks) ? parsed.looks : [];
-    const alerts = Array.isArray(parsed.alerts) ? parsed.alerts.map((a: any) => String(a).slice(0, 300)) : [];
+  const validIds = new Set(items.map((i: any) => i.id));
+  const selected = (Array.isArray(parsed.selected_item_ids) ? parsed.selected_item_ids : []).filter((id: string) => validIds.has(id));
+  const looksProposals = Array.isArray(parsed.looks) ? parsed.looks : [];
+  const alerts = Array.isArray(parsed.alerts) ? parsed.alerts.map((a: any) => String(a).slice(0, 300)) : [];
 
+  const saved = await withProfile(async (c, userId) => {
     await c.query("DELETE FROM trip_items WHERE trip_id=$1", [tripId]);
     await c.query("DELETE FROM looks WHERE trip_id=$1", [tripId]);
     for (const itemId of selected) {
@@ -167,6 +178,7 @@ export async function generateTripPlan(f: FormData) {
     );
     return true;
   });
+  if (!saved) redirect(`/mala/${tripId}?step=10`);
   redirect(`/mala/${tripId}`);
 }
 

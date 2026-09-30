@@ -12,15 +12,16 @@ async function readObject(key: string): Promise<Buffer> {
   for await (const ch of await store.getObject(process.env.S3_BUCKET || "closet-private", key) as any) chunks.push(Buffer.from(ch));
   return Buffer.concat(chunks);
 }
-/** Gera a ilustração do look a partir das peças reais (quando há foto) ou só do texto.
- * Sunburst tem mais precisão pra edição com fotos de referência; Flare é mais rápido pra gerar do zero.
- * Só é chamada sob demanda (botão "Gerar inspiração em imagem"), nunca automaticamente ao montar o look.
- * `style` controla COMO VOCÊ QUER VISUALIZAR ESTE LOOK: REALISTA (foto-realista, sem estética de
- * desenho), AVATAR (usa o avatar personalizado da cliente como figura) ou ILUSTRACAO (croqui
- * genérico de moda, sem personalizar a figura mesmo se houver avatar). */
-async function generateIllustration(c: any, userId: string, lookId: string, itemIds: string[], description: string, style: "REALISTA" | "AVATAR" | "ILUSTRACAO") {
-  if (!process.env.OPENAI_API_KEY) { console.error("generateIllustration: OPENAI_API_KEY não configurada."); return "FAILED" as const; }
-  const openai = new OpenAI({ timeout: 120000 });
+
+/** Toda geração por IA deste arquivo segue 3 fases -- ler (transação curta), chamar a IA
+ * (sem nenhuma conexão do pool presa) e gravar (nova transação curta) -- pra nunca travar o
+ * pool de conexões do banco durante uma chamada externa que pode levar bastante tempo. */
+
+/** Fase 1 da ilustração: monta o prompt e junta as referências de foto, sem chamar a IA. */
+async function prepareIllustration(c: any, userId: string, itemIds: string[], description: string, style: "REALISTA" | "AVATAR" | "ILUSTRACAO"): Promise<
+  | { ok: true; promptBase: string; refs: { key: string; type: string }[]; hasIdentityRef: boolean }
+  | { ok: false; result: "NO_AVATAR" }
+> {
   // Uma foto de referência por peça do look (até 4) -- com menos peças com foto real, a IA
   // precisa "adivinhar" as demais só pelo nome e acaba inventando cor/corte errado.
   const photos = (await c.query(
@@ -31,7 +32,7 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
   if (style === "AVATAR") {
     const avatarRow = (await c.query("SELECT avatar_illustration_object_key FROM profiles WHERE user_id=$1", [userId])).rows[0];
     avatarKey = avatarRow?.avatar_illustration_object_key || null;
-    if (!avatarKey) return "NO_AVATAR" as const;
+    if (!avatarKey) return { ok: false, result: "NO_AVATAR" };
   }
   let likenessRef: { key: string; type: string } | null = null;
   if (style === "REALISTA") {
@@ -62,34 +63,45 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
       `Ilustração editorial de moda, estilo croqui/silhueta estilizada, figura genérica de moda, sem rosto detalhado e sem identidade real de nenhuma pessoa. ` +
       `Vestindo esta combinação: ${description}. ${semInvencao} Fundo neutro claro, traço elegante, sem texto na imagem.`;
   }
+  const refs: { key: string; type: string }[] = [];
+  if (avatarKey) refs.push({ key: avatarKey, type: "image/png" });
+  if (likenessRef) refs.push(likenessRef);
+  for (const p of photos) refs.push({ key: p.object_key, type: p.content_type });
+  return { ok: true, promptBase, refs, hasIdentityRef: !!(avatarKey || likenessRef) };
+}
+
+/** Fase 2 da ilustração: lê as fotos de referência do S3 (não é o banco) e chama a IA. */
+async function callIllustrationAI(refs: { key: string; type: string }[], promptBase: string, hasIdentityRef: boolean): Promise<{ ok: true; buf: Buffer } | { ok: false }> {
+  const openai = new OpenAI({ timeout: 120000 });
   let img;
   try {
-    if (avatarKey || likenessRef || photos.length > 0) {
-      const refs: { key: string; type: string }[] = [];
-      if (avatarKey) refs.push({ key: avatarKey, type: "image/png" });
-      if (likenessRef) refs.push(likenessRef);
-      for (const p of photos) refs.push({ key: p.object_key, type: p.content_type });
+    if (refs.length > 0) {
       const files = await Promise.all(refs.map(async (r, i) => toFile(await readObject(r.key), `ref-${i}.png`, { type: r.type })));
-      img = await openai.images.edit({ model: "gpt-image-2.5-sunburst", image: files, size: "1024x1024", quality: "medium", prompt: `${avatarKey || likenessRef ? "" : "Use estas fotos reais das peças como referência de cor, textura e caimento. "}${promptBase}` });
+      img = await openai.images.edit({ model: "gpt-image-2.5-sunburst", image: files, size: "1024x1024", quality: "medium", prompt: `${hasIdentityRef ? "" : "Use estas fotos reais das peças como referência de cor, textura e caimento. "}${promptBase}` });
     } else {
       img = await openai.images.generate({ model: "gpt-image-2.5-flare", size: "1024x1024", quality: "medium", prompt: promptBase });
     }
-  } catch {
-    return "FAILED" as const;
+  } catch (e) {
+    console.error("callIllustrationAI falhou:", e);
+    return { ok: false };
   }
   const b64 = img.data?.[0]?.b64_json;
-  if (!b64) return "FAILED" as const;
-  const buf = Buffer.from(b64, "base64");
+  if (!b64) return { ok: false };
+  return { ok: true, buf: Buffer.from(b64, "base64") };
+}
+
+/** Fase 3 da ilustração: grava o resultado já pronto. */
+async function writeIllustrationResult(c: any, userId: string, lookId: string, buf: Buffer, style: string): Promise<"OK" | "FAILED"> {
   const key = `looks/${lookId}/illustration.png`;
   try {
     await store.putObject(process.env.S3_BUCKET || "closet-private", key, buf, buf.length, { "Content-Type": "image/png" });
   } catch (e) {
-    console.error("generateIllustration putObject falhou:", e);
-    return "FAILED" as const;
+    console.error("writeIllustrationResult putObject falhou:", e);
+    return "FAILED";
   }
   await c.query("UPDATE looks SET illustration_object_key=$1, visual_style=$2 WHERE id=$3", [key, style, lookId]);
   await c.query("SELECT log_image_generation($1,current_setting('app.tenant_id')::uuid)", [userId]);
-  return "OK" as const;
+  return "OK";
 }
 
 /** Botão "Gerar inspiração em imagem" em cada look -- consome só o orçamento de geração de
@@ -98,7 +110,8 @@ export async function generateLookIllustration(f: FormData) {
   const lookId = String(f.get("look_id") || "");
   const returnPath = String(f.get("return_path") || "/looks");
   const requestedStyle = String(f.get("visual_style") || "");
-  await withProfile(async (c, userId) => {
+
+  const prep = await withProfile(async (c, userId) => {
     const allowance = await checkImageAllowance(c, userId);
     if (!allowance.ok) bounce(returnPath, allowance.message || "Limite de gerações de imagem atingido.");
     const prof = (await c.query("SELECT default_visual_style FROM profiles WHERE user_id=$1", [userId])).rows[0];
@@ -111,12 +124,22 @@ export async function generateLookIllustration(f: FormData) {
     );
     if (!look.rowCount) bounce(returnPath, "Look não encontrado.");
     const { name, occasion, item_ids, pieces } = look.rows[0];
-    const result = await generateIllustration(c, userId, lookId, item_ids || [], `${name || "look"} (${occasion || "sem ocasião"}): ${(pieces || []).join(", ")}`, style);
-    if (result === "OK") await consumeImageAllowance(c, userId, allowance.source);
-    if (result === "NO_AVATAR") bounce(returnPath, "Você ainda não tem um avatar personalizado. Crie o seu avatar no Perfil primeiro.");
-    if (result === "FAILED") bounce(returnPath, "Não foi possível gerar a imagem agora (sem créditos ou fora do ar). Tente de novo mais tarde.");
-    return true;
+    const illust = await prepareIllustration(c, userId, item_ids || [], `${name || "look"} (${occasion || "sem ocasião"}): ${(pieces || []).join(", ")}`, style);
+    return { userId, allowanceSource: allowance.source, style, illust };
   });
+  if (!prep) redirect(returnPath);
+  if (!prep.illust.ok) bounce(returnPath, "Você ainda não tem um avatar personalizado. Crie o seu avatar no Perfil primeiro.");
+
+  const aiResult = await callIllustrationAI(prep.illust.refs, prep.illust.promptBase, prep.illust.hasIdentityRef);
+  if (!aiResult.ok) bounce(returnPath, "Não foi possível gerar a imagem agora (sem créditos ou fora do ar). Tente de novo mais tarde.");
+
+  const saved = await withProfile(async (c, userId) => {
+    const result = await writeIllustrationResult(c, userId, lookId, aiResult.buf, prep.style);
+    if (result === "OK") await consumeImageAllowance(c, userId, prep.allowanceSource);
+    return result;
+  });
+  if (!saved) redirect(returnPath);
+  if (saved === "FAILED") bounce(returnPath, "Não foi possível salvar a imagem gerada agora. Tente de novo em instantes.");
   redirect(returnPath);
 }
 
@@ -175,12 +198,11 @@ export async function submitPostUseFeedback(f: FormData) {
 }
 
 /** Busca o clima atual da cidade cadastrada no perfil (geocodificação + previsão via
- * Open-Meteo, sem chave de API) e devolve um trecho pra incluir no pedido à IA. Falha
- * aqui (sem cidade cadastrada, API fora do ar, cidade não encontrada) nunca deve travar
- * a geração do look -- só volta string vazia. */
-async function weatherContext(c: any, userId: string): Promise<string> {
-  const row = (await c.query("SELECT city FROM profiles WHERE user_id=$1", [userId])).rows[0];
-  const city = String(row?.city || "").trim();
+ * Open-Meteo, sem chave de API) e devolve um trecho pra incluir no pedido à IA. Não recebe
+ * conexão de banco -- só a cidade já lida antes, pra não travar o pool durante o fetch
+ * externo. Falha aqui (sem cidade cadastrada, API fora do ar, cidade não encontrada) nunca
+ * deve travar a geração do look -- só volta string vazia. */
+async function weatherContext(city: string): Promise<string> {
   if (!city) return "";
   try {
     const geo: any = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pt&format=json`, { signal: AbortSignal.timeout(4000) }).then(r => r.json());
@@ -197,18 +219,27 @@ async function weatherContext(c: any, userId: string): Promise<string> {
 }
 
 /** Núcleo compartilhado: pede N looks à IA usando somente peças reais ativas e salva.
- * Looks salvos são ilimitados -- só a operação de IA (esta chamada) é contada. */
-async function generateLooksFromRequest(c: any, userId: string, request: string, maxLooks: number, kind: "SUGGESTED" | "DAILY" | "TRIP", tripLabel = "", returnPath = "/looks"): Promise<{ createdCount: number; note?: string }> {
-  if (!process.env.OPENAI_API_KEY) bounce(returnPath, "Sugestão por IA não configurada: defina OPENAI_API_KEY no servidor.");
-  const budget = await bumpAndCheckAiUsage(c, userId);
-  if (!budget.ok) bounce(returnPath, budget.message || "Limite de operações de IA atingido.");
-  const items = (await c.query("SELECT id,name,category,color,attributes FROM closet_items WHERE status='ACTIVE'")).rows;
-  if (items.length === 0) bounce(returnPath, "Cadastre ao menos uma peça no closet antes de pedir sugestões de look.");
-  const recent = (await c.query(
-    `SELECT l.name, l.occasion, (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
-     FROM looks l WHERE l.created_at >= now() - interval '14 days' ORDER BY l.created_at DESC LIMIT 10`,
-  )).rows;
-  const weather = kind === "TRIP" ? "" : await weatherContext(c, userId);
+ * Looks salvos são ilimitados -- só a operação de IA (esta chamada) é contada. Gerencia
+ * suas próprias transações curtas (não recebe `c` de fora) -- a chamada à IA roda
+ * inteiramente sem nenhuma conexão do pool presa. */
+async function generateLooksFromRequest(userId: string, request: string, maxLooks: number, kind: "SUGGESTED" | "DAILY" | "TRIP", tripLabel = "", returnPath = "/looks"): Promise<{ createdCount: number; note?: string }> {
+  const ctx = await withProfile(async (c) => {
+    if (!process.env.OPENAI_API_KEY) return { ok: false as const, message: "Sugestão por IA não configurada: defina OPENAI_API_KEY no servidor." };
+    const budget = await bumpAndCheckAiUsage(c, userId);
+    if (!budget.ok) return { ok: false as const, message: budget.message || "Limite de operações de IA atingido." };
+    const items = (await c.query("SELECT id,name,category,color,attributes FROM closet_items WHERE status='ACTIVE'")).rows;
+    if (items.length === 0) return { ok: false as const, message: "Cadastre ao menos uma peça no closet antes de pedir sugestões de look." };
+    const recent = (await c.query(
+      `SELECT l.name, l.occasion, (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
+       FROM looks l WHERE l.created_at >= now() - interval '14 days' ORDER BY l.created_at DESC LIMIT 10`,
+    )).rows;
+    const cityRow = (await c.query("SELECT city FROM profiles WHERE user_id=$1", [userId])).rows[0];
+    return { ok: true as const, items, recent, city: String(cityRow?.city || "").trim() };
+  });
+  if (!ctx) bounce(returnPath, "Sessão expirada. Faça login de novo.");
+  if (!ctx.ok) bounce(returnPath, ctx.message);
+
+  const weather = kind === "TRIP" ? "" : await weatherContext(ctx.city);
   const requestWithWeather = `${request}${weather}`;
   let out: any;
   try {
@@ -220,8 +251,8 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
           type: "input_text",
           text:
             `Você é uma consultora de imagem (personal stylist). Pedido da cliente: "${requestWithWeather}".\n` +
-            `Peças reais disponíveis no closet, com atributos de estilo já analisados (use SOMENTE estas peças, nunca invente peças novas; use os atributos — estilo, formalidade, estação, ocasiões, combina_com — pra decidir a curadoria):\n${JSON.stringify(items)}\n` +
-            (recent.length > 0 ? `Looks já sugeridos ou usados nos últimos 14 dias (evite repetir exatamente a mesma combinação; pode reutilizar peças individuais, mas varie a composição):\n${JSON.stringify(recent)}\n` : "") +
+            `Peças reais disponíveis no closet, com atributos de estilo já analisados (use SOMENTE estas peças, nunca invente peças novas; use os atributos — estilo, formalidade, estação, ocasiões, combina_com — pra decidir a curadoria):\n${JSON.stringify(ctx.items)}\n` +
+            (ctx.recent.length > 0 ? `Looks já sugeridos ou usados nos últimos 14 dias (evite repetir exatamente a mesma combinação; pode reutilizar peças individuais, mas varie a composição):\n${JSON.stringify(ctx.recent)}\n` : "") +
             `Monte até ${maxLooks} looks distintos e coerentes com o pedido, usando apenas essas peças. ` +
             (maxLooks > 1 ? `Se o pedido envolver múltiplos dias, monte um look por dia, variando as combinações mesmo repetindo peças individuais. ` : "") +
             `Responda apenas JSON no formato {"looks":[{"item_ids":["..."],"name":"...","occasion":"..."}],"note":"..."}. ` +
@@ -229,31 +260,37 @@ async function generateLooksFromRequest(c: any, userId: string, request: string,
         }],
       }],
     });
-  } catch {
+  } catch (e) {
+    console.error("generateLooksFromRequest falhou (IA):", e);
     bounce(returnPath, "A IA de sugestão está indisponível no momento (sem créditos ou fora do ar). Tente de novo mais tarde ou monte o look manualmente.");
   }
   let parsed: any;
-  try { parsed = JSON.parse(out.output_text); } catch { bounce(returnPath, "A IA não retornou uma sugestão válida. Tente novamente."); }
-  const validIds = new Set(items.map((i: any) => i.id));
-  const proposals = Array.isArray(parsed.looks) ? parsed.looks.slice(0, maxLooks) : [];
-  let created = 0;
-  for (const p of proposals) {
-    const ids = Array.isArray(p.item_ids) ? p.item_ids.filter((id: string) => validIds.has(id)) : [];
-    if (ids.length === 0) continue;
-    const name = String(p.name || "").slice(0, 120), occasion = String(p.occasion || "").slice(0, 120);
-    const look = await c.query(
-      "INSERT INTO looks(tenant_id,user_id,name,occasion,kind,trip_label) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,$3,$4,$5) RETURNING id",
-      [userId, name, occasion, kind, tripLabel],
-    );
-    const lookId = look.rows[0].id;
-    for (const id of ids) {
-      await c.query(
-        "INSERT INTO look_items(look_id,item_id,tenant_id,user_id) VALUES($1,$2,current_setting('app.tenant_id')::uuid,$3)",
-        [lookId, id, userId],
+  try { parsed = JSON.parse(out.output_text); } catch (e) { console.error("generateLooksFromRequest JSON inválido:", e); bounce(returnPath, "A IA não retornou uma sugestão válida. Tente novamente."); }
+
+  const created = await withProfile(async (c, savedUserId) => {
+    const validIds = new Set(ctx.items.map((i: any) => i.id));
+    const proposals = Array.isArray(parsed.looks) ? parsed.looks.slice(0, maxLooks) : [];
+    let count = 0;
+    for (const p of proposals) {
+      const ids = Array.isArray(p.item_ids) ? p.item_ids.filter((id: string) => validIds.has(id)) : [];
+      if (ids.length === 0) continue;
+      const name = String(p.name || "").slice(0, 120), occasion = String(p.occasion || "").slice(0, 120);
+      const look = await c.query(
+        "INSERT INTO looks(tenant_id,user_id,name,occasion,kind,trip_label) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,$3,$4,$5) RETURNING id",
+        [savedUserId, name, occasion, kind, tripLabel],
       );
+      const lookId = look.rows[0].id;
+      for (const id of ids) {
+        await c.query(
+          "INSERT INTO look_items(look_id,item_id,tenant_id,user_id) VALUES($1,$2,current_setting('app.tenant_id')::uuid,$3)",
+          [lookId, id, savedUserId],
+        );
+      }
+      count++;
     }
-    created++;
-  }
+    return count;
+  });
+  if (created === null) bounce(returnPath, "Sessão expirada. Faça login de novo.");
   return { createdCount: created, note: parsed.note };
 }
 
@@ -289,11 +326,10 @@ export async function suggestLooks(f: FormData) {
   if (APPROVED_LOOK_INTENT.test(request)) {
     redirect("/looks?filtro=aprovados");
   }
-  await withProfile(async (c, userId) => {
-    const result = await generateLooksFromRequest(c, userId, request, 5, "SUGGESTED", "", "/looks");
-    if (result.createdCount === 0) bounce("/looks", "Não foi possível montar nenhum look com as peças atuais do seu closet para esse pedido.");
-    return true;
-  });
+  const userId = await withProfile(async (c, uid) => uid);
+  if (!userId) redirect("/");
+  const result = await generateLooksFromRequest(userId, request, 5, "SUGGESTED", "", "/looks");
+  if (result.createdCount === 0) bounce("/looks", "Não foi possível montar nenhum look com as peças atuais do seu closet para esse pedido.");
   redirect("/looks");
 }
 
@@ -301,17 +337,18 @@ export async function suggestLooks(f: FormData) {
  * de imagem), reaproveita as de hoje se já existirem. */
 export async function generateTodayLook(f: FormData) {
   const baseItemId = String(f.get("base_item_id") || "").trim();
-  await withProfile(async (c, userId) => {
+  const pre = await withProfile(async (c, userId) => {
     const existing = await c.query("SELECT id FROM looks WHERE kind='DAILY' AND created_at::date=current_date LIMIT 1");
-    if (existing.rowCount) return true;
+    if (existing.rowCount) return { userId, skip: true as const, request: "" };
     let request = "Monte 2 opções de look para hoje, variadas entre si, práticas e alinhadas com o estilo da cliente para um dia comum, usando peças reais do closet ativo.";
     if (baseItemId) {
       const base = await c.query("SELECT name FROM closet_items WHERE id=$1 AND status='ACTIVE'", [baseItemId]);
       if (base.rowCount) request = `A cliente quer usar esta peça como base em todas as opções: "${base.rows[0].name}". ${request}`;
     }
-    await generateLooksFromRequest(c, userId, request, 2, "DAILY", "", "/home");
-    return true;
+    return { userId, skip: false as const, request };
   });
+  if (!pre) redirect("/home");
+  if (!pre.skip) await generateLooksFromRequest(pre.userId, pre.request, 2, "DAILY", "", "/home");
   redirect("/home");
 }
 
@@ -321,12 +358,11 @@ export async function suggestTrip(f: FormData) {
   const observacoes = String(f.get("observacoes") || "").trim();
   const dias = Math.min(7, Math.max(1, Math.floor(diasRaw) || 1));
   if (!destino) bounce("/mala", "Informe o destino da viagem.");
-  await withProfile(async (c, userId) => {
-    const request = `Mala de viagem para ${destino}, ${dias} dia${dias === 1 ? "" : "s"}. ${observacoes || ""}`.trim();
-    const result = await generateLooksFromRequest(c, userId, request, dias, "TRIP", destino, "/mala");
-    if (result.createdCount === 0) bounce("/mala", "Não foi possível montar looks para essa viagem com as peças atuais do seu closet.");
-    return true;
-  });
+  const userId = await withProfile(async (c, uid) => uid);
+  if (!userId) redirect("/");
+  const request = `Mala de viagem para ${destino}, ${dias} dia${dias === 1 ? "" : "s"}. ${observacoes || ""}`.trim();
+  const result = await generateLooksFromRequest(userId, request, dias, "TRIP", destino, "/mala");
+  if (result.createdCount === 0) bounce("/mala", "Não foi possível montar looks para essa viagem com as peças atuais do seu closet.");
   redirect("/mala");
 }
 
@@ -340,7 +376,9 @@ export async function deleteLook(f: FormData) {
 }
 
 /** Sobe uma foto real da cliente usando o look e pede à IA para avaliar com sinceridade
- * (nunca elogiar por padrão) -- distinguindo o que é observação visual do que é inferência. */
+ * (nunca elogiar por padrão) -- distinguindo o que é observação visual do que é inferência.
+ * Upload roda numa transação curta; a avaliação por IA (opcional, se houver orçamento) roda
+ * DEPOIS, sem conexão de banco presa. */
 export async function uploadLookPhoto(f: FormData) {
   const lookId = String(f.get("look_id") || "");
   const file = f.get("photo");
@@ -350,7 +388,7 @@ export async function uploadLookPhoto(f: FormData) {
   const buf = Buffer.from(await file.arrayBuffer());
   const objectKey = `looks/${lookId}/photo-${randomUUID()}`;
 
-  await withProfile(async (c, userId) => {
+  const prep = await withProfile(async (c, userId) => {
     const look = await c.query(
       `SELECT l.name, l.occasion, (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
        FROM looks l WHERE l.id=$1`,
@@ -363,48 +401,54 @@ export async function uploadLookPhoto(f: FormData) {
       "UPDATE looks SET photo_object_key=$1, photo_content_type=$2, status='PHOTOGRAPHED', photo_evaluation=NULL, photo_evaluated_at=NULL, updated_at=now() WHERE id=$3",
       [objectKey, file.type, lookId],
     );
-    if (process.env.OPENAI_API_KEY) {
+    let canEvaluate = false;
+    if (!process.env.OPENAI_API_KEY) {
+      console.error("uploadLookPhoto: OPENAI_API_KEY ausente, pulando avaliação automática.");
+    } else {
       const budget = await bumpAndCheckAiUsage(c, userId);
-      if (budget.ok) {
-        try {
-          const { pieces, occasion } = look.rows[0];
-          const dataUrl = `data:${file.type};base64,${buf.toString("base64")}`;
-          const out = await new OpenAI().responses.create({
-            model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
-            input: [{
-              role: "user",
-              content: [
-                {
-                  type: "input_text",
-                  text:
-                    `Você é uma consultora de imagem sincera e direta, nunca bajuladora. A cliente está usando este look de verdade (foto real, não ilustração). ` +
-                    `Peças que deveriam compor o look: ${(pieces || []).join(", ") || "não informado"}. Ocasião: ${occasion || "não informada"}.\n` +
-                    `REGRA OBRIGATÓRIA: não elogie automaticamente. Se algo não funcionou, diga isso claramente (ex.: "não combinou", "a proporção não favoreceu", "está visivelmente amarrotada", "o sapato prejudicou o resultado"). ` +
-                    `Distinga observação visual (o que está mesmo visível na foto) de inferência (sua opinião de estilo) -- nunca afirme como fato algo que não é visível (ex. evite "esse tecido é de baixa qualidade"; prefira "pela imagem, o tecido aparenta pouca estrutura"). ` +
-                    `Responda em 4 partes curtas (1-2 frases cada):\n` +
-                    `- caimento: observação visual de como a roupa cai no corpo (ajuste, comprimento, amassados, sujeira ou desgaste visível).\n` +
-                    `- proporcao: sua avaliação sincera do equilíbrio de proporções e silhueta -- diga se não favoreceu, sem medo de ser direta.\n` +
-                    `- cores: harmonia real das cores entre as peças e com o tom de pele, se visível.\n` +
-                    `- sugestao: o que você mudaria especificamente (troca de peça, ajuste, acessório) -- só elogie sem ressalva se genuinamente não houver nada a melhorar.\n` +
-                    `Responda apenas JSON: {"caimento":"...","proporcao":"...","cores":"...","sugestao":"..."}.`,
-                },
-                { type: "input_image", image_url: dataUrl, detail: "low" },
-              ],
-            }],
-          });
-          let parsed: any;
-          try { parsed = JSON.parse(out.output_text); } catch { parsed = { sugestao: out.output_text }; }
-          const evaluation = {
-            caimento: String(parsed.caimento || "").slice(0, 500),
-            proporcao: String(parsed.proporcao || "").slice(0, 500),
-            cores: String(parsed.cores || "").slice(0, 500),
-            sugestao: String(parsed.sugestao || "").slice(0, 500),
-          };
-          await c.query("UPDATE looks SET photo_evaluation=$1, photo_evaluated_at=now() WHERE id=$2", [JSON.stringify(evaluation), lookId]);
-        } catch (e) { console.error("uploadLookPhoto avaliação falhou:", e); /* avaliação é um extra; falha aqui não deve impedir o upload da foto */ }
-      }
+      canEvaluate = budget.ok;
+      if (!budget.ok) console.error("uploadLookPhoto: orçamento de IA esgotado, pulando avaliação:", budget.message);
     }
-    return true;
+    return { pieces: look.rows[0].pieces as string[] | null, occasion: look.rows[0].occasion as string | null, canEvaluate };
   });
+  if (!prep) redirect("/looks");
+
+  if (prep.canEvaluate) {
+    try {
+      const dataUrl = `data:${file.type};base64,${buf.toString("base64")}`;
+      const out = await new OpenAI().responses.create({
+        model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+        input: [{
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text:
+                `Você é uma consultora de imagem sincera e direta, nunca bajuladora. A cliente está usando este look de verdade (foto real, não ilustração). ` +
+                `Peças que deveriam compor o look: ${(prep.pieces || []).join(", ") || "não informado"}. Ocasião: ${prep.occasion || "não informada"}.\n` +
+                `REGRA OBRIGATÓRIA: não elogie automaticamente. Se algo não funcionou, diga isso claramente (ex.: "não combinou", "a proporção não favoreceu", "está visivelmente amarrotada", "o sapato prejudicou o resultado"). ` +
+                `Distinga observação visual (o que está mesmo visível na foto) de inferência (sua opinião de estilo) -- nunca afirme como fato algo que não é visível (ex. evite "esse tecido é de baixa qualidade"; prefira "pela imagem, o tecido aparenta pouca estrutura"). ` +
+                `Responda em 4 partes curtas (1-2 frases cada):\n` +
+                `- caimento: observação visual de como a roupa cai no corpo (ajuste, comprimento, amassados, sujeira ou desgaste visível).\n` +
+                `- proporcao: sua avaliação sincera do equilíbrio de proporções e silhueta -- diga se não favoreceu, sem medo de ser direta.\n` +
+                `- cores: harmonia real das cores entre as peças e com o tom de pele, se visível.\n` +
+                `- sugestao: o que você mudaria especificamente (troca de peça, ajuste, acessório) -- só elogie sem ressalva se genuinamente não houver nada a melhorar.\n` +
+                `Responda apenas JSON: {"caimento":"...","proporcao":"...","cores":"...","sugestao":"..."}.`,
+            },
+            { type: "input_image", image_url: dataUrl, detail: "low" },
+          ],
+        }],
+      });
+      let parsed: any;
+      try { parsed = JSON.parse(out.output_text); } catch { parsed = { sugestao: out.output_text }; }
+      const evaluation = {
+        caimento: String(parsed.caimento || "").slice(0, 500),
+        proporcao: String(parsed.proporcao || "").slice(0, 500),
+        cores: String(parsed.cores || "").slice(0, 500),
+        sugestao: String(parsed.sugestao || "").slice(0, 500),
+      };
+      await withProfile(async (c) => { await c.query("UPDATE looks SET photo_evaluation=$1, photo_evaluated_at=now() WHERE id=$2", [JSON.stringify(evaluation), lookId]); return true; });
+    } catch (e) { console.error("uploadLookPhoto avaliação falhou:", e); /* avaliação é um extra; falha aqui não deve impedir o upload da foto */ }
+  }
   redirect("/looks");
 }

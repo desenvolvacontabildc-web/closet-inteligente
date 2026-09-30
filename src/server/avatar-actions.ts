@@ -3,7 +3,6 @@ import OpenAI, { toFile } from "openai";
 import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
 import { Client } from "minio";
-import type { PoolClient } from "pg";
 import { withProfile } from "./profile-session";
 import { bounce } from "./action-error";
 import { checkImageAllowance, consumeImageAllowance } from "./limits";
@@ -17,13 +16,21 @@ async function readObject(key: string): Promise<Buffer> {
 }
 
 /** Gera o avatar de estilo (croqui com as proporções reais da cliente, sem rosto real)
- * a partir da foto de corpo inteiro enviada com consentimento. Chamada do onboarding
- * ignora o retorno (falha aqui não deve impedir o cadastro); chamada do Perfil usa o
- * retorno pra avisar a cliente se algo deu errado. */
-export async function generateBodyAvatar(c: PoolClient, userId: string, bodyPhotoKey: string, bodyPhotoContentType: string): Promise<BodyAvatarResult> {
-  const allowance = await checkImageAllowance(c, userId);
-  if (!allowance.ok) return "NO_ALLOWANCE";
-  if (!process.env.OPENAI_API_KEY) { console.error("generateBodyAvatar: OPENAI_API_KEY não configurada."); return "FAILED"; }
+ * a partir da foto de corpo inteiro já salva. Chamada do onboarding ignora o retorno
+ * (falha aqui não deve impedir o cadastro); chamada do Perfil usa o retorno pra avisar a
+ * cliente se algo deu errado. Gerencia suas PRÓPRIAS transações curtas (não recebe `c` de
+ * fora) -- a chamada à OpenAI roda inteiramente sem nenhuma conexão do pool presa. */
+export async function generateBodyAvatar(userId: string, bodyPhotoKey: string, bodyPhotoContentType: string): Promise<BodyAvatarResult> {
+  const prep = await withProfile(async (c) => {
+    const allowance = await checkImageAllowance(c, userId);
+    if (!allowance.ok) return { ok: false as const, result: "NO_ALLOWANCE" as const };
+    if (!process.env.OPENAI_API_KEY) { console.error("generateBodyAvatar: OPENAI_API_KEY não configurada."); return { ok: false as const, result: "FAILED" as const }; }
+    return { ok: true as const, source: allowance.source };
+  });
+  if (!prep) return "FAILED";
+  if (!prep.ok) return prep.result;
+
+  let outBuf: Buffer;
   try {
     const buf = await readObject(bodyPhotoKey);
     const file = await toFile(buf, "body-ref.png", { type: bodyPhotoContentType });
@@ -37,22 +44,27 @@ export async function generateBodyAvatar(c: PoolClient, userId: string, bodyPhot
     });
     const b64 = img.data?.[0]?.b64_json;
     if (!b64) return "FAILED";
-    const outBuf = Buffer.from(b64, "base64");
-    const key = `avatars/${userId}-illustration-${randomUUID()}.png`;
-    try {
-      await store.putObject(process.env.S3_BUCKET || "closet-private", key, outBuf, outBuf.length, { "Content-Type": "image/png" });
-    } catch (e) {
-      console.error("generateBodyAvatar putObject falhou:", e);
-      return "FAILED";
-    }
-    await c.query("UPDATE profiles SET avatar_illustration_object_key=$1 WHERE user_id=$2", [key, userId]);
-    await c.query("SELECT log_image_generation($1,current_setting('app.tenant_id')::uuid)", [userId]);
-    await consumeImageAllowance(c, userId, allowance.source);
-    return "OK";
+    outBuf = Buffer.from(b64, "base64");
   } catch (e) {
     console.error("generateBodyAvatar falhou (IA):", e);
     return "FAILED";
   }
+
+  const key = `avatars/${userId}-illustration-${randomUUID()}.png`;
+  try {
+    await store.putObject(process.env.S3_BUCKET || "closet-private", key, outBuf, outBuf.length, { "Content-Type": "image/png" });
+  } catch (e) {
+    console.error("generateBodyAvatar putObject falhou:", e);
+    return "FAILED";
+  }
+  const saved = await withProfile(async (c) => {
+    await c.query("UPDATE profiles SET avatar_illustration_object_key=$1 WHERE user_id=$2", [key, userId]);
+    await c.query("SELECT log_image_generation($1,current_setting('app.tenant_id')::uuid)", [userId]);
+    await consumeImageAllowance(c, userId, prep.source);
+    return true;
+  });
+  if (!saved) return "FAILED";
+  return "OK";
 }
 
 /** "Criar meu avatar" / "Atualizar meu avatar" no Perfil -- disponível pra qualquer
@@ -66,7 +78,7 @@ export async function setBodyAvatarReference(f: FormData) {
   if (!consent) bounce("/perfil", "É necessário autorizar o uso da foto só como referência para gerar o avatar.");
   if (file.size > 10 * 1024 * 1024) bounce("/perfil", "A foto é muito grande. Envie uma imagem de até 10MB.");
   const buf = Buffer.from(await file.arrayBuffer());
-  const result = await withProfile(async (c, userId) => {
+  const saved = await withProfile(async (c, userId) => {
     const key = `avatars/${userId}-body-${randomUUID()}`;
     try { await store.putObject(process.env.S3_BUCKET || "closet-private", key, buf, buf.length, { "Content-Type": file.type }); }
     catch (e) { console.error("setBodyAvatarReference putObject falhou:", e); bounce("/perfil", "Não foi possível enviar a foto agora. Tente de novo em instantes."); }
@@ -74,8 +86,10 @@ export async function setBodyAvatarReference(f: FormData) {
       "UPDATE profiles SET body_photo_object_key=$1, body_photo_content_type=$2, body_photo_consent_at=now() WHERE user_id=$3",
       [key, file.type, userId],
     );
-    return await generateBodyAvatar(c, userId, key, file.type);
+    return { userId, key };
   });
+  if (!saved) redirect("/perfil");
+  const result = await generateBodyAvatar(saved.userId, saved.key, file.type);
   if (result === "NO_ALLOWANCE") bounce("/perfil", "Limite de gerações de imagem atingido -- tente novamente no próximo período.");
   if (result === "FAILED") bounce("/perfil", "Não foi possível gerar o avatar agora (IA indisponível). Sua foto de referência foi salva -- tente de novo em alguns minutos.");
   redirect("/perfil");
