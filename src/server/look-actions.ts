@@ -19,6 +19,7 @@ async function readObject(key: string): Promise<Buffer> {
  * desenho), AVATAR (usa o avatar personalizado da cliente como figura) ou ILUSTRACAO (croqui
  * genérico de moda, sem personalizar a figura mesmo se houver avatar). */
 async function generateIllustration(c: any, userId: string, lookId: string, itemIds: string[], description: string, style: "REALISTA" | "AVATAR" | "ILUSTRACAO") {
+  if (!process.env.OPENAI_API_KEY) { console.error("generateIllustration: OPENAI_API_KEY não configurada."); return "FAILED" as const; }
   const openai = new OpenAI({ timeout: 120000 });
   // Uma foto de referência por peça do look (até 4) -- com menos peças com foto real, a IA
   // precisa "adivinhar" as demais só pelo nome e acaba inventando cor/corte errado.
@@ -80,7 +81,12 @@ async function generateIllustration(c: any, userId: string, lookId: string, item
   if (!b64) return "FAILED" as const;
   const buf = Buffer.from(b64, "base64");
   const key = `looks/${lookId}/illustration.png`;
-  await store.putObject(process.env.S3_BUCKET || "closet-private", key, buf, buf.length, { "Content-Type": "image/png" });
+  try {
+    await store.putObject(process.env.S3_BUCKET || "closet-private", key, buf, buf.length, { "Content-Type": "image/png" });
+  } catch (e) {
+    console.error("generateIllustration putObject falhou:", e);
+    return "FAILED" as const;
+  }
   await c.query("UPDATE looks SET illustration_object_key=$1, visual_style=$2 WHERE id=$3", [key, style, lookId]);
   await c.query("SELECT log_image_generation($1,current_setting('app.tenant_id')::uuid)", [userId]);
   return "OK" as const;
@@ -351,7 +357,8 @@ export async function uploadLookPhoto(f: FormData) {
       [lookId],
     );
     if (!look.rowCount) bounce("/looks", "Look não encontrado.");
-    await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": file.type });
+    try { await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": file.type }); }
+    catch (e) { console.error("uploadLookPhoto putObject falhou:", e); bounce("/looks", "Não foi possível enviar a foto agora. Tente de novo em instantes."); }
     await c.query(
       "UPDATE looks SET photo_object_key=$1, photo_content_type=$2, status='PHOTOGRAPHED', photo_evaluation=NULL, photo_evaluated_at=NULL, updated_at=now() WHERE id=$3",
       [objectKey, file.type, lookId],
@@ -394,7 +401,7 @@ export async function uploadLookPhoto(f: FormData) {
             sugestao: String(parsed.sugestao || "").slice(0, 500),
           };
           await c.query("UPDATE looks SET photo_evaluation=$1, photo_evaluated_at=now() WHERE id=$2", [JSON.stringify(evaluation), lookId]);
-        } catch { /* avaliação é um extra; falha aqui não deve impedir o upload da foto */ }
+        } catch (e) { console.error("uploadLookPhoto avaliação falhou:", e); /* avaliação é um extra; falha aqui não deve impedir o upload da foto */ }
       }
     }
     return true;

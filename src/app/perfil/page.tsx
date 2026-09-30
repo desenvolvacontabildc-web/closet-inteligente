@@ -55,7 +55,7 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
           <input type="file" name="body_photo" accept="image/*" required/>
         </label>
         <label className="checkbox"><input type="checkbox" name="body_photo_consent"/> Autorizo o uso desta foto só como referência para gerar meu avatar.</label>
-        <SubmitButton pendingText="Gerando avatar... (até 30s)">{hasStyleAvatar ? "Atualizar meu avatar" : "Criar meu avatar"}</SubmitButton>
+        <SubmitButton pendingText="Gerando avatar... (pode levar até 2 minutos)">{hasStyleAvatar ? "Atualizar meu avatar" : "Criar meu avatar"}</SubmitButton>
       </form>
     </div>
 

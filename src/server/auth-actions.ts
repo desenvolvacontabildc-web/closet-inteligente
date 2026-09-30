@@ -55,13 +55,15 @@ export async function saveOnboarding(f:FormData){
   const saved=await withProfile(async(c,id)=>{
     let avatarKey:string|null=null;
     if(hasAvatar&&avatarBuf){
-      avatarKey=`avatars/${id}-${Date.now()}`;
-      await store.putObject(process.env.S3_BUCKET||"closet-private",avatarKey,avatarBuf,avatarBuf.length,{"Content-Type":(avatar as File).type});
+      const key=`avatars/${id}-${Date.now()}`;
+      try{await store.putObject(process.env.S3_BUCKET||"closet-private",key,avatarBuf,avatarBuf.length,{"Content-Type":(avatar as File).type});avatarKey=key}
+      catch(e){console.error("saveOnboarding putObject (avatar) falhou:",e);/* foto de perfil é opcional -- não deve travar o onboarding, ela pode adicionar depois no Perfil */}
     }
     let bodyPhotoKey:string|null=null;
     if(hasBodyPhoto&&bodyPhotoBuf){
-      bodyPhotoKey=`avatars/${id}-body-${Date.now()}`;
-      await store.putObject(process.env.S3_BUCKET||"closet-private",bodyPhotoKey,bodyPhotoBuf,bodyPhotoBuf.length,{"Content-Type":(bodyPhoto as File).type});
+      const key=`avatars/${id}-body-${Date.now()}`;
+      try{await store.putObject(process.env.S3_BUCKET||"closet-private",key,bodyPhotoBuf,bodyPhotoBuf.length,{"Content-Type":(bodyPhoto as File).type});bodyPhotoKey=key}
+      catch(e){console.error("saveOnboarding putObject (body photo) falhou:",e);/* foto de corpo é opcional -- não deve travar o onboarding nem o avatar de perfil já salvo, ela pode adicionar depois no Perfil */}
     }
     const q=await c.query(
       "UPDATE profiles SET answers=$1,experience_tokens=$2,onboarding_completed=true"

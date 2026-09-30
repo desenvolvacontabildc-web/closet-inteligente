@@ -20,7 +20,8 @@ export async function addPartnerItem(f: FormData) {
     const buf = Buffer.from(await file.arrayBuffer());
     objectKey = `partners/${randomUUID()}`;
     contentType = file.type;
-    await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": contentType });
+    try { await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": contentType }); }
+    catch (e) { console.error("addPartnerItem putObject falhou:", e); bounce("/parceiras/painel", "Não foi possível enviar a foto agora. Tente de novo em instantes."); }
   }
   let result;
   try {
@@ -43,7 +44,8 @@ export async function setPartnerLogo(f: FormData) {
   if (file.size > 4 * 1024 * 1024) bounce("/parceiras/painel", "O logo é muito grande. Envie uma imagem de até 4MB.");
   const buf = Buffer.from(await file.arrayBuffer());
   const objectKey = `partners/logo-${randomUUID()}`;
-  await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": file.type });
+  try { await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": file.type }); }
+  catch (e) { console.error("setPartnerLogo putObject falhou:", e); bounce("/parceiras/painel", "Não foi possível enviar o logo agora. Tente de novo em instantes."); }
   const result = await withPartner(async (c, partnerId) => {
     await c.query("SELECT partner_set_logo($1,$2,$3)", [partnerId, objectKey, file.type]);
     return true;

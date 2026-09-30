@@ -23,6 +23,7 @@ async function readObject(key: string): Promise<Buffer> {
 export async function generateBodyAvatar(c: PoolClient, userId: string, bodyPhotoKey: string, bodyPhotoContentType: string): Promise<BodyAvatarResult> {
   const allowance = await checkImageAllowance(c, userId);
   if (!allowance.ok) return "NO_ALLOWANCE";
+  if (!process.env.OPENAI_API_KEY) { console.error("generateBodyAvatar: OPENAI_API_KEY não configurada."); return "FAILED"; }
   try {
     const buf = await readObject(bodyPhotoKey);
     const file = await toFile(buf, "body-ref.png", { type: bodyPhotoContentType });
@@ -38,12 +39,18 @@ export async function generateBodyAvatar(c: PoolClient, userId: string, bodyPhot
     if (!b64) return "FAILED";
     const outBuf = Buffer.from(b64, "base64");
     const key = `avatars/${userId}-illustration-${randomUUID()}.png`;
-    await store.putObject(process.env.S3_BUCKET || "closet-private", key, outBuf, outBuf.length, { "Content-Type": "image/png" });
+    try {
+      await store.putObject(process.env.S3_BUCKET || "closet-private", key, outBuf, outBuf.length, { "Content-Type": "image/png" });
+    } catch (e) {
+      console.error("generateBodyAvatar putObject falhou:", e);
+      return "FAILED";
+    }
     await c.query("UPDATE profiles SET avatar_illustration_object_key=$1 WHERE user_id=$2", [key, userId]);
     await c.query("SELECT log_image_generation($1,current_setting('app.tenant_id')::uuid)", [userId]);
     await consumeImageAllowance(c, userId, allowance.source);
     return "OK";
-  } catch {
+  } catch (e) {
+    console.error("generateBodyAvatar falhou (IA):", e);
     return "FAILED";
   }
 }
@@ -61,7 +68,8 @@ export async function setBodyAvatarReference(f: FormData) {
   const buf = Buffer.from(await file.arrayBuffer());
   const result = await withProfile(async (c, userId) => {
     const key = `avatars/${userId}-body-${randomUUID()}`;
-    await store.putObject(process.env.S3_BUCKET || "closet-private", key, buf, buf.length, { "Content-Type": file.type });
+    try { await store.putObject(process.env.S3_BUCKET || "closet-private", key, buf, buf.length, { "Content-Type": file.type }); }
+    catch (e) { console.error("setBodyAvatarReference putObject falhou:", e); bounce("/perfil", "Não foi possível enviar a foto agora. Tente de novo em instantes."); }
     await c.query(
       "UPDATE profiles SET body_photo_object_key=$1, body_photo_content_type=$2, body_photo_consent_at=now() WHERE user_id=$3",
       [key, file.type, userId],
@@ -107,7 +115,8 @@ export async function uploadAvatar(f: FormData) {
   if (file.size > 8 * 1024 * 1024) bounce(redirectTo, "A foto é muito grande. Envie uma imagem de até 8MB.");
   const buf = Buffer.from(await file.arrayBuffer());
   const objectKey = `avatars/${randomUUID()}`;
-  await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": file.type });
+  try { await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": file.type }); }
+  catch (e) { console.error("uploadAvatar putObject falhou:", e); bounce(redirectTo, "Não foi possível enviar a foto agora. Tente de novo em instantes."); }
   await withProfile(async (c, userId) => {
     await c.query("UPDATE profiles SET avatar_object_key=$1, avatar_content_type=$2, updated_at=now() WHERE user_id=$3", [objectKey, file.type, userId]);
     return true;

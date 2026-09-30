@@ -108,7 +108,7 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
                   {Object.entries(STYLE_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
-              <SubmitButton disabled={imgRemaining===0} pendingText="Gerando imagem... (até 30s)">🖼️ {l.has_illustration?"Gerar de novo":"Gerar inspiração em imagem"}</SubmitButton>
+              <SubmitButton disabled={imgRemaining===0} pendingText="Gerando imagem... (pode levar até 2 minutos)">🖼️ {l.has_illustration?"Gerar de novo":"Gerar inspiração em imagem"}</SubmitButton>
               <p className="look-meta">{imgRemaining===0?"⚠️ Seu limite de gerações de imagem deste mês acabou. Fale com a administradora para comprar mais créditos ou mudar de plano.":imgRemaining!==null?`Isso usa 1 das suas ${imgRemaining} gerações de imagem restantes este mês.`:"Gerações de imagem ilimitadas no seu plano."}</p>
             </form>
             <form action={uploadLookPhoto} encType="multipart/form-data">

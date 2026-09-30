@@ -17,7 +17,8 @@ export async function createTrend(f: FormData) {
     const buf = Buffer.from(await file.arrayBuffer());
     objectKey = `trends/${randomUUID()}`;
     contentType = file.type;
-    await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": contentType });
+    try { await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": contentType }); }
+    catch (e) { console.error("createTrend putObject falhou:", e); bounce("/admin/tendencias", "Não foi possível enviar a foto agora. Tente de novo em instantes."); }
   }
   await withProfile(async (c, userId) => {
     await c.query("SELECT admin_create_trend($1,$2,$3,$4,$5)", [userId, title, body, objectKey, contentType]);
@@ -39,7 +40,7 @@ export async function setTrendActive(f: FormData) {
 export async function adminListTrends() {
   const result = await withProfile(async (c, userId) => {
     try { return (await c.query("SELECT * FROM admin_list_trends($1)", [userId])).rows; }
-    catch { return null; }
+    catch (e) { console.error("adminListTrends falhou:", e); return null; }
   });
   return result;
 }

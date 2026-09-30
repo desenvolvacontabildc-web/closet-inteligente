@@ -1,6 +1,6 @@
-import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createItem } from "@/server/closet-actions";
-export default async function Closet({searchParams}:{searchParams:Promise<{category?:string;color?:string;status?:string;error?:string}>}){
-  const {category,color,status,error}=await searchParams;
+import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createItem } from "@/server/closet-actions"; import SubmitButton from "@/components/submit-button";
+export default async function Closet({searchParams}:{searchParams:Promise<{category?:string;color?:string;status?:string;error?:string;f_name?:string;f_category?:string;f_color?:string;f_description?:string}>}){
+  const {category,color,status,error,f_name,f_category,f_color,f_description}=await searchParams;
   const data=await withProfile(async c=>{
     const filters:string[]=[]; const params:string[]=[];
     if(category){params.push(category);filters.push(`category=$${params.length}`)}
@@ -62,12 +62,12 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
     {items.length===0&&<p>Nenhuma peça encontrada com esse filtro.</p>}
     <form action={createItem} encType="multipart/form-data" className="form">
       <h2>Adicionar peça</h2>
-      <input name="name" placeholder="Nome da peça" required/>
-      <input name="category" placeholder="Categoria" required/>
-      <input name="color" placeholder="Cor"/>
+      <input name="name" placeholder="Nome da peça" defaultValue={f_name||""} required/>
+      <input name="category" placeholder="Categoria" defaultValue={f_category||""} required/>
+      <input name="color" placeholder="Cor" defaultValue={f_color||""}/>
       <label>Foto real da peça (opcional, mas ajuda a IA a identificar)<input type="file" name="photo" accept="image/*"/></label>
-      <textarea name="description" placeholder="Observações"/>
-      <button>Adicionar ao closet</button>
+      <textarea name="description" placeholder="Observações" defaultValue={f_description||""}/>
+      <SubmitButton pendingText="Adicionando... (se enviou foto, a IA analisa em seguida, até 20s)">Adicionar ao closet</SubmitButton>
     </form>
   </main>;
 }

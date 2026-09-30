@@ -20,7 +20,8 @@ export async function createFind(f: FormData) {
     const buf = Buffer.from(await file.arrayBuffer());
     objectKey = `finds/${randomUUID()}`;
     contentType = file.type;
-    await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": contentType });
+    try { await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": contentType }); }
+    catch (e) { console.error("createFind putObject falhou:", e); bounce("/admin/achadinhos", "Não foi possível enviar a foto agora. Tente de novo em instantes."); }
   }
   await withProfile(async (c, userId) => {
     await c.query("SELECT admin_create_find($1,$2,$3,$4,$5,$6,$7)", [userId, title, description, Number.isFinite(priceReais) ? Math.round(priceReais * 100) : null, externalUrl, objectKey, contentType]);
@@ -44,7 +45,8 @@ export async function updateFind(f: FormData) {
       if (!file.type.startsWith("image/")) bounce("/admin/achadinhos", "Envie um arquivo de imagem.");
       const buf = Buffer.from(await file.arrayBuffer());
       const objectKey = `finds/${randomUUID()}`;
-      await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": file.type });
+      try { await store.putObject(process.env.S3_BUCKET || "closet-private", objectKey, buf, buf.length, { "Content-Type": file.type }); }
+      catch (e) { console.error("updateFind putObject falhou:", e); bounce("/admin/achadinhos", "Não foi possível enviar a foto agora. Tente de novo em instantes."); }
       await c.query("SELECT admin_set_find_photo($1,$2,$3,$4)", [userId, id, objectKey, file.type]);
     }
     return true;
@@ -65,7 +67,7 @@ export async function setFindActive(f: FormData) {
 export async function adminListFinds() {
   const result = await withProfile(async (c, userId) => {
     try { return (await c.query("SELECT * FROM admin_list_finds($1)", [userId])).rows; }
-    catch { return null; }
+    catch (e) { console.error("adminListFinds falhou:", e); return null; }
   });
   return result;
 }
