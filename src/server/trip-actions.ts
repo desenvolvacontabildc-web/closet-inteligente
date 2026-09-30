@@ -147,9 +147,13 @@ export async function generateTripPlan(f: FormData) {
     for (const p of looksProposals) {
       const ids = Array.isArray(p.item_ids) ? p.item_ids.filter((id: string) => validIds.has(id)) : [];
       if (ids.length === 0) continue;
+      const day = Number(p.day) || 1;
+      const occasionText = String(p.occasion || p.period || "Look da viagem").slice(0, 120);
+      const periodText = String(p.period || "").slice(0, 120);
+      const nameText = (periodText || `Dia ${day} - ${occasionText}`).slice(0, 120);
       const lookRow = await c.query(
-        "INSERT INTO looks(tenant_id,user_id,name,occasion,kind,trip_label,trip_id,trip_day,trip_period) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,$2,'TRIP',$3,$4,$5,$6) RETURNING id",
-        [userId, String(p.occasion || p.period || "Look da viagem").slice(0, 120), tripRow.destino, tripId, Number(p.day) || 1, String(p.period || "").slice(0, 120)],
+        "INSERT INTO looks(tenant_id,user_id,name,occasion,kind,trip_label,trip_id,trip_day,trip_period) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,$3,'TRIP',$4,$5,$6,$7) RETURNING id",
+        [userId, nameText, occasionText, tripRow.destino, tripId, day, periodText],
       );
       for (const id of ids) {
         await c.query("INSERT INTO look_items(look_id,item_id,tenant_id,user_id) VALUES($1,$2,current_setting('app.tenant_id')::uuid,$3)", [lookRow.rows[0].id, id, userId]);

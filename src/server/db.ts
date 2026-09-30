@@ -9,7 +9,7 @@ export function getPool(): Pool {
     throw new Error("Configuração PostgreSQL incompleta.");
   }
   globalDb.closetPool ??= new Pool({
-    max: 5,
+    max: 20,
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 30000,
   });
