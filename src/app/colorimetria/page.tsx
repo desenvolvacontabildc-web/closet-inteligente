@@ -182,6 +182,8 @@ function ResultsView({ dossier, profile, closetItems, error }: any) {
       <p className="hint">Cores da sua paleta que ainda não aparecem no seu closet:</p>
       <div className="swatches">{gaps.map((c, i) => <div key={i} className="swatch-display"><span style={{ background: c.hex }} />{c.name}</div>)}</div>
     </div>}
+
+    <form action={restartColorimetria}><SubmitButton className="link" pendingText="Preparando...">Refazer minha colorimetria</SubmitButton></form>
   </main>;
 }
 
