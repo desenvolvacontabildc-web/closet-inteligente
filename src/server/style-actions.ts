@@ -13,6 +13,14 @@ function labelsFor(list: { value: string; label: string }[], values: string[]): 
   return (values || []).map((v) => labelFor(list, v)).filter(Boolean).join(", ") || "não informado";
 }
 
+/** Reabre o questionário pra quem tem um resultado salvo no formato antigo (antes da
+ * reforma visual com paleta de cores reais) ou simplesmente quer refazer a análise. */
+export async function restartColorimetria() {
+  const saved = await withProfile(async (c, userId) => { await c.query("SELECT restart_my_colorimetria($1)", [userId]); return true; });
+  if (!saved) redirect("/");
+  redirect("/colorimetria?step=1");
+}
+
 /** Etapas do questionário (todas de marcar opção, quase nada de texto livre) -- salva
  * incrementalmente em `answers` pra sobreviver a voltar/avançar e retomar depois. */
 export async function saveColorStep(f: FormData) {

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
-import { generateColorimetria, saveColorStep } from "@/server/style-actions";
+import { generateColorimetria, saveColorStep, restartColorimetria } from "@/server/style-actions";
 import SubmitButton from "@/components/submit-button";
 import {
   CABELO_OPCOES, TINGIDO_OPCOES, OLHOS_OPCOES, BRONZEAMENTO_OPCOES,
@@ -74,21 +74,31 @@ function colorTokens(name: string): string[] {
   return normalize(name).split(/[\s/–-]+/).filter((w) => w.length > 2);
 }
 
-function ColorSection({ title, items }: { title: string; items?: { name: string; hex: string }[] }) {
-  if (!items || items.length === 0) return null;
+/** Aceita qualquer coisa em `items` (defensivo contra dossiê salvo em formato antigo, que
+ * tinha campos como texto corrido em vez de lista de {name,hex}) -- nunca deixa a página
+ * quebrar por causa de um dado fora do formato esperado. */
+function asArray(items: any): any[] {
+  return Array.isArray(items) ? items : [];
+}
+function asColorArray(items: any): any[] {
+  return asArray(items).filter((c: any) => c && typeof c === "object" && typeof c.hex === "string");
+}
+function ColorSection({ title, items }: { title: string; items?: any }) {
+  const arr = asColorArray(items);
+  if (arr.length === 0) return null;
   return <div className="color-section">
     <h3>{title}</h3>
     <div className="swatches">
-      {items.map((c, i) => c?.hex && <div key={i} className="swatch-display"><span style={{ background: c.hex }} />{c.name}</div>)}
+      {arr.map((c, i) => <div key={i} className="swatch-display"><span style={{ background: c.hex }} />{c.name}</div>)}
     </div>
   </div>;
 }
 
 function ResultsView({ dossier, profile, closetItems, error }: any) {
-  const melhores = dossier.melhores_cores || {};
-  const allFavorable: { name: string; hex: string }[] = ([] as any[]).concat(
-    melhores.neutros || [], melhores.claras || [], melhores.medias || [], melhores.profundas || [], melhores.destaque || [], melhores.proximas_rosto || [],
-  ).filter((c: any) => c?.hex);
+  const melhores = dossier.melhores_cores && typeof dossier.melhores_cores === "object" && !Array.isArray(dossier.melhores_cores) ? dossier.melhores_cores : {};
+  const allFavorable: any[] = ([] as any[]).concat(
+    asColorArray(melhores.neutros), asColorArray(melhores.claras), asColorArray(melhores.medias), asColorArray(melhores.profundas), asColorArray(melhores.destaque), asColorArray(melhores.proximas_rosto),
+  );
   const favorableTokens = new Set(allFavorable.flatMap((c) => colorTokens(c.name)));
   const itemTokenSets = closetItems.map((it: any) => ({ it, tokens: new Set([...colorTokens(it.color || ""), ...colorTokens(it.name || "")]) }));
   const closetMatches = itemTokenSets.filter(({ tokens }: any) => [...tokens].some((t) => favorableTokens.has(t))).map(({ it }: any) => it);
@@ -116,20 +126,20 @@ function ResultsView({ dossier, profile, closetItems, error }: any) {
     <ColorSection title="Interessantes perto do rosto" items={melhores.proximas_rosto} />
     <ColorSection title="Metais" items={dossier.metais} />
 
-    {dossier.combinacoes_recomendadas?.length > 0 && <div className="color-section">
+    {asArray(dossier.combinacoes_recomendadas).length > 0 && <div className="color-section">
       <h3>Combinações recomendadas</h3>
-      {dossier.combinacoes_recomendadas.map((combo: any, i: number) => (
+      {asArray(dossier.combinacoes_recomendadas).map((combo: any, i: number) => (
         <div key={i} className="combo-card">
-          <div className="dots">{(combo.cores || []).map((c: any, j: number) => c?.hex && <span key={j} style={{ background: c.hex }} />)}</div>
-          <p>{(combo.cores || []).map((c: any) => c.name).join(" + ")}{combo.nota ? ` — ${combo.nota}` : ""}</p>
+          <div className="dots">{asColorArray(combo?.cores).map((c: any, j: number) => <span key={j} style={{ background: c.hex }} />)}</div>
+          <p>{asColorArray(combo?.cores).map((c: any) => c.name).join(" + ")}{combo?.nota ? ` — ${combo.nota}` : ""}</p>
         </div>
       ))}
     </div>}
 
-    {dossier.cores_com_estrategia?.length > 0 && <div className="color-section">
+    {asColorArray(dossier.cores_com_estrategia).length > 0 && <div className="color-section">
       <h3>Cores para usar com mais estratégia</h3>
       <p className="hint">Não são cores proibidas -- só pedem mais cuidado perto do rosto.</p>
-      {dossier.cores_com_estrategia.map((c: any, i: number) => c?.hex && (
+      {asColorArray(dossier.cores_com_estrategia).map((c: any, i: number) => (
         <div key={i} className="strategy-swatch">
           <span className="dot" style={{ background: c.hex }} />
           <p><strong>{c.name}</strong>{c.nota ? ` — ${c.nota}` : ""}</p>
@@ -199,7 +209,17 @@ export default async function Colorimetria({ searchParams }: { searchParams: Pro
   }
 
   if (status === "CONCLUIDA") {
-    if (dossier) return <ResultsView dossier={dossier} profile={profile} closetItems={closetItems} error={error} />;
+    const hasNewFormat = dossier && dossier.melhores_cores && typeof dossier.melhores_cores === "object" && !Array.isArray(dossier.melhores_cores);
+    if (hasNewFormat) return <ResultsView dossier={dossier} profile={profile} closetItems={closetItems} error={error} />;
+    if (dossier) {
+      return <main className="shell narrow">
+        <a href="/cuidese">← Cuide-se</a>
+        <h1>Colorimetria pessoal</h1>
+        {error && <p role="alert" className="trial-banner">{error}</p>}
+        <div className="trial-banner"><p>Atualizamos a Colorimetria com um questionário visual novo e paleta de cores reais (não só texto). Sua última análise foi feita na versão anterior -- refaça rapidinho pra ver sua paleta com as cores de verdade.</p></div>
+        <form action={restartColorimetria}><SubmitButton pendingText="Preparando...">Refazer minha colorimetria</SubmitButton></form>
+      </main>;
+    }
     return <main className="shell narrow"><a href="/cuidese">← Cuide-se</a><h1>Colorimetria pessoal</h1><p>Resultado concluído anteriormente, mas sem dossiê detalhado salvo.</p></main>;
   }
 
