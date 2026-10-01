@@ -3,12 +3,13 @@ import { generateTodayLook, generateLookIllustration, submitLookFeedback } from 
 import Link from "next/link";
 import { withProfile } from "@/server/profile-session";
 import { aiUsageRemaining, imageGenerationsRemaining, checkAndGrantMilestones, MILESTONE_LABEL, PLAN_LABEL, type Plan } from "@/server/limits";
+import { fetchCurrentWeather } from "@/server/weather";
 import SubmitButton from "@/components/submit-button";
 export default async function Home({searchParams}:{searchParams:Promise<{error?:string,skip?:string}>}){
  const {error,skip}=await searchParams;
  const skipIds=(skip||"").split(",").filter(Boolean);
  const profile=await withProfile(async(c,id)=>{
-   const p=(await c.query("SELECT p.display_name,p.onboarding_completed,p.avatar_object_key FROM profiles p WHERE p.user_id=$1",[id])).rows[0];
+   const p=(await c.query("SELECT p.display_name,p.onboarding_completed,p.avatar_object_key,p.city FROM profiles p WHERE p.user_id=$1",[id])).rows[0];
    if(!p)return null;
    const sub=(await c.query("SELECT * FROM my_subscription($1)",[id])).rows[0];
    const aiRemaining=await aiUsageRemaining(c,id);
@@ -39,7 +40,8 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas}=profile;
+ const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city}=profile;
+ const weather=await fetchCurrentWeather(city||"");
  const poucasPecas=activeItems.length<8;
  const dayPieceDays=dayPiece?.last_used_at?Math.floor((Date.now()-new Date(dayPiece.last_used_at).getTime())/86400000):null;
  const trialDaysLeft=sub?.status==="TRIAL"&&sub.trial_ends_at?Math.max(0,Math.ceil((new Date(sub.trial_ends_at).getTime()-Date.now())/86400000)):null;
@@ -59,6 +61,9 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          : <span className="avatar avatar-placeholder">👤</span>}
        <h1>Olá, {display_name}.</h1>
      </div>
+     {weather
+       ? <p className="look-meta">{weather.chovendo?"🌧️":weather.temp>=28?"☀️":"🌤️"} Hoje em {weather.city}: {weather.temp}°C{weather.chovendo?", chance de chuva":""}.</p>
+       : <p className="look-meta">Cadastre sua cidade no <Link href="/perfil">Perfil</Link> pra eu te avisar aqui do clima do dia.</p>}
      <div className="empty">
        <h2>Look para hoje</h2>
        {poucasPecas&&<p className="look-meta">Suas sugestões ainda vão melhorar: quanto mais peças você cadastrar e mais looks usar/avaliar, mais o app entende sua rotina e seu estilo e mais certeiras ficam as opções.</p>}
@@ -73,7 +78,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
              {!l.has_illustration&&<form action={generateLookIllustration}>
                <input type="hidden" name="look_id" value={l.id}/>
                <input type="hidden" name="return_path" value="/home"/>
-               <SubmitButton className="link" pendingText="Gerando imagem... (até 30s)">🖼️ Gerar inspiração em imagem</SubmitButton>
+               <SubmitButton className="link" pendingText="Gerando imagem... (pode levar até 2 minutos)">🖼️ Gerar inspiração em imagem</SubmitButton>
              </form>}
              <div className="action-row">
                <form action={submitLookFeedback}>
@@ -99,7 +104,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
            <Link href="/looks">Ver look</Link>
            {!dayLook.has_illustration&&!dayLook.has_photo&&<form action={generateLookIllustration}>
              <input type="hidden" name="look_id" value={dayLook.id}/><input type="hidden" name="return_path" value="/home"/>
-             <SubmitButton className="link" pendingText="Gerando... (até 30s)">🖼️ Gerar imagem</SubmitButton>
+             <SubmitButton className="link" pendingText="Gerando... (pode levar até 2 minutos)">🖼️ Gerar imagem</SubmitButton>
            </form>}
            <Link href={`/home?skip=${dayLook.id}`}>Gerar outra sugestão</Link>
          </div>

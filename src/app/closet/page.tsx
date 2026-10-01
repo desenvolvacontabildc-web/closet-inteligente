@@ -24,6 +24,16 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
     {forgotten.length>0&&!category&&!color&&!status&&<div className="trial-banner">
       <p>Peças esquecidas — ainda não entraram em nenhum look: {forgotten.map((i:any)=>i.name).join(", ")}. <Link href="/looks">Que tal montar um look com elas?</Link></p>
     </div>}
+    <form action={createItem} encType="multipart/form-data" className="form">
+      <h2>Adicionar peça</h2>
+      <input name="name" placeholder="Nome da peça" defaultValue={f_name||""} required/>
+      <input name="category" placeholder="Categoria" defaultValue={f_category||""} required/>
+      <input name="color" placeholder="Cor" defaultValue={f_color||""}/>
+      <label>Foto real da peça (opcional, mas ajuda a IA a identificar)<input type="file" name="photo" accept="image/*"/></label>
+      <textarea name="description" placeholder="Observações" defaultValue={f_description||""}/>
+      <SubmitButton pendingText="Adicionando... (se enviou foto, a IA analisa em seguida, até 20s)">Adicionar ao closet</SubmitButton>
+    </form>
+    <h2>Peças cadastradas</h2>
     <form className="form" style={{display:"flex",flexDirection:"row",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
       <label>Categoria
         <select name="category" defaultValue={category||""}>
@@ -60,14 +70,5 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
       </Link>
     ))}</div>
     {items.length===0&&<p>Nenhuma peça encontrada com esse filtro.</p>}
-    <form action={createItem} encType="multipart/form-data" className="form">
-      <h2>Adicionar peça</h2>
-      <input name="name" placeholder="Nome da peça" defaultValue={f_name||""} required/>
-      <input name="category" placeholder="Categoria" defaultValue={f_category||""} required/>
-      <input name="color" placeholder="Cor" defaultValue={f_color||""}/>
-      <label>Foto real da peça (opcional, mas ajuda a IA a identificar)<input type="file" name="photo" accept="image/*"/></label>
-      <textarea name="description" placeholder="Observações" defaultValue={f_description||""}/>
-      <SubmitButton pendingText="Adicionando... (se enviou foto, a IA analisa em seguida, até 20s)">Adicionar ao closet</SubmitButton>
-    </form>
   </main>;
 }

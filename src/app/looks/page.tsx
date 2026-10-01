@@ -43,6 +43,28 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
       <p>🧠 {aiRemaining===null?"Operações de IA ilimitadas no seu plano.":`${aiRemaining} operaç${aiRemaining===1?"ão":"ões"} de IA disponíve${aiRemaining===1?"l":"is"} (pedir sugestão, analisar peça, avaliar foto).`}</p>
       <p>🖼️ {imgRemaining===null?"Gerações de imagem ilimitadas no seu plano.":`${imgRemaining} geraç${imgRemaining===1?"ão":"ões"} de imagem disponíve${imgRemaining===1?"l":"is"} este período.`}</p>
     </div>
+    <form action={suggestLooks} className="form">
+      <h2>Pedir sugestão de looks</h2>
+      <p className="look-meta">Monta a combinação só com peças reais do seu closet (texto, sem gerar imagem) — não usa seu limite de imagem, só o de operações de IA.</p>
+      <input name="request" placeholder='Ex.: "Preciso de 3 looks pra reuniões essa semana"' required/>
+      <SubmitButton disabled={aiRemaining===0} pendingText="Pensando... (pode levar até 20s)">Gerar sugestão com IA</SubmitButton>
+      {aiRemaining===0&&<p className="look-meta">⚠️ Seu limite de operações de IA deste mês acabou. Fale com a administradora para comprar mais créditos ou mudar de plano.</p>}
+    </form>
+    <details>
+      <summary>Ou monte você mesma</summary>
+      <form action={createLook} className="form">
+        <input name="name" placeholder="Nome do look (opcional)"/>
+        <input name="occasion" placeholder="Ocasião (opcional)"/>
+        <fieldset>
+          <legend>Peças (marque as que compõem o look)</legend>
+          {items.map((i:any)=>(
+            <label key={i.id} className="checkbox"><input type="checkbox" name="items" value={i.id}/> {i.name} · {i.category}</label>
+          ))}
+        </fieldset>
+        <button>Salvar look</button>
+      </form>
+    </details>
+
     <nav className="action-row">
       {TABS.map(t=><Link key={t.key} href={t.key==="todos"?"/looks":`/looks?filtro=${t.key}`} className={filtro===t.key?"active":""}>{t.label}</Link>)}
     </nav>
@@ -141,24 +163,5 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
       </form>
       {aiRemaining===0&&<p className="look-meta">⚠️ Seu limite de operações de IA deste mês acabou. Fale com a administradora para comprar mais créditos ou mudar de plano.</p>}
     </div>
-    <form action={suggestLooks} className="form">
-      <h2>Pedir sugestão de looks</h2>
-      <p className="look-meta">Monta a combinação só com peças reais do seu closet (texto, sem gerar imagem) — não usa seu limite de imagem, só o de operações de IA.</p>
-      <input name="request" placeholder='Ex.: "Preciso de 3 looks pra reuniões essa semana"' required/>
-      <SubmitButton disabled={aiRemaining===0} pendingText="Pensando... (pode levar até 20s)">Gerar sugestão com IA</SubmitButton>
-      {aiRemaining===0&&<p className="look-meta">⚠️ Seu limite de operações de IA deste mês acabou. Fale com a administradora para comprar mais créditos ou mudar de plano.</p>}
-    </form>
-    <form action={createLook} className="form">
-      <h2>Ou monte você mesma</h2>
-      <input name="name" placeholder="Nome do look (opcional)"/>
-      <input name="occasion" placeholder="Ocasião (opcional)"/>
-      <fieldset>
-        <legend>Peças (marque as que compõem o look)</legend>
-        {items.map((i:any)=>(
-          <label key={i.id} className="checkbox"><input type="checkbox" name="items" value={i.id}/> {i.name} · {i.category}</label>
-        ))}
-      </fieldset>
-      <button>Salvar look</button>
-    </form>
   </main>;
 }

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
 import { bumpAndCheckAiUsage, checkImageAllowance, consumeImageAllowance } from "./limits";
 import { bounce } from "./action-error";
+import { fetchCurrentWeather } from "./weather";
 const store = new Client({ endPoint: (process.env.S3_ENDPOINT || "http://storage:9000").replace(/^https?:\/\//, "").split(":")[0], port: 9000, useSSL: false, accessKey: process.env.S3_ACCESS_KEY_ID || "closet-web", secretKey: process.env.S3_SECRET_ACCESS_KEY || "" });
 async function readObject(key: string): Promise<Buffer> {
   const chunks: Buffer[] = [];
@@ -197,25 +198,13 @@ export async function submitPostUseFeedback(f: FormData) {
   redirect(returnPath);
 }
 
-/** Busca o clima atual da cidade cadastrada no perfil (geocodificação + previsão via
- * Open-Meteo, sem chave de API) e devolve um trecho pra incluir no pedido à IA. Não recebe
- * conexão de banco -- só a cidade já lida antes, pra não travar o pool durante o fetch
- * externo. Falha aqui (sem cidade cadastrada, API fora do ar, cidade não encontrada) nunca
- * deve travar a geração do look -- só volta string vazia. */
-async function weatherContext(city: string): Promise<string> {
-  if (!city) return "";
-  try {
-    const geo: any = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pt&format=json`, { signal: AbortSignal.timeout(4000) }).then(r => r.json());
-    const loc = geo?.results?.[0];
-    if (!loc) return "";
-    const fc: any = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current=temperature_2m,precipitation&timezone=auto`, { signal: AbortSignal.timeout(4000) }).then(r => r.json());
-    const temp = fc?.current?.temperature_2m;
-    if (temp === undefined || temp === null) return "";
-    const chovendo = Number(fc?.current?.precipitation || 0) > 0;
-    return ` Clima agora em ${loc.name || city}: ${Math.round(temp)}°C${chovendo ? ", chovendo" : ""}. Leve isso em conta na escolha das peças (mais leves se estiver quente, com casaco/blazer se estiver frio, evite tecidos delicados se estiver chovendo).`;
-  } catch {
-    return "";
-  }
+/** Vira um trecho pra incluir no pedido à IA -- só influencia a ESCOLHA das peças, nunca
+ * deve aparecer no nome/ocasião do look (isso é mostrado como aviso próprio na Home, não
+ * dentro do look). Falha aqui nunca deve travar a geração do look -- só volta string vazia. */
+async function weatherPromptHint(city: string): Promise<string> {
+  const w = await fetchCurrentWeather(city);
+  if (!w) return "";
+  return ` Clima agora em ${w.city}: ${w.temp}°C${w.chovendo ? ", chovendo" : ""}. Leve isso em conta SÓ NA ESCOLHA DAS PEÇAS (mais leves se estiver quente, com casaco/blazer se estiver frio, evite tecidos delicados se estiver chovendo). IMPORTANTE: nunca mencione o clima, a temperatura ou algo como "dia chuvoso"/"dia quente" no nome ou na ocasião do look -- esses campos descrevem a ocasião real (ex. "Dia casual", "Reunião"), não o tempo.`;
 }
 
 /** Núcleo compartilhado: pede N looks à IA usando somente peças reais ativas e salva.
@@ -239,7 +228,7 @@ async function generateLooksFromRequest(userId: string, request: string, maxLook
   if (!ctx) bounce(returnPath, "Sessão expirada. Faça login de novo.");
   if (!ctx.ok) bounce(returnPath, ctx.message);
 
-  const weather = kind === "TRIP" ? "" : await weatherContext(ctx.city);
+  const weather = kind === "TRIP" ? "" : await weatherPromptHint(ctx.city);
   const requestWithWeather = `${request}${weather}`;
   let out: any;
   try {
