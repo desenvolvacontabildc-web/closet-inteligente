@@ -110,6 +110,7 @@ function ResultsView({ dossier, profile, closetItems, error }: any) {
     <h1>Sua colorimetria</h1>
     {error && <p role="alert" className="trial-banner">{error}</p>}
     <section className="card">
+      {dossier.estacao && <p className="eyebrow">{dossier.estacao}</p>}
       <p><strong>Subtom:</strong> {dossier.subtom}{dossier.confidence && ` · confiança ${dossier.confidence}`}</p>
       {dossier.profundidade && <p><strong>Profundidade:</strong> {dossier.profundidade}</p>}
       {dossier.intensidade && <p><strong>Intensidade:</strong> {dossier.intensidade}</p>}
@@ -154,6 +155,14 @@ function ResultsView({ dossier, profile, closetItems, error }: any) {
 
     {dossier.notes && <p className="look-meta">{dossier.notes}</p>}
     {profile.photo_consent_at && <p><small>Autorização de uso da foto registrada em {new Date(profile.photo_consent_at).toLocaleString("pt-BR")}.</small></p>}
+
+    {(asColorArray(dossier.preferencias_pessoais?.favoritas).length > 0 || asColorArray(dossier.preferencias_pessoais?.evitar).length > 0 || asColorArray(dossier.preferencias_pessoais?.neutros_favoritos).length > 0) && <>
+      <h2>Suas preferências pessoais</h2>
+      <p className="hint">Isto é só o que você disse que gosta -- não é o veredito da sua colorimetria (que está em "Suas melhores cores" acima). Pode ser diferente, e tudo bem.</p>
+      <ColorSection title="Cores favoritas" items={dossier.preferencias_pessoais?.favoritas} />
+      <ColorSection title="Prefere evitar" items={dossier.preferencias_pessoais?.evitar} />
+      <ColorSection title="Neutros favoritos" items={dossier.preferencias_pessoais?.neutros_favoritos} />
+    </>}
 
     <h2>Sua colorimetria × seu closet</h2>
     {closetMatches.length > 0 ? <>
@@ -263,7 +272,7 @@ export default async function Colorimetria({ searchParams }: { searchParams: Pro
   if (step === 5) return wrap(5, "Subtom, intensidade e contraste", <>
     <label>Qual subtom você acha que tem?</label>
     <Chips name="subtom_autodeclarado" options={SUBTOM_OPCOES} defaultValue={answers.subtom_autodeclarado} />
-    <label>Que intensidade de cor você prefere usar?</label>
+    <label>Comparando com outras pessoas, seu cabelo, pele e olhos (a cor natural, não a roupa) parecem...</label>
     <StrategyCards name="intensidade_pref" options={INTENSIDADE_OPCOES} defaultValue={answers.intensidade_pref} />
     <label>Qual contraste você percebe entre seu cabelo, pele e olhos?</label>
     <StrategyCards name="contraste_pref" options={CONTRASTE_OPCOES} defaultValue={answers.contraste_pref} />

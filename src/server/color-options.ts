@@ -34,9 +34,9 @@ export const SUBTOM_OPCOES = [
   { value: "nao_sei", label: "Não sei" },
 ];
 export const INTENSIDADE_OPCOES = [
-  { value: "suave", label: "Suave e amenizada", desc: "Cores levemente acinzentadas, discretas" },
-  { value: "media", label: "Equilibrada", desc: "Nem muito viva nem muito discreta" },
-  { value: "vibrante", label: "Viva e brilhante", desc: "Cores saturadas, de forte impacto" },
+  { value: "suave", label: "Suave, com cores naturais amenizadas", desc: "Cabelo, pele e olhos em tons discretos, sem muito brilho ou nitidez" },
+  { value: "media", label: "Equilibrada", desc: "Nem muito suave nem muito vívida" },
+  { value: "vibrante", label: "Viva, com cores naturais bem definidas", desc: "Cabelo, olhos ou pele com cor nítida, saturada, de forte presença" },
 ];
 export const CONTRASTE_OPCOES = [
   { value: "baixo", label: "Baixo contraste", desc: "Cabelo, pele e olhos em tons parecidos de claridade" },
