@@ -22,7 +22,7 @@ async function mpFetch(path: string, init: RequestInit & { idempotencyKey?: stri
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const msg = body?.message || body?.error || `Mercado Pago retornou ${res.status}`;
-    throw new Error(`Mercado Pago (${path}): ${msg}`);
+    throw Object.assign(new Error(`Mercado Pago (${path}): ${msg}`), { status: res.status });
   }
   return body;
 }

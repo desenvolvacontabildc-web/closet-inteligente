@@ -46,6 +46,11 @@ export async function POST(req: Request) {
       }
     }
   } catch (e) {
+    // Recurso inexistente (ex.: notificação simulada do painel): 200 pra MP não reenviar em loop.
+    if ((e as { status?: number })?.status === 404) {
+      console.warn("mercadopago webhook: recurso não encontrado, ignorando:", type, dataId);
+      return NextResponse.json({ ok: true, ignored: true });
+    }
     console.error("mercadopago webhook falhou ao processar:", type, dataId, e);
     return NextResponse.json({ ok: false }, { status: 500 });
   } finally {
