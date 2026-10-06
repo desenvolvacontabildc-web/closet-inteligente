@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
 import { bounce } from "./action-error";
+import { flash } from "./flash";
 import { createPixPayment, createPreapproval } from "./mercadopago";
 
 const PLANS = ["ARRUMADA", "FASHION", "SUPER_STAR"] as const;
@@ -23,7 +24,7 @@ export async function startPixCheckout(f: FormData) {
     if (!amountCents) return { ok: false as const, message: "Plano inválido." };
     const email = (await c.query("SELECT email FROM app_users WHERE id=$1", [userId])).rows[0]?.email;
     return { ok: true as const, userId, email, amountCents };
-  });
+  }, { allowSuspended: true });
   if (!ctx) redirect("/assinatura");
   if (!ctx.ok) bounce("/assinatura", ctx.message);
 
@@ -47,8 +48,9 @@ export async function startPixCheckout(f: FormData) {
       [userId, plan, ctx.amountCents, charge.id, charge.qrCode, charge.qrCodeBase64, charge.expiresAt],
     );
     return true;
-  });
+  }, { allowSuspended: true });
   if (!saved) redirect("/assinatura");
+  await flash("Pix gerado. Escaneie o QR code ou copie o código para pagar.");
   redirect("/assinatura?charge=pix");
 }
 
@@ -57,11 +59,16 @@ export async function startPixCheckout(f: FormData) {
 export async function startCardCheckout(f: FormData) {
   const plan = String(f.get("plan") || "");
   const ctx = await withProfile(async (c, userId) => {
-    const amountCents = await planAmountCents(c, plan);
+    let amountCents = await planAmountCents(c, plan);
     if (!amountCents) return { ok: false as const, message: "Plano inválido." };
+    // Desconto dos primeiros meses no cartão recorrente -- só na 1ª assinatura por cartão da conta
+    // (quem já teve uma assinatura de cartão autorizada paga o preço cheio).
+    const pricing = (await c.query("SELECT promo_price_cents, promo_months FROM get_plan_pricing($1)", [plan])).rows[0];
+    const usedPromo = (await c.query("SELECT 1 FROM payment_charges WHERE kind='CARD_PREAPPROVAL' AND status='approved' LIMIT 1")).rowCount! > 0;
+    if (pricing?.promo_price_cents != null && pricing.promo_months > 0 && !usedPromo) amountCents = pricing.promo_price_cents;
     const email = (await c.query("SELECT email FROM app_users WHERE id=$1", [userId])).rows[0]?.email;
     return { ok: true as const, userId, email, amountCents };
-  });
+  }, { allowSuspended: true });
   if (!ctx) redirect("/assinatura");
   if (!ctx.ok) bounce("/assinatura", ctx.message);
 
@@ -82,7 +89,7 @@ export async function startCardCheckout(f: FormData) {
   const saved = await withProfile(async (c, userId) => {
     await c.query("SELECT set_pending_preapproval($1,$2,$3,$4)", [userId, preapproval.id, plan, ctx.amountCents]);
     return true;
-  });
+  }, { allowSuspended: true });
   if (!saved) redirect("/assinatura");
   redirect(preapproval.initPoint);
 }

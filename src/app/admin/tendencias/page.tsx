@@ -2,10 +2,10 @@ import { adminListTrends, createTrend, setTrendActive } from "@/server/trend-act
 
 export default async function AdminTendencias() {
   const trends = await adminListTrends();
-  if (!trends) return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/home">← Voltar</a></main>;
+  if (!trends) return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/admin">← Gerenciamento</a></main>;
 
   return <main className="shell narrow">
-    <a href="/home">← Voltar</a>
+    <a href="/admin">← Gerenciamento</a>
     <h1>Radar de Tendências</h1>
     <p>Poste uma dica de estilo — aparece pra todas as clientes na tela de Tendências.</p>
     <form action={createTrend} encType="multipart/form-data" className="form">

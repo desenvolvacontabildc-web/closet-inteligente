@@ -13,7 +13,11 @@ const PLAN_RANK: Record<Plan, number> = { ARRUMADA: 0, FASHION: 1, SUPER_STAR: 2
 
 export async function mySubscription(c: PoolClient, userId: string) {
   const sub = (await c.query("SELECT * FROM my_subscription($1)", [userId])).rows[0];
-  return { status: (sub?.status || "ACTIVE") as string, plan: (sub?.plan || "ARRUMADA") as Plan, trial_ends_at: sub?.trial_ends_at || null };
+  return {
+    status: (sub?.status || "ACTIVE") as string, plan: (sub?.plan || "ARRUMADA") as Plan, trial_ends_at: sub?.trial_ends_at || null,
+    current_period_end: (sub?.current_period_end || null) as Date | null, overdue_since: (sub?.overdue_since || null) as Date | null,
+    payment_method: (sub?.payment_method || null) as string | null, provider: (sub?.provider || null) as string | null,
+  };
 }
 
 async function planConfig(c: PoolClient, plan: Plan): Promise<{ ai_ops_monthly_limit: number | null; image_gen_monthly_limit: number | null }> {

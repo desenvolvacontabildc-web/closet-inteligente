@@ -35,7 +35,7 @@ export async function register(f:FormData){
 }
 export async function login(f:FormData){const email=String(f.get("email")||"").trim().toLowerCase(),p=String(f.get("password")||""),c=await getPool().connect();try{const q=await c.query("SELECT id,password_hash FROM lookup_login($1)",[email]);if(!q.rowCount||!(await checkHash(p,q.rows[0].password_hash)))redirect("/?error=credentials");const status=(await c.query("SELECT check_account_access($1) s",[q.rows[0].id])).rows[0].s;if(status==="BLOCKED"||status==="CANCELED")redirect("/?error=blocked");if(status==="TRIAL_EXPIRED")redirect("/?error=trial_expired");await issue(c,q.rows[0].id);await c.query("SELECT record_login($1)",[q.rows[0].id]);const onboarded=(await c.query("SELECT onboarding_completed FROM profiles WHERE user_id=$1",[q.rows[0].id])).rows[0]?.onboarding_completed;redirect(onboarded?"/home":"/onboarding")}finally{c.release()}}
 export async function logout(){
-  await withProfile(async c => { await c.query("DELETE FROM auth_sessions WHERE token_hash=current_setting('app.session_hash')"); return true; });
+  await withProfile(async c => { await c.query("DELETE FROM auth_sessions WHERE token_hash=current_setting('app.session_hash')"); return true; }, { allowSuspended: true });
   (await cookies()).delete(SESSION_COOKIE); redirect("/");
 }
 export async function saveOnboarding(f:FormData){

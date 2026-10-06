@@ -2,10 +2,10 @@ import { adminListFinds, createFind, setFindActive, updateFind } from "@/server/
 
 export default async function AdminAchadinhos() {
   const finds = await adminListFinds();
-  if (!finds) return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/home">← Voltar</a></main>;
+  if (!finds) return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/admin">← Gerenciamento</a></main>;
 
   return <main className="shell narrow">
-    <a href="/home">← Voltar</a>
+    <a href="/admin">← Gerenciamento</a>
     <h1>Achadinhos</h1>
     <p>Cole o link de um produto da Shopee, Shein ou outra loja — aparece pras clientes na Vitrine, com botão pra comprar direto no seu link.</p>
     <form action={createFind} encType="multipart/form-data" className="form">

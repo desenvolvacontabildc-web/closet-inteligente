@@ -95,10 +95,7 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
       <Link href="/capsula">Closet Cápsula</Link>
       <Link href="/cuidese">Cuide-se</Link>
       <Link href="/tendencias">Radar de Tendências</Link>
-      {isAdmin && <Link href="/admin">Administração de contas</Link>}
-      {isAdmin && <Link href="/admin/parceiras">Administração de parceiras</Link>}
-      {isAdmin && <Link href="/admin/tendencias">Administração de tendências</Link>}
-      {isAdmin && <Link href="/admin/achadinhos">Administração de achadinhos</Link>}
+      {isAdmin && <Link href="/admin">Gerenciamento do app</Link>}
     </nav>
     <form action={logout}><button className="link">Sair da conta</button></form>
   </main>;

@@ -118,3 +118,18 @@ export function verifyWebhookSignature(opts: { xSignature: string | null; xReque
     return false;
   }
 }
+
+/** Cobrança individual de um ciclo de assinatura (`subscription_authorized_payment`).
+ * Traz `preapproval_id` e o pagamento do ciclo (`payment.status`: approved/rejected...). */
+export async function getAuthorizedPayment(id: string): Promise<any> {
+  return mpFetch(`/authorized_payments/${encodeURIComponent(id)}`, { method: "GET" });
+}
+
+/** Reajusta o valor das próximas cobranças de uma assinatura (usado ao fim do desconto de
+ * cartão dos primeiros meses, voltando ao preço cheio do plano). */
+export async function updatePreapprovalAmount(id: string, amountCents: number): Promise<void> {
+  await mpFetch(`/preapproval/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify({ auto_recurring: { transaction_amount: Math.round(amountCents) / 100, currency_id: "BRL" } }),
+  });
+}

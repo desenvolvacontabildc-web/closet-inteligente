@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/server/db";
-import { getPayment, getPreapproval, verifyWebhookSignature } from "@/server/mercadopago";
+import { getAuthorizedPayment, getPayment, getPreapproval, updatePreapprovalAmount, verifyWebhookSignature } from "@/server/mercadopago";
 
 /** Webhook do Mercado Pago -- chamado direto pelo Mercado Pago, sem sessão de usuária.
  * NUNCA confia no corpo da notificação pra decidir status: sempre busca o recurso de novo
@@ -36,13 +36,24 @@ export async function POST(req: Request) {
       const preapproval = await getPreapproval(dataId);
       await client.query("SELECT apply_preapproval_result($1,$2,$3,$4::jsonb)", [String(preapproval.id), String(preapproval.status), String(preapproval.external_reference || ""), JSON.stringify(preapproval)]);
     } else if (type === "subscription_authorized_payment") {
-      // Recurso de cobrança individual de uma assinatura -- não tem endpoint GET próprio
-      // documentado publicamente; usamos o que a notificação já traz, mas só depois de
-      // validar a assinatura HMAC acima (já garantida nesse ponto).
-      const preapprovalId = String(body?.data?.preapproval_id || "");
-      const status = String(body?.data?.status || body?.status || "");
+      // Cobrança de um ciclo da assinatura de cartão. Rebusca na API (nunca confia no corpo).
+      const ap = await getAuthorizedPayment(dataId);
+      const preapprovalId = String(ap?.preapproval_id || "");
+      const cycleStatus = String(ap?.payment?.status || ap?.status || "");
+      const status = cycleStatus === "approved" || cycleStatus === "processed" ? "approved" : cycleStatus === "rejected" ? "rejected" : "";
       if (preapprovalId && status) {
-        await client.query("SELECT apply_authorized_payment_result($1,$2,$3::jsonb)", [preapprovalId, status, JSON.stringify(body)]);
+        const r = await client.query("SELECT * FROM apply_authorized_payment_result($1,$2,$3::jsonb)", [preapprovalId, status, JSON.stringify(ap)]);
+        const row = r.rows[0];
+        if (row?.promo_ended && row.base_price_cents) {
+          // Fim do desconto: volta o cartão ao preço cheio do plano. Se falhar, avisa a administradora
+          // (senão a usuária seguiria pagando o valor promocional indefinidamente).
+          try { await updatePreapprovalAmount(preapprovalId, row.base_price_cents); }
+          catch (err) {
+            console.error("mercadopago: falha ao reajustar assinatura ao preço cheio:", preapprovalId, err);
+            await client.query("SELECT report_billing_issue($1,$2,$3)", [row.user_id, "Reajustar cartão ao preço cheio",
+              `O desconto dos primeiros meses acabou, mas o reajuste automático no Mercado Pago falhou (assinatura ${preapprovalId}). Ajuste o valor manualmente no painel do Mercado Pago.`]);
+          }
+        }
       }
     }
   } catch (e) {

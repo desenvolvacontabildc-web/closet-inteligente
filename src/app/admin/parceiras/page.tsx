@@ -3,9 +3,9 @@ import { PARTNER_PACKAGE_LABEL } from "@/server/partner-limits";
 
 export default async function AdminParceiras() {
   const { partners } = await adminListPartners();
-  if (!partners) return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/home">← Voltar</a></main>;
+  if (!partners) return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/admin">← Gerenciamento</a></main>;
   return <main className="shell narrow">
-    <a href="/home">← Voltar</a>
+    <a href="/admin">← Gerenciamento</a>
     <h1>Administração de parceiras</h1>
     {partners.length === 0 && <p>Nenhuma loja parceira cadastrada ainda.</p>}
     {partners.map((p: any) => (

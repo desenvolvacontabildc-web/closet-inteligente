@@ -1,121 +1,67 @@
-import { adminListAccounts, setSubscription, resetPassword, recordPayment, adminListAudit, adminImageSpend, adminListPlanConfig, setPlanConfig, grantModule } from "@/server/admin-actions";
+import Link from "next/link";
+import { adminListAccounts, adminListNotifications, adminImageSpend, markNotificationsRead } from "@/server/admin-actions";
+import SubmitButton from "@/components/submit-button";
 
-const AUDIT_LABEL: Record<string, string> = { SET_SUBSCRIPTION: "Alteração de plano/status", RESET_PASSWORD: "Senha resetada", PAYMENT_RECEIVED: "Pagamento registrado" };
 const IMAGE_SPEND_ALERT_CENTS = 10000; // R$ 100/mês — avisa quando o gasto estimado com geração de imagem passar disso
+const brl = (cents: number) => `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
 
-export default async function Admin({searchParams}:{searchParams:Promise<{temp?:string;for?:string;historico?:string;error?:string}>}){
-  const {temp,for:forEmail,historico,error}=await searchParams;
-  const {actorId,accounts}=await adminListAccounts();
-  if(!accounts)return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/home">← Voltar</a></main>;
+export default async function Admin({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
+  const { accounts } = await adminListAccounts();
+  if (!accounts) return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/home">← Voltar</a></main>;
 
-  const activeAccounts=accounts.filter((a:any)=>a.sub_status==="ACTIVE");
-  const mrrCents=activeAccounts.reduce((sum:number,a:any)=>sum+Math.max(0,a.monthly_fee_cents-a.discount_cents),0);
-  const pastDueCount=accounts.filter((a:any)=>a.sub_status==="PAST_DUE").length;
-  const trialCount=accounts.filter((a:any)=>a.sub_status==="TRIAL").length;
-  const inactive30d=accounts.filter((a:any)=>!a.last_login_at||new Date(a.last_login_at).getTime()<Date.now()-30*86400000).length;
+  const notifications = await adminListNotifications();
+  const unread = notifications.filter((n: any) => !n.read_at).length;
+  const imageSpend = await adminImageSpend();
+  const imageSpendOverLimit = Number(imageSpend.estimated_cents) >= IMAGE_SPEND_ALERT_CENTS;
 
-  const history=historico?await adminListAudit(historico):null;
-  const historyAccount=historico?accounts.find((a:any)=>a.user_id===historico):null;
-  const imageSpend=await adminImageSpend();
-  const imageSpendOverLimit=Number(imageSpend.estimated_cents)>=IMAGE_SPEND_ALERT_CENTS;
-  const planConfig=await adminListPlanConfig();
-  const PLAN_TITLE:Record<string,string>={ARRUMADA:"Arrumada",FASHION:"Fashion",SUPER_STAR:"Super Star"};
+  const clients = accounts.filter((a: any) => !a.is_admin);
+  const active = clients.filter((a: any) => a.sub_status === "ACTIVE");
+  const mrrCents = active.reduce((sum: number, a: any) => sum + Math.max(0, a.monthly_fee_cents - a.discount_cents), 0);
+  const attention = clients.filter((a: any) => ["PAST_DUE", "SUSPENDED", "TRIAL_EXPIRED"].includes(a.sub_status)).length;
+  const trial = clients.filter((a: any) => a.sub_status === "TRIAL").length;
+  const inactive30d = clients.filter((a: any) => !a.last_login_at || new Date(a.last_login_at).getTime() < Date.now() - 30 * 86400000).length;
 
   return <main className="shell narrow">
-    <a href="/home">← Voltar</a>
-    <h1>Administração de contas</h1>
-    {temp&&<p role="alert">Senha temporária para {forEmail}: <strong>{temp}</strong> (copie agora; não será mostrada de novo)</p>}
-    {error&&<p role="alert" className="trial-banner">{error}</p>}
+    <h1>Gerenciamento</h1>
+    {error && <p role="alert" className="trial-banner">{error}</p>}
+
+    <div className="admin-tiles">
+      <Link href="/admin/usuarias" className="admin-tile"><strong>👥 Usuárias</strong><small>{clients.length} cadastrada{clients.length === 1 ? "" : "s"} · {active.length} assinante{active.length === 1 ? "" : "s"}</small>{attention > 0 && <span className="pill">{attention} precisa{attention === 1 ? "" : "m"} de atenção</span>}</Link>
+      <Link href="/admin/precos" className="admin-tile"><strong>💲 Preços e planos</strong><small>Valores e limites de cada plano</small></Link>
+      <Link href="/admin/descontos" className="admin-tile"><strong>🏷️ Descontos</strong><small>Desconto do cartão recorrente</small></Link>
+      <Link href="/admin/beneficios" className="admin-tile"><strong>🎁 Benefícios</strong><small>Créditos de imagem e Colorimetria</small></Link>
+      <Link href="/admin/parceiras" className="admin-tile"><strong>🤝 Parcerias</strong><small>Parceiras e vitrine</small></Link>
+      <Link href="/admin/tendencias" className="admin-tile"><strong>✨ Tendências</strong><small>Radar de tendências</small></Link>
+      <Link href="/admin/achadinhos" className="admin-tile"><strong>🛍️ Achadinhos</strong><small>Achados com desconto</small></Link>
+    </div>
+
+    <section className="card">
+      <h2>Avisos {unread > 0 && <span className="chip chip-SUSPENDED">{unread} novo{unread === 1 ? "" : "s"}</span>}</h2>
+      <p className="look-meta">Pagamentos recebidos já liberam a usuária automaticamente; aqui você só acompanha. Atrasos e suspensões também aparecem aqui.</p>
+      {notifications.length === 0 ? <p>Nenhum aviso ainda.</p> : notifications.slice(0, 20).map((n: any) => (
+        <div key={n.id} className={`notif ${n.kind}${n.read_at ? "" : " unread"}`}>
+          <p><strong>{n.title}</strong> <small>· {new Date(n.created_at).toLocaleString("pt-BR")}</small></p>
+          <p className="look-meta">{n.body}</p>
+          {n.user_id && <Link href={`/admin/usuarias/${n.user_id}`} className="link">Abrir ficha da usuária →</Link>}
+        </div>
+      ))}
+      {unread > 0 && <form action={markNotificationsRead}><SubmitButton pendingText="Marcando...">Marcar todos como lidos</SubmitButton></form>}
+    </section>
 
     <section className="card">
       <h2>Resumo</h2>
       <p className="look-meta">Receita mensal ativa (MRR)</p>
-      <p className="look-pieces"><strong>R$ {(mrrCents/100).toFixed(2).replace(".", ",")}</strong> de {activeAccounts.length} assinante{activeAccounts.length===1?"":"s"} ativo{activeAccounts.length===1?"":"s"}</p>
-      <p className="look-meta">{trialCount} em teste gratuito · {pastDueCount} inadimplente{pastDueCount===1?"":"s"} · {inactive30d} sem acessar há 30+ dias</p>
+      <p className="look-pieces"><strong>{brl(mrrCents)}</strong> de {active.length} assinante{active.length === 1 ? "" : "s"} ativo{active.length === 1 ? "" : "s"}</p>
+      <p className="look-meta">{trial} em teste gratuito · {attention} com pagamento pendente/suspensa · {inactive30d} sem acessar há 30+ dias</p>
     </section>
 
-    <section className={imageSpendOverLimit?"card alert-card":"card"}>
+    <section className={imageSpendOverLimit ? "card alert-card" : "card"}>
       <h2>Gasto estimado com ilustração de IA este mês</h2>
-      <p className="look-pieces"><strong>R$ {(Number(imageSpend.estimated_cents)/100).toFixed(2).replace(".", ",")}</strong> · {imageSpend.month_count} ilustração{Number(imageSpend.month_count)===1?"":"ões"} gerada{Number(imageSpend.month_count)===1?"":"s"} (estimativa de R$ 0,30 cada)</p>
+      <p className="look-pieces"><strong>{brl(Number(imageSpend.estimated_cents))}</strong> · {imageSpend.month_count} ilustração{Number(imageSpend.month_count) === 1 ? "" : "ões"} gerada{Number(imageSpend.month_count) === 1 ? "" : "s"} (estimativa de R$ 0,30 cada)</p>
       {imageSpendOverLimit
-        ? <p role="alert">⚠️ Passou de R$ {(IMAGE_SPEND_ALERT_CENTS/100).toFixed(2).replace(".", ",")} este mês. Vale checar o consumo direto na OpenAI.</p>
-        : <p className="look-meta">Aviso automático se passar de R$ {(IMAGE_SPEND_ALERT_CENTS/100).toFixed(2).replace(".", ",")}/mês.</p>}
+        ? <p role="alert">⚠️ Passou de {brl(IMAGE_SPEND_ALERT_CENTS)} este mês. Vale checar o consumo direto na OpenAI.</p>
+        : <p className="look-meta">Aviso automático se passar de {brl(IMAGE_SPEND_ALERT_CENTS)}/mês.</p>}
     </section>
-
-    <section className="card">
-      <h2>Preços e limites por plano</h2>
-      {planConfig.map((p:any)=>(
-        <form action={setPlanConfig} className="form" key={p.plan}>
-          <input type="hidden" name="plan" value={p.plan}/>
-          <h3>{PLAN_TITLE[p.plan]||p.plan}</h3>
-          <label>Preço-base (R$/mês)<input name="price" defaultValue={(p.base_price_cents/100).toFixed(2).replace(".", ",")}/></label>
-          <label>Operações de IA/mês (vazio = ilimitado)<input name="ai_limit" defaultValue={p.ai_ops_monthly_limit??""}/></label>
-          <label>Gerações de imagem/mês (vazio = ilimitado)<input name="image_limit" defaultValue={p.image_gen_monthly_limit??""}/></label>
-          <button>Salvar</button>
-        </form>
-      ))}
-    </section>
-
-    {historico&&<section className="card">
-      <h2>Histórico — {historyAccount?.display_name||historyAccount?.email||"conta"}</h2>
-      {!history||history.length===0?<p>Nenhum registro ainda.</p>:<ul>
-        {history.map((h:any,i:number)=>(
-          <li key={i}>
-            <strong>{AUDIT_LABEL[h.action]||h.action}</strong> — {new Date(h.created_at).toLocaleString("pt-BR")}
-            {h.action==="PAYMENT_RECEIVED"&&<> · R$ {(h.details.amount_cents/100).toFixed(2).replace(".", ",")} em {new Date(h.details.paid_at).toLocaleDateString("pt-BR")}{h.details.notes&&` · ${h.details.notes}`}</>}
-            {h.action==="SET_SUBSCRIPTION"&&<> · status {h.details.status}, mensalidade R$ {(h.details.fee_cents/100).toFixed(2).replace(".", ",")}, desconto R$ {(h.details.discount_cents/100).toFixed(2).replace(".", ",")}</>}
-          </li>
-        ))}
-      </ul>}
-      <a href="/admin">← Fechar histórico</a>
-    </section>}
-
-    {accounts.map((a:any)=>(
-      <section key={a.user_id} className="card">
-        <h2>{a.display_name||"(sem nome)"} {a.is_admin&&"· administradora"}</h2>
-        <p className="look-meta">{a.email} · desde {new Date(a.created_at).toLocaleDateString("pt-BR")}{a.sub_status==="TRIAL"&&a.trial_ends_at&&<> · teste termina em {new Date(a.trial_ends_at).toLocaleDateString("pt-BR")}</>}</p>
-        <p className="look-meta">{a.last_login_at?`Último acesso em ${new Date(a.last_login_at).toLocaleDateString("pt-BR")}`:"Nunca fez login"}</p>
-        <form action={setSubscription} className="form">
-          <input type="hidden" name="user_id" value={a.user_id}/>
-          <label>Status
-            <select name="status" defaultValue={a.sub_status} disabled={a.user_id===actorId}>
-              <option value="TRIAL">Em teste gratuito</option>
-              <option value="ACTIVE">Ativa (assinante)</option>
-              <option value="PAST_DUE">Inadimplente</option>
-              <option value="BLOCKED">Bloqueada</option>
-              <option value="CANCELED">Cancelada</option>
-            </select>
-          </label>
-          <label>Plano
-            <select name="plan" defaultValue={a.plan} disabled={a.user_id===actorId}>
-              <option value="ARRUMADA">Arrumada</option>
-              <option value="FASHION">Fashion (+ Closet Cápsula)</option>
-              <option value="SUPER_STAR">Super Star (+ Colorimetria)</option>
-            </select>
-          </label>
-          <label>Mensalidade (R$)<input name="fee" defaultValue={(a.monthly_fee_cents/100).toFixed(2).replace(".", ",")} disabled={a.user_id===actorId}/></label>
-          <label>Desconto (R$)<input name="discount" defaultValue={(a.discount_cents/100).toFixed(2).replace(".", ",")} disabled={a.user_id===actorId}/></label>
-          <label>Observações<input name="notes" defaultValue={a.notes} disabled={a.user_id===actorId}/></label>
-          <button disabled={a.user_id===actorId}>Salvar</button>
-        </form>
-        {a.user_id!==actorId&&<form action={recordPayment} className="form">
-          <input type="hidden" name="user_id" value={a.user_id}/>
-          <label>Registrar pagamento recebido (R$)<input name="amount" placeholder="Ex.: 49,90" required/></label>
-          <label>Data do pagamento<input name="paid_at" type="date" defaultValue={new Date().toISOString().slice(0,10)}/></label>
-          <label>Observações<input name="payment_notes" placeholder="Ex.: Pix, transferência..."/></label>
-          <button>Registrar pagamento</button>
-        </form>}
-        <div className="look-actions">
-          <a href={`/admin?historico=${a.user_id}`} className="link">Ver histórico</a>
-          {a.user_id!==actorId&&<form action={resetPassword}><input type="hidden" name="user_id" value={a.user_id}/><button className="link">Resetar senha</button></form>}
-          {a.user_id!==actorId&&<form action={grantModule}>
-            <input type="hidden" name="user_id" value={a.user_id}/>
-            <input type="hidden" name="module" value="COLORIMETRIA"/>
-            <input type="hidden" name="origin" value="CORTESIA_ADMIN"/>
-            <button className="link">Liberar Colorimetria</button>
-          </form>}
-        </div>
-      </section>
-    ))}
   </main>;
 }
