@@ -3,6 +3,7 @@ import { withProfile } from "@/server/profile-session";
 import { mySubscription, PLAN_LABEL, type Plan } from "@/server/limits";
 import { startPixCheckout, startCardCheckout } from "@/server/billing-actions";
 import SubmitButton from "@/components/submit-button";
+import { reconcilePendingPix } from "@/server/billing-sync";
 
 const PLANS: Plan[] = ["ARRUMADA", "FASHION", "SUPER_STAR"];
 
@@ -13,9 +14,10 @@ function formatPrice(cents: number): string {
 export default async function Assinatura({ searchParams }: { searchParams: Promise<{ error?: string; charge?: string }> }) {
   const { error, charge } = await searchParams;
   const data = await withProfile(async (c, userId) => {
+    let pending = (await c.query("SELECT * FROM my_pending_charge($1)", [userId])).rows[0] || null;
+    if (await reconcilePendingPix(c, pending)) pending = (await c.query("SELECT * FROM my_pending_charge($1)", [userId])).rows[0] || null;
     const sub = await mySubscription(c, userId);
     const plans = await Promise.all(PLANS.map(async (p) => (await c.query("SELECT plan, base_price_cents FROM get_plan_config($1)", [p])).rows[0]));
-    const pending = (await c.query("SELECT * FROM my_pending_charge($1)", [userId])).rows[0] || null;
     return { sub, plans, pending };
   });
   if (!data) redirect("/");
