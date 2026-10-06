@@ -21,7 +21,8 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
   if (!data) redirect("/");
   const { sub, plans, pending } = data;
 
-  const showPixQr = charge === "pix" && pending?.kind === "PIX" && pending.status === "pending";
+  // Mostra o Pix pendente sempre que houver um ainda válido (não só logo após gerar), pra QR code não "sumir" ao atualizar a página.
+  const showPixQr = pending?.kind === "PIX" && pending.status === "pending" && (!pending.pix_expires_at || new Date(pending.pix_expires_at) > new Date());
   const showCardPending = charge === "card";
 
   return <main className="shell narrow">
@@ -33,11 +34,11 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
     </div>
 
     {showPixQr && pending && <div className="card alert-card" style={{ borderColor: "#a9714c", background: "#fdf6ee" }}>
-      <h2>Pagamento Pix pendente</h2>
+      <h2>Pagamento Pix pendente{pending.amount_cents ? ` — ${formatPrice(pending.amount_cents)}` : ""}</h2>
       <p>Escaneie o QR code ou copie o código Pix abaixo no app do seu banco.{pending.pix_expires_at && ` Expira em ${new Date(pending.pix_expires_at).toLocaleString("pt-BR")}.`}</p>
       {pending.pix_qr_code_base64 && <img src={`data:image/png;base64,${pending.pix_qr_code_base64}`} alt="QR code Pix" style={{ maxWidth: 240, display: "block", margin: "12px 0" }} />}
       {pending.pix_qr_code && <textarea readOnly defaultValue={pending.pix_qr_code} rows={3} style={{ width: "100%", fontSize: 12 }} />}
-      <p className="look-meta">Depois de pagar, a confirmação é automática -- pode levar até um minuto para refletir aqui.</p>
+      <p className="look-meta">Depois de pagar, a confirmação é automática -- pode levar até um minuto para refletir aqui. Para trocar de plano ou gerar um novo código, use os botões abaixo.</p>
       <a href="/assinatura"><button className="link">Atualizar esta página</button></a>
     </div>}
 
