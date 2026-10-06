@@ -220,7 +220,7 @@ async function generateLooksFromRequest(userId: string, request: string, maxLook
     if (items.length === 0) return { ok: false as const, message: "Cadastre ao menos uma peça no closet antes de pedir sugestões de look." };
     const recent = (await c.query(
       `SELECT l.name, l.occasion, (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
-       FROM looks l WHERE l.created_at >= now() - interval '14 days' ORDER BY l.created_at DESC LIMIT 10`,
+       FROM looks l WHERE l.kind <> 'ANALYSIS' AND l.created_at >= now() - interval '14 days' ORDER BY l.created_at DESC LIMIT 10`,
     )).rows;
     const cityRow = (await c.query("SELECT city FROM profiles WHERE user_id=$1", [userId])).rows[0];
     return { ok: true as const, items, recent, city: String(cityRow?.city || "").trim() };

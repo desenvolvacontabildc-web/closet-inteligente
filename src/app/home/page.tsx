@@ -27,7 +27,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
    // pra uma peça real pouco usada -- nunca gera imagem automaticamente só pra preencher a Home.
    const dayLook=skipIds.length?null:(await c.query(`SELECT l.id,l.name,l.occasion,l.status,l.illustration_object_key IS NOT NULL AS has_illustration,l.photo_object_key IS NOT NULL AS has_photo,
        (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
-     FROM looks l WHERE l.kind NOT IN ('DAILY','TRIP') AND l.status NOT IN ('REJECTED','OUTDATED')
+     FROM looks l WHERE l.kind NOT IN ('DAILY','TRIP','ANALYSIS') AND l.status NOT IN ('REJECTED','OUTDATED')
        AND l.id::text != ALL($1::text[]) AND EXISTS (SELECT 1 FROM look_items li WHERE li.look_id=l.id)
      ORDER BY (l.status='APPROVED') DESC, (l.worn_at IS NULL OR l.worn_at < now() - interval '14 days') DESC, md5(l.id::text||current_date::text)
      LIMIT 1`,[skipIds])).rows[0]||null;
@@ -138,7 +138,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      </div>
      <div className="quick-actions">
        <Link href="/looks">Criar look</Link>
-       <Link href="/looks">Avaliar meu look</Link>
+       <Link href="/looks/analisar">Analisar meu look</Link>
        <Link href="/closet">Adicionar peças</Link>
        <Link href="/vitrine">Comprar com desconto</Link>
      </div>

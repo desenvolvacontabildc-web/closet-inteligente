@@ -1,6 +1,6 @@
 import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createLook, deleteLook, suggestLooks, uploadLookPhoto, generateLookIllustration, submitLookFeedback, markLookWorn, submitPostUseFeedback } from "@/server/look-actions"; import { generateWardrobeGaps } from "@/server/style-actions"; import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits"; import SubmitButton from "@/components/submit-button";
 const STATUS_LABEL: Record<string, string> = { SUGGESTED: "Sugestão da IA", PHOTOGRAPHED: "Com foto e avaliação", APPROVED: "Aprovado", WORN: "Já usei", REJECTED: "Rejeitado", OUTDATED: "Desatualizado" };
-const EVAL_LABEL: Record<string, string> = { caimento: "👗 Caimento", proporcao: "📐 Proporção", cores: "🎨 Cores", sugestao: "💡 Sugestão" };
+const EVAL_LABEL: Record<string, string> = { veredito: "⭐ Opinião", caimento: "👗 Caimento", proporcao: "📐 Proporção", cores: "🎨 Cores", sugestao: "💡 Sugestão", quando_usar: "📅 Quando usar" };
 const STYLE_LABEL: Record<string, string> = { REALISTA: "Fotografia realista", AVATAR: "Meu avatar", ILUSTRACAO: "Ilustração" };
 const POST_USE_LABEL: Record<string, string> = { AMEI: "Amei", GOSTEI: "Gostei", MUDARIA: "Funcionou, mas mudaria algo", NAO_REPETIRIA: "Não repetiria" };
 const TABS = [{ key: "todos", label: "Todos" }, { key: "aprovados", label: "Aprovados" }, { key: "usados", label: "Usados" }, { key: "favoritos", label: "Favoritos" }];
@@ -27,7 +27,7 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
         ) ORDER BY ci.category)
        FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS items,
       (SELECT lf.kind FROM look_feedback lf WHERE lf.look_id=l.id ORDER BY lf.created_at DESC LIMIT 1) AS last_feedback
-      FROM looks l WHERE l.kind NOT IN ('DAILY','TRIP') ${statusFilter} ${favFilter} ORDER BY l.created_at DESC`)).rows;
+      FROM looks l WHERE l.kind NOT IN ('DAILY','TRIP','ANALYSIS') ${statusFilter} ${favFilter} ORDER BY l.created_at DESC`)).rows;
     const prof=(await c.query("SELECT default_visual_style, wardrobe_gap_sufficient, wardrobe_gap_reasoning, wardrobe_gap_suggestions, wardrobe_gap_updated_at FROM profiles WHERE user_id=$1",[userId])).rows[0];
     const aiRemaining=await aiUsageRemaining(c,userId);
     const imgRemaining=await imageGenerationsRemaining(c,userId);
@@ -42,6 +42,11 @@ export default async function Looks({searchParams}:{searchParams:Promise<{error?
     <div className="trial-banner">
       <p>🧠 {aiRemaining===null?"Operações de IA ilimitadas no seu plano.":`${aiRemaining} operaç${aiRemaining===1?"ão":"ões"} de IA disponíve${aiRemaining===1?"l":"is"} (pedir sugestão, analisar peça, avaliar foto).`}</p>
       <p>🖼️ {imgRemaining===null?"Gerações de imagem ilimitadas no seu plano.":`${imgRemaining} geraç${imgRemaining===1?"ão":"ões"} de imagem disponíve${imgRemaining===1?"l":"is"} este período.`}</p>
+    </div>
+    <div className="card">
+      <h2>📸 Analisar esse look</h2>
+      <p className="look-meta">Envie uma foto sua usando um look e receba uma opinião sincera (caimento, proporção, cores e o que mudar). Gostou? Salve como look pronto para usar em outras ocasiões.</p>
+      <Link href="/looks/analisar"><button>Analisar meu look</button></Link>
     </div>
     <form action={suggestLooks} className="form">
       <h2>Pedir sugestão de looks</h2>
