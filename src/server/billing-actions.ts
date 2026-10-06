@@ -59,7 +59,7 @@ export async function startPixCheckout(f: FormData) {
 export async function startCardCheckout(f: FormData) {
   const plan = String(f.get("plan") || "");
   const ctx = await withProfile(async (c, userId) => {
-    let amountCents = await planAmountCents(c, plan);
+    let amountCents: number = (await planAmountCents(c, plan)) ?? 0;
     if (!amountCents) return { ok: false as const, message: "Plano inválido." };
     // Desconto dos primeiros meses no cartão recorrente -- só na 1ª assinatura por cartão da conta
     // (quem já teve uma assinatura de cartão autorizada paga o preço cheio).
