@@ -31,10 +31,15 @@ export async function POST(req: Request) {
   try {
     if (type === "payment") {
       const payment = await getPayment(dataId);
-      await client.query("SELECT apply_pix_result($1,$2,$3::jsonb)", [String(payment.id), String(payment.status), JSON.stringify(payment)]);
+      const args = [String(payment.id), String(payment.status), JSON.stringify(payment)];
+      const applied = await client.query("SELECT * FROM apply_pix_result($1,$2,$3::jsonb)", args);
+      // Não é cobrança de usuária -> pode ser a mensalidade de uma loja parceira.
+      if (!applied.rowCount) await client.query("SELECT * FROM apply_partner_pix_result($1,$2,$3::jsonb)", args);
     } else if (type === "preapproval" || type === "subscription_preapproval") {
       const preapproval = await getPreapproval(dataId);
-      await client.query("SELECT apply_preapproval_result($1,$2,$3,$4::jsonb)", [String(preapproval.id), String(preapproval.status), String(preapproval.external_reference || ""), JSON.stringify(preapproval)]);
+      const ref = String(preapproval.external_reference || "");
+      await client.query(ref.startsWith("partner:") ? "SELECT apply_partner_preapproval_result($1,$2,$3,$4::jsonb)" : "SELECT apply_preapproval_result($1,$2,$3,$4::jsonb)",
+        [String(preapproval.id), String(preapproval.status), ref, JSON.stringify(preapproval)]);
     } else if (type === "subscription_authorized_payment") {
       // Cobrança de um ciclo da assinatura de cartão. Rebusca na API (nunca confia no corpo).
       const ap = await getAuthorizedPayment(dataId);
@@ -43,6 +48,7 @@ export async function POST(req: Request) {
       const status = cycleStatus === "approved" || cycleStatus === "processed" ? "approved" : cycleStatus === "rejected" ? "rejected" : "";
       if (preapprovalId && status) {
         const r = await client.query("SELECT * FROM apply_authorized_payment_result($1,$2,$3::jsonb)", [preapprovalId, status, JSON.stringify(ap)]);
+        if (!r.rowCount) await client.query("SELECT * FROM apply_partner_authorized_payment_result($1,$2,$3::jsonb)", [preapprovalId, status, JSON.stringify(ap)]);
         const row = r.rows[0];
         if (row?.promo_ended && row.base_price_cents) {
           // Fim do desconto: volta o cartão ao preço cheio do plano. Se falhar, avisa a administradora

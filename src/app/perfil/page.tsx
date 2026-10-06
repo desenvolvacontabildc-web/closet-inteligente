@@ -15,7 +15,10 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
     const u = (await c.query("SELECT email, is_admin, referral_code FROM app_users WHERE id=$1", [userId])).rows[0];
     const indicacoes = (await c.query("SELECT count(*)::int n FROM app_users WHERE referred_by=$1", [userId])).rows[0].n;
     const sub = await mySubscription(c, userId);
+    const partnerId = (await c.query("SELECT my_partner_id($1) id", [userId])).rows[0]?.id as string | null;
+    const storeName = partnerId ? ((await c.query("SELECT * FROM partner_me($1)", [partnerId])).rows[0]?.store_name as string) : "";
     return {
+      hasStore: !!partnerId, storeName,
       displayName: p?.display_name || "", hasAvatar: !!p?.avatar_object_key,
       hasStyleAvatar: !!p?.avatar_illustration_object_key, defaultVisualStyle: p?.default_visual_style || "ILUSTRACAO",
       city: p?.city || "", bonusCredits: p?.bonus_image_credits || 0, referralCode: u.referral_code, indicacoes,
@@ -23,7 +26,7 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
     };
   });
   if (!data) redirect("/");
-  const { displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, bonusCredits, referralCode, indicacoes, email, isAdmin, sub } = data;
+  const { hasStore, storeName, displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, bonusCredits, referralCode, indicacoes, email, isAdmin, sub } = data;
   const referralLink = `${process.env.APP_URL || ""}/?ref=${referralCode}`;
 
   return <main className="shell narrow">
@@ -84,6 +87,14 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
       <p>{sub.status === "TRIAL" ? "Teste gratuito" : `Plano ${PLAN_LABEL[sub.plan]}`} · status {sub.status}</p>
       <p className="look-meta">🎁 {bonusCredits>0?`Você tem ${bonusCredits} crédito${bonusCredits===1?"":"s"} bônus de geração de imagem (não expiram, usados depois do limite do plano).`:"Sem créditos bônus no momento -- ganhe cadastrando-se, indicando amigas ou completando marcos de uso."}</p>
       <Link href="/assinatura"><button>{sub.status==="TRIAL"?"Assinar um plano":"Gerenciar assinatura"}</button></Link>
+    </div>
+    <div className="card">
+      <h2>{hasStore ? `Minha loja: ${storeName}` : "Tem uma loja?"}</h2>
+      {hasStore
+        ? <><p className="look-meta">Gerencie suas peças e contatos, acompanhe o desempenho e use o Provador para ver suas peças vestidas.</p>
+            <Link href="/minha-vitrine"><button>Minha vitrine</button></Link> <Link href="/provador"><button>Provador</button></Link></>
+        : <><p className="look-meta">Divulgue suas peças na vitrine do Closet para todas as clientes, com seu WhatsApp e Instagram, e gere imagens das peças no Provador.</p>
+            <Link href="/parceiras"><button>Quero ser parceira</button></Link></>}
     </div>
     <div className="card">
       <h2>Indique uma amiga</h2>

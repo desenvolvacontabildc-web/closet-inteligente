@@ -43,7 +43,8 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
         <div key={n.id} className={`notif ${n.kind}${n.read_at ? "" : " unread"}`}>
           <p><strong>{n.title}</strong> <small>· {new Date(n.created_at).toLocaleString("pt-BR")}</small></p>
           <p className="look-meta">{n.body}</p>
-          {n.user_id && <Link href={`/admin/usuarias/${n.user_id}`} className="link">Abrir ficha da usuária →</Link>}
+          {n.kind === "PARTNER" ? <Link href="/admin/parceiras" className="link">Abrir parcerias →</Link>
+            : n.user_id && <Link href={`/admin/usuarias/${n.user_id}`} className="link">Abrir ficha da usuária →</Link>}
         </div>
       ))}
       {unread > 0 && <form action={markNotificationsRead}><SubmitButton pendingText="Marcando...">Marcar todos como lidos</SubmitButton></form>}

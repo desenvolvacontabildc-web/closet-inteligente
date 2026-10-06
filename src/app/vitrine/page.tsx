@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
 
 export default async function Vitrine() {
-  const data = await withProfile(async (c) => {
+  const data = await withProfile(async (c, userId) => {
     const partnerRows = (await c.query("SELECT * FROM storefront_list()")).rows;
+    // Conta 1 visualização por cliente/peça/dia para o painel das lojas.
+    if (partnerRows.length) await c.query("SELECT record_storefront_views($1,$2::uuid[])", [userId, partnerRows.map((r: any) => r.item_id)]);
     const finds = (await c.query("SELECT * FROM list_active_finds()")).rows;
     return { partnerRows, finds };
   });
@@ -31,8 +33,8 @@ export default async function Vitrine() {
           <h2>{store.store_name}</h2>
         </div>
         <p className="links">
-          {store.instagram && <a href={`https://instagram.com/${store.instagram}`} target="_blank" rel="noopener noreferrer">Instagram @{store.instagram}</a>}
-          {store.whatsapp && <a href={`https://wa.me/${store.whatsapp}`} target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>}
+          {store.instagram && <a href={`/api/vitrine/contato?store=${id}&via=instagram`} target="_blank" rel="noopener noreferrer">Instagram @{store.instagram}</a>}
+          {store.whatsapp && <a href={`/api/vitrine/contato?store=${id}&via=whatsapp`} target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>}
         </p>
         <div className="product-grid">
           {store.items.map((it) => (
@@ -45,6 +47,7 @@ export default async function Vitrine() {
                   ? <>R$ {(it.price_cents * (1 - it.discount_percent / 100) / 100).toFixed(2).replace(".", ",")} <s>R$ {(it.price_cents / 100).toFixed(2).replace(".", ",")}</s> · {it.discount_percent}% OFF</>
                   : <>R$ {(it.price_cents / 100).toFixed(2).replace(".", ",")}</>}
               </p>
+              {(store.whatsapp || store.instagram) && <a className="link" href={`/api/vitrine/contato?item=${it.item_id}&via=${store.whatsapp ? "whatsapp" : "instagram"}`} target="_blank" rel="noopener noreferrer"><button type="button">Quero essa peça</button></a>}
             </div>
           ))}
         </div>

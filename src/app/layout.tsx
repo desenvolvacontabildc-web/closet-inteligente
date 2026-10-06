@@ -30,7 +30,7 @@ function billingNotice(sub: { status: string; payment_method: string | null; cur
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  let ctx: { experience_tokens: any; isAdmin: boolean; unread: number; status: string; notice: string | null } | null = null;
+  let ctx: { experience_tokens: any; isAdmin: boolean; hasStore: boolean; unread: number; status: string; notice: string | null } | null = null;
   try {
     ctx = await withProfile(async (c, userId) => {
       const q = await c.query("SELECT experience_tokens FROM profiles WHERE user_id=$1 AND onboarding_completed", [userId]);
@@ -40,9 +40,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         lastBillingMaintenance = Date.now();
         try { await c.query("SELECT run_billing_maintenance()"); } catch (e) { console.error("run_billing_maintenance falhou:", e); }
       }
+      const hasStore = !!(await c.query("SELECT my_partner_id($1) id", [userId])).rows[0]?.id;
       const unread = isAdmin ? Number((await c.query("SELECT admin_unread_notifications($1) n", [userId])).rows[0]?.n || 0) : 0;
       const sub = (await c.query("SELECT * FROM my_subscription($1)", [userId])).rows[0] || null;
-      return { experience_tokens: q.rows[0].experience_tokens, isAdmin, unread, status: String(sub?.status || "ACTIVE"), notice: billingNotice(sub) };
+      return { experience_tokens: q.rows[0].experience_tokens, isAdmin, hasStore, unread, status: String(sub?.status || "ACTIVE"), notice: billingNotice(sub) };
     }, { allowSuspended: true });
   } catch { /* nunca deixar um erro aqui derrubar o layout inteiro do site */ }
   const accent = resolveAccent(ctx?.experience_tokens?.accent);
@@ -52,7 +53,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body style={{ "--accent": accent } as React.CSSProperties}>
         {ctx?.notice && !locked && <a className="billing-banner" href="/assinatura">{ctx.notice}</a>}
         {children}
-        {ctx && !locked && <BottomNav isAdmin={ctx.isAdmin} adminBadge={ctx.unread} />}
+        {ctx && !locked && <BottomNav isAdmin={ctx.isAdmin} adminBadge={ctx.unread} hasStore={ctx.hasStore} />}
         <FlashToast />
       </body>
     </html>
