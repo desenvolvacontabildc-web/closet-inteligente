@@ -105,8 +105,9 @@ function LookDetails({ l, ctx, mode }: { l: LookRow; ctx: Ctx; mode: "ready" | "
   </div>;
 }
 
-export default async function Looks({ searchParams }: { searchParams: Promise<{ error?: string; filtro?: string }> }) {
-  const { error, filtro: filtroRaw } = await searchParams;
+export default async function Looks({ searchParams }: { searchParams: Promise<{ error?: string; filtro?: string; peca?: string }> }) {
+  const { error, filtro: filtroRaw, peca: pecaRaw } = await searchParams;
+  const peca = /^[0-9a-f-]{36}$/i.test(pecaRaw || "") ? pecaRaw! : "";
   const filtro = ["usados", "descartados"].includes(filtroRaw || "") ? filtroRaw! : "todos";
   const data = await withProfile(async (c, userId) => {
     const items = (await c.query("SELECT id,name,category FROM closet_items WHERE status='ACTIVE' ORDER BY category,name")).rows;
@@ -130,7 +131,11 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
   const worn = looks.filter((l: LookRow) => l.status === "WORN");
   const pending = looks.filter((l: LookRow) => !["APPROVED", "WORN", "REJECTED"].includes(l.status));
   const rejected = looks.filter((l: LookRow) => l.status === "REJECTED");
-  const ctx: Ctx = { returnPath: filtro === "todos" ? "/looks" : `/looks?filtro=${filtro}`, imgRemaining, defaultVisualStyle };
+  const ctx: Ctx = { returnPath: peca ? `/looks?peca=${peca}` : filtro === "todos" ? "/looks" : `/looks?filtro=${filtro}`, imgRemaining, defaultVisualStyle };
+  const pecaItem = peca ? items.find((i: any) => i.id === peca) : null;
+  const withPeca = peca ? looks.filter((l: LookRow) => l.status !== "REJECTED" && (l.items || []).some((it: any) => it.id === peca)) : [];
+  const pecaReady = withPeca.filter((l: LookRow) => l.status === "APPROVED" || l.status === "WORN");
+  const pecaPending = withPeca.filter((l: LookRow) => !["APPROVED", "WORN"].includes(l.status));
 
   const gallery = (list: LookRow[], emptyText: string) => list.length === 0
     ? <p className="empty-note">{emptyText}</p>
@@ -185,7 +190,39 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
       </Link>)}
     </nav>
 
-    {filtro === "todos" && <>
+    {peca && <section>
+      <div className="section-head">
+        <h2>Looks com {pecaItem ? pecaItem.name : "esta peça"}</h2>
+        <span className="look-meta"><Link href="/looks">← Ver todos os looks</Link>{pecaItem && <> · <Link href={`/closet/${peca}`}>Voltar à peça</Link></>}</span>
+      </div>
+      {withPeca.length === 0 && <p className="empty-note">Ainda não há looks com essa peça.</p>}
+      {pecaPending.length > 0 && <div className="decide-list">
+        {pecaPending.map((l: LookRow) => (
+          <article className="decide-card" key={l.id}>
+            <div className="decide-cover"><Cover l={l} /></div>
+            <div className="decide-body">
+              <h3>{l.name || "Look sem nome"}</h3>
+              <p className="look-meta">{l.occasion || "Ocasião não informada"}</p>
+              <p className="look-pieces">{(l.items || []).map((it: any) => it.name).join(" + ") || "Sem peças"}</p>
+              <div className="decide-actions">
+                <form action={submitLookFeedback}>
+                  <input type="hidden" name="look_id" value={l.id} /><input type="hidden" name="kind" value="LIKE" /><input type="hidden" name="return_path" value={ctx.returnPath} />
+                  <button className="approve">♡ Gostei</button>
+                </form>
+                <form action={submitLookFeedback}>
+                  <input type="hidden" name="look_id" value={l.id} /><input type="hidden" name="kind" value="DISLIKE" /><input type="hidden" name="return_path" value={ctx.returnPath} />
+                  <button className="reject">Não é pra mim</button>
+                </form>
+              </div>
+              <details className="more"><summary>Ver detalhes e mais opções</summary><LookDetails l={l} ctx={ctx} mode="pending" /></details>
+            </div>
+          </article>
+        ))}
+      </div>}
+      {pecaReady.length > 0 && <><h3 className="sub-head">Já aprovados com essa peça</h3>{gallery(pecaReady, "")}</>}
+    </section>}
+
+    {!peca && filtro === "todos" && <>
       <section>
         <div className="section-head"><h2>Looks prontos</h2><span className="look-meta">{ready.length} {ready.length === 1 ? "look aprovado" : "looks aprovados"} · toque numa foto para ver os detalhes</span></div>
         {gallery(ready, "Nenhum look aprovado ainda. Toque em \"Gostei\" nas sugestões abaixo e eles aparecem aqui, só com as fotos.")}
@@ -219,12 +256,12 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
       </section>}
     </>}
 
-    {filtro === "usados" && <section>
+    {!peca && filtro === "usados" && <section>
       <div className="section-head"><h2>Looks usados</h2><span className="look-meta">Os que você marcou como "usei"</span></div>
       {gallery(worn, "Você ainda não marcou nenhum look como usado.")}
     </section>}
 
-    {filtro === "descartados" && <section>
+    {!peca && filtro === "descartados" && <section>
       <div className="section-head"><h2>Descartados</h2><span className="look-meta">Composições que você marcou como "não é pra mim". Dá para restaurar.</span></div>
       {rejected.length === 0 ? <p className="empty-note">Nada descartado.</p> : <div className="ready-grid">
         {rejected.map((l: LookRow) => (

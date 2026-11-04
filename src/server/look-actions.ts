@@ -230,7 +230,7 @@ async function weatherPromptHint(city: string): Promise<string> {
  * Looks salvos são ilimitados -- só a operação de IA (esta chamada) é contada. Gerencia
  * suas próprias transações curtas (não recebe `c` de fora) -- a chamada à IA roda
  * inteiramente sem nenhuma conexão do pool presa. */
-async function generateLooksFromRequest(userId: string, request: string, maxLooks: number, kind: "SUGGESTED" | "DAILY" | "TRIP", tripLabel = "", returnPath = "/looks"): Promise<{ createdCount: number; note?: string }> {
+async function generateLooksFromRequest(userId: string, request: string, maxLooks: number, kind: "SUGGESTED" | "DAILY" | "TRIP", tripLabel = "", returnPath = "/looks", mustIncludeId = ""): Promise<{ createdCount: number; note?: string }> {
   const ctx = await withProfile(async (c) => {
     if (!process.env.OPENAI_API_KEY) return { ok: false as const, message: "Sugestão por IA não configurada: defina OPENAI_API_KEY no servidor." };
     const budget = await bumpAndCheckAiUsage(c, userId);
@@ -282,6 +282,8 @@ async function generateLooksFromRequest(userId: string, request: string, maxLook
     for (const p of proposals) {
       const ids = Array.isArray(p.item_ids) ? p.item_ids.filter((id: string) => validIds.has(id)) : [];
       if (ids.length === 0) continue;
+      // Looks "com esta peça": descarta qualquer proposta que não traga a peça-base (a IA às vezes esquece).
+      if (mustIncludeId && !ids.includes(mustIncludeId)) continue;
       const name = String(p.name || "").slice(0, 120), occasion = String(p.occasion || "").slice(0, 120);
       const look = await c.query(
         "INSERT INTO looks(tenant_id,user_id,name,occasion,kind,trip_label) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,$3,$4,$5) RETURNING id",
@@ -300,6 +302,30 @@ async function generateLooksFromRequest(userId: string, request: string, maxLook
   });
   if (created === null) bounce(returnPath, "Sessão expirada. Faça login de novo.");
   return { createdCount: created, note: parsed.note };
+}
+
+/** Na tela de uma peça: monta 3 looks diferentes entre si, todos usando essa peça como base,
+ * completados com outras peças reais do closet. Os looks caem em "Para decidir". */
+export async function generateLooksWithItem(f: FormData) {
+  const itemId = String(f.get("item_id") || "");
+  if (!/^[0-9a-f-]{36}$/i.test(itemId)) bounce("/closet", "Peça inválida.");
+  const back = `/closet/${itemId}`;
+  const pre = await withProfile(async (c, uid) => {
+    const item = (await c.query("SELECT name, status FROM closet_items WHERE id=$1", [itemId])).rows[0];
+    return { userId: uid, item: item as { name: string; status: string } | undefined };
+  });
+  if (!pre) redirect("/");
+  if (!pre.item) bounce("/closet", "Peça não encontrada.");
+  if (pre.item.status !== "ACTIVE") bounce(back, "Só dá para montar looks com peças ativas. Mude o status da peça para Ativa e tente de novo.");
+  const request =
+    `A cliente quer montar looks em volta desta peça: "${pre.item.name}" (id ${itemId}). ` +
+    `TODOS os looks devem incluir exatamente essa peça (coloque o id dela em item_ids) e ser bem diferentes entre si, ` +
+    `para ocasiões distintas (por exemplo trabalho, passeio e evento), completando com outras peças reais do closet.`;
+  const result = await generateLooksFromRequest(pre.userId, request, 3, "SUGGESTED", "", back, itemId);
+  if (result.createdCount === 0) bounce(back, "Não consegui montar looks com essa peça agora. Cadastre mais peças que combinem com ela e tente de novo.");
+  const n = result.createdCount;
+  await flash(`${n} look${n === 1 ? "" : "s"} montado${n === 1 ? "" : "s"} com essa peça. Aprove o que gostou.`);
+  redirect(`/looks?peca=${itemId}`);
 }
 
 export async function createLook(f: FormData) {
