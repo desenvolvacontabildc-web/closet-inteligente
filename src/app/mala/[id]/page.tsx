@@ -11,7 +11,7 @@ import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits";
 import SubmitButton from "@/components/submit-button";
 import ConfirmButton from "@/components/confirm-button";
 import PrintButton from "@/components/print-button";
-import ExportTripImage from "@/components/export-trip-image";
+import TripPoster from "@/components/trip-poster";
 
 const TOTAL_STEPS = 9;
 const OBJETIVO_LABEL: Record<string, string> = { PASSEIO: "Passeio / lazer", TRABALHO: "Trabalho", MISTO: "Trabalho e passeio" };
@@ -45,6 +45,25 @@ function slot(category: string): number {
   return 5;
 }
 
+/** Tipo do look para a faixa do pôster (AEROLOOK, PASSEIO, TRABALHO, EVENTO). */
+function lookTag(l: any): string {
+  const t = `${l.trip_period || ""} ${l.occasion || ""} ${l.name || ""}`.toLowerCase();
+  if (/chegad|retorn|desloc|aerop|aeroporto|viagem|embarque/.test(t)) return "AEROLOOK";
+  if (/reuni|semin|congress|palestr|apresent|neg[óo]ci|trabalh/.test(t)) return "TRABALHO";
+  if (/jantar|festa|casament|evento|formal|balada|show/.test(t)) return "EVENTO";
+  if (/passeio|lazer|praia|piscina|turism|compras|livre|casual/.test(t)) return "PASSEIO";
+  return "LOOK";
+}
+/** Em qual seção do pôster a peça entra. */
+function pieceGroup(it: any): "swim" | "shoes" | "bags" | "accessories" | "clothes" {
+  const text = `${it.category || ""} ${it.name || ""}`.toLowerCase();
+  if (/biqu[ií]ni|mai[ôo]|sunga|sa[ií]da de praia|canga|par[êe]o/.test(text)) return "swim";
+  const s = slot(it.category || it.name);
+  if (s === 3) return "shoes";
+  if (s === 4) return "bags";
+  if (/[óo]culos|cinto|joia|bijut|colar|brinco|pulseira|anel|len[çc]o|chap[ée]u|bon[ée]|rel[óo]gio|acess[óo]rio/.test(text)) return "accessories";
+  return "clothes";
+}
 const periodOf = (l: any) => String(l.trip_period || l.name || "Look").replace(/\s*\(#\d+\)/g, "").trim();
 
 export default async function TripWizard({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ step?: string; error?: string }> }) {
@@ -60,6 +79,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
       FROM closet_items ci WHERE ci.status='ACTIVE' ORDER BY ci.category,ci.name`)).rows;
     const aiRemaining = await aiUsageRemaining(c, userId);
     const imgRemaining = await imageGenerationsRemaining(c, userId);
+    const defaultStyle = (await c.query("SELECT default_visual_style FROM profiles WHERE user_id=$1", [userId])).rows[0]?.default_visual_style || "REALISTA";
     let selectedItems: any[] = [], looks: any[] = [];
     if (trip.status === "CONCLUIDA") {
       selectedItems = (await c.query(`SELECT ci.id,ci.name,ci.category,
@@ -70,10 +90,10 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
            FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS items
         FROM looks l WHERE l.trip_id=$1 ORDER BY l.trip_day, l.created_at`, [id])).rows;
     }
-    return { trip, closetItems, aiRemaining, imgRemaining, selectedItems, looks };
+    return { trip, closetItems, aiRemaining, imgRemaining, defaultStyle, selectedItems, looks };
   });
   if (!data) redirect("/mala");
-  const { trip, closetItems, aiRemaining, imgRemaining, selectedItems, looks } = data;
+  const { trip, closetItems, aiRemaining, imgRemaining, defaultStyle, selectedItems, looks } = data;
   const eventos: TripEvent[] = Array.isArray(trip.eventos) ? trip.eventos : [];
 
   const wrap = (title: string, body: any, formAction?: any, hint?: string) => (
@@ -294,15 +314,25 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
         {trip.alerts.map((a: string, i: number) => <p key={i} className="look-meta">{a}</p>)}
       </div>}
 
-      <ExportTripImage
-        title={trip.destino}
-        subtitle={`${trip.dias ? `${trip.dias} dia${trip.dias === 1 ? "" : "s"} · ` : ""}${OBJETIVO_LABEL[trip.objetivo] || "viagem"} · ${selectedItems.length} peças`}
-        fileName={`mala-${String(trip.destino || "viagem").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.png`}
+      <TripPoster
+        destination={trip.destino}
+        days={trip.dias || null}
+        objective={trip.objetivo === "TRABALHO" ? "TRABALHO" : trip.objetivo === "MISTO" ? "TRABALHO | LAZER" : trip.objetivo === "PASSEIO" ? "LAZER" : ""}
+        fileName={`mala-${String(trip.destino || "viagem").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.png`}
+        imagesRemaining={imgRemaining}
+        defaultStyle={defaultStyle}
         looks={sortedLooks.map((l: any) => ({
-          day: l.trip_day,
+          id: l.id, day: l.trip_day, tag: lookTag(l),
           label: periodOf(l).replace(/^Dia\s*\d+\s*[·\-–:]?\s*/i, "") || l.occasion,
+          imageUrl: l.has_illustration ? `/api/looks/${l.id}/illustration` : null,
           pieces: [...(l.items || [])].sort((a: any, b: any) => slot(a.category) - slot(b.category)).map((it: any) => ({ name: it.name, photo: it.photo_id ? `/api/closet/photos/${it.photo_id}` : null })),
         }))}
+        groups={(() => {
+          const g: Record<string, { name: string; photo: string | null }[]> = { swim: [], shoes: [], bags: [], accessories: [], clothes: [] };
+          for (const it of selectedItems) g[pieceGroup(it)].push({ name: it.name, photo: it.photo_id ? `/api/closet/photos/${it.photo_id}` : null });
+          return g as any;
+        })()}
+        checklist={Object.keys(trip.checklist || {}).map((label) => ({ label, done: !!(trip.checklist || {})[label] }))}
       />
       <div className="action-row no-print">
         <PrintButton>🖨️ Imprimir / salvar PDF</PrintButton>

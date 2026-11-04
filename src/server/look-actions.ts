@@ -145,6 +145,40 @@ export async function generateLookIllustration(f: FormData) {
   redirect(returnPath);
 }
 
+/** Versão para chamada pelo navegador, em sequência (ex.: "gerar a imagem de todos os looks da mala"):
+ * mesma geração de imagem de um look, mas devolve o resultado em vez de redirecionar. */
+export async function generateLookImageQuiet(lookId: string, requestedStyle: string): Promise<{ ok: boolean; message?: string }> {
+  if (!/^[0-9a-f-]{36}$/i.test(lookId)) return { ok: false, message: "Look inválido." };
+  const prep = await withProfile(async (c, userId) => {
+    const allowance = await checkImageAllowance(c, userId);
+    if (!allowance.ok) return { error: allowance.message || "Limite de gerações de imagem atingido." };
+    const prof = (await c.query("SELECT default_visual_style FROM profiles WHERE user_id=$1", [userId])).rows[0];
+    const style = (["REALISTA", "AVATAR", "ILUSTRACAO"].includes(requestedStyle) ? requestedStyle : prof?.default_visual_style || "ILUSTRACAO") as "REALISTA" | "AVATAR" | "ILUSTRACAO";
+    const look = await c.query(
+      `SELECT l.name, l.occasion, (SELECT array_agg(ci.id::text) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS item_ids,
+        (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
+       FROM looks l WHERE l.id=$1`,
+      [lookId],
+    );
+    if (!look.rowCount) return { error: "Look não encontrado." };
+    const { name, occasion, item_ids, pieces } = look.rows[0];
+    const illust = await prepareIllustration(c, userId, item_ids || [], `${name || "look"} (${occasion || "sem ocasião"}): ${(pieces || []).join(", ")}`, style);
+    if (!illust.ok) return { error: "Você ainda não tem um avatar personalizado. Crie o seu avatar no Perfil primeiro ou escolha outro estilo de imagem." };
+    return { userId, allowanceSource: allowance.source, style, illust };
+  });
+  if (!prep) return { ok: false, message: "Sessão expirada. Entre de novo." };
+  if ("error" in prep) return { ok: false, message: prep.error };
+  const aiResult = await callIllustrationAI(prep.illust.refs, prep.illust.promptBase, prep.illust.hasIdentityRef);
+  if (!aiResult.ok) return { ok: false, message: "Não foi possível gerar a imagem agora (sem créditos ou fora do ar). Tente de novo mais tarde." };
+  const saved = await withProfile(async (c, userId) => {
+    const result = await writeIllustrationResult(c, userId, lookId, aiResult.buf, prep.style);
+    if (result === "OK") await consumeImageAllowance(c, userId, prep.allowanceSource);
+    return result;
+  });
+  if (saved !== "OK") return { ok: false, message: "Não foi possível salvar a imagem gerada agora. Tente de novo em instantes." };
+  return { ok: true };
+}
+
 /** "Gostei" (salva o look em Looks Aprovados) / "Não é pra mim" -- feedback simples numa
  * imagem/composição gerada. Não interpreta "não gostei" como rejeição das peças do look. */
 export async function submitLookFeedback(f: FormData) {
