@@ -5,6 +5,7 @@ import { createLook, deleteLook, suggestLooks, uploadLookPhoto, generateLookIllu
 import { generateWardrobeGaps } from "@/server/style-actions";
 import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits";
 import SubmitButton from "@/components/submit-button";
+import ConfirmButton from "@/components/confirm-button";
 
 const STATUS_LABEL: Record<string, string> = { SUGGESTED: "Sugestão da IA", PHOTOGRAPHED: "Com foto e avaliação", APPROVED: "Aprovado", WORN: "Já usei", REJECTED: "Descartado", OUTDATED: "Desatualizado" };
 const EVAL_LABEL: Record<string, string> = { veredito: "⭐ Opinião", caimento: "👗 Caimento", proporcao: "📐 Proporção", cores: "🎨 Cores", sugestao: "💡 Sugestão", quando_usar: "📅 Quando usar" };
@@ -95,8 +96,12 @@ function LookDetails({ l, ctx, mode }: { l: LookRow; ctx: Ctx; mode: "ready" | "
         <label>{l.has_photo ? "Trocar a foto e avaliar de novo" : "Enviar uma foto minha usando este look"}<input type="file" name="photo" accept="image/*" required /></label>
         <SubmitButton pendingText="Avaliando...">{l.has_photo ? "Avaliar de novo" : "Avaliar com a minha foto"}</SubmitButton>
       </form>
-      <form action={deleteLook}><input type="hidden" name="id" value={l.id} /><SubmitButton className="danger-link" pendingText="Excluindo...">Excluir look</SubmitButton></form>
     </details>}
+
+    <form action={deleteLook} className="delete-row">
+      <input type="hidden" name="id" value={l.id} /><input type="hidden" name="return_path" value={ctx.returnPath} />
+      <ConfirmButton className="danger-btn" message={`Excluir o look "${l.name || "sem nome"}" para sempre? As peças do seu closet continuam guardadas, mas o look e as imagens dele serão apagados. Isso não pode ser desfeito.`}>🗑 Excluir look</ConfirmButton>
+    </form>
   </div>;
 }
 

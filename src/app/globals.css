@@ -279,3 +279,10 @@ input[type=file]::file-selector-button{border:0;border-radius:999px;background:v
 .closet-grid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
 .closet-tile .thumb{transition:transform .2s,box-shadow .2s}
 .closet-tile:hover .thumb{transform:translateY(-2px);box-shadow:var(--shadow)}
+
+/* Exclusão: botão discreto, mas claro, sempre com confirmação */
+.danger-btn{background:#fff;color:#b3261e;border:1.5px solid #e8c4c0;margin-top:6px}
+.danger-btn:hover:not(:disabled){filter:none;background:#fdf0ee;border-color:#b3261e}
+.delete-row{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+.danger-zone{border-color:#efd3cf}
+.danger-zone h2{color:#b3261e}

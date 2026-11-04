@@ -1,5 +1,5 @@
 "use server";
-import { redirect } from "next/navigation"; import { randomUUID } from "node:crypto"; import { Client } from "minio"; import { withProfile } from "./profile-session"; import { callVisionAI, writeVisionResult } from "./vision-core"; import { bumpAndCheckAiUsage } from "./limits"; import { bounce } from "./action-error";
+import { redirect } from "next/navigation"; import { randomUUID } from "node:crypto"; import { Client } from "minio"; import { withProfile } from "./profile-session"; import { callVisionAI, writeVisionResult } from "./vision-core"; import { bumpAndCheckAiUsage } from "./limits"; import { flash } from "./flash"; import { bounce } from "./action-error";
 const store=new Client({endPoint:(process.env.S3_ENDPOINT||"http://storage:9000").replace(/^https?:\/\//,'').split(':')[0],port:9000,useSSL:false,accessKey:process.env.S3_ACCESS_KEY_ID||"closet-web",secretKey:process.env.S3_SECRET_ACCESS_KEY||""});
 /** Cadastro em si roda numa transação curta; a análise automática por IA (se houver foto)
  * roda DEPOIS, fora de qualquer transação -- nunca deixa a conexão do pool presa durante a
@@ -48,5 +48,29 @@ export async function createItem(f:FormData){
   redirect("/closet");
 }
 export async function updateItem(f:FormData){const id=String(f.get("id")||"");const confidence=String(f.get("confidence")||"CONFIRMED"),status=String(f.get("status")||"ACTIVE");await withProfile(async(c,userId)=>{await c.query("UPDATE closet_items SET name=$1,category=$2,color=$3,description=$4,photo_url=$5,confidence=$6,status=$7,updated_at=now() WHERE id=$8 AND user_id=$9",[f.get("name"),f.get("category"),f.get("color"),f.get("description"),f.get("photo_url"),confidence,status,id,userId]);return true});redirect(`/closet/${id}`)}
-export async function deleteItem(f:FormData){const id=String(f.get("id")||"");await withProfile(async(c,userId)=>{await c.query("DELETE FROM closet_items WHERE id=$1 AND user_id=$2",[id,userId]);return true});redirect("/closet")}
+/** Exclui a peça de vez: apaga as fotos dela do armazenamento e os looks que ficariam sem nenhuma
+ * peça (os demais looks só perdem esta peça). Cancelar a confirmação acontece no navegador. */
+export async function deleteItem(f:FormData){
+  const id=String(f.get("id")||"");
+  let removed;
+  try{
+    removed=await withProfile(async(c,userId)=>{
+      const own=await c.query("SELECT 1 FROM closet_items WHERE id=$1 AND user_id=$2",[id,userId]);
+      if(!own.rowCount)return null;
+      const photoKeys=(await c.query("SELECT object_key FROM closet_item_photos WHERE item_id=$1 AND user_id=$2",[id,userId])).rows.map((r:any)=>r.object_key as string);
+      const emptied=(await c.query(`SELECT l.id,l.illustration_object_key,l.photo_object_key FROM looks l
+        WHERE EXISTS (SELECT 1 FROM look_items li WHERE li.look_id=l.id AND li.item_id=$1)
+          AND NOT EXISTS (SELECT 1 FROM look_items li WHERE li.look_id=l.id AND li.item_id<>$1)`,[id])).rows;
+      if(emptied.length)await c.query("DELETE FROM looks WHERE id=ANY($1::uuid[])",[emptied.map((e:any)=>e.id)]);
+      await c.query("DELETE FROM closet_items WHERE id=$1 AND user_id=$2",[id,userId]);
+      const keys=[...photoKeys,...emptied.flatMap((e:any)=>[e.illustration_object_key,e.photo_object_key])].filter(Boolean) as string[];
+      return {keys,emptiedLooks:emptied.length};
+    });
+  }catch(e){console.error("deleteItem falhou:",e);bounce(`/closet/${id}`,"Não foi possível excluir a peça agora. Tente de novo em instantes.")}
+  if(!removed)redirect("/closet");
+  for(const key of removed.keys){try{await store.removeObject(process.env.S3_BUCKET||"closet-private",key)}catch{/* objeto órfão é inofensivo */}}
+  const n=removed.emptiedLooks;
+  await flash(n>0?`Peça excluída. ${n} look${n===1?"":"s"} que só tinha${n===1?"":"m"} essa peça também ${n===1?"foi":"foram"} excluído${n===1?"":"s"}.`:"Peça excluída.");
+  redirect("/closet")
+}
 export async function suggestItem(f:FormData){const id=String(f.get("id")||"");await withProfile(async(c,userId)=>{const q=await c.query("SELECT name,category,color FROM closet_items WHERE id=$1 AND user_id=$2",[id,userId]);if(!q.rowCount)bounce("/closet","Peça não encontrada.");const current=q.rows[0];const text=`${current.name} ${current.category} ${current.color}`.toLowerCase();const category=current.category||(['blazer','camisa','blusa','calça','saia','vestido','sapato','bolsa'].find(x=>text.includes(x))||'');const color=current.color||(['preto','branco','azul','vinho','verde','rosa','marrom','bege'].find(x=>text.includes(x))||'');await c.query("UPDATE closet_items SET category=COALESCE(NULLIF($1,''),category),color=COALESCE(NULLIF($2,''),color),confidence='INFERRED',updated_at=now() WHERE id=$3 AND user_id=$4",[category,color,id,userId]);return true});redirect(`/closet/${id}`)}

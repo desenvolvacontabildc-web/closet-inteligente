@@ -376,11 +376,15 @@ export async function suggestTrip(f: FormData) {
 
 export async function deleteLook(f: FormData) {
   const id = String(f.get("id") || "");
-  await withProfile(async (c) => {
-    await c.query("DELETE FROM looks WHERE id=$1", [id]);
-    return true;
+  const rawReturn = String(f.get("return_path") || "/looks");
+  const returnPath = /^\/(looks|home|mala)(\/[A-Za-z0-9_-]+)?(\?[A-Za-z0-9=&_-]*)?$/.test(rawReturn) ? rawReturn : "/looks";
+  const keys = await withProfile(async (c) => {
+    const r = await c.query("DELETE FROM looks WHERE id=$1 RETURNING illustration_object_key, photo_object_key", [id]);
+    return r.rows[0] ? ([r.rows[0].illustration_object_key, r.rows[0].photo_object_key].filter(Boolean) as string[]) : [];
   });
-  redirect("/looks");
+  for (const key of keys ?? []) { try { await store.removeObject(process.env.S3_BUCKET || "closet-private", key); } catch { /* objeto órfão é inofensivo */ } }
+  await flash("Look excluído.", "info");
+  redirect(returnPath);
 }
 
 /** Sobe uma foto real da cliente usando o look e pede à IA para avaliar com sinceridade
