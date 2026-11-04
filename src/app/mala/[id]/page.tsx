@@ -11,6 +11,7 @@ import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits";
 import SubmitButton from "@/components/submit-button";
 import ConfirmButton from "@/components/confirm-button";
 import PrintButton from "@/components/print-button";
+import ExportTripImage from "@/components/export-trip-image";
 
 const TOTAL_STEPS = 9;
 const OBJETIVO_LABEL: Record<string, string> = { PASSEIO: "Passeio / lazer", TRABALHO: "Trabalho", MISTO: "Trabalho e passeio" };
@@ -293,6 +294,16 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
         {trip.alerts.map((a: string, i: number) => <p key={i} className="look-meta">{a}</p>)}
       </div>}
 
+      <ExportTripImage
+        title={trip.destino}
+        subtitle={`${trip.dias ? `${trip.dias} dia${trip.dias === 1 ? "" : "s"} · ` : ""}${OBJETIVO_LABEL[trip.objetivo] || "viagem"} · ${selectedItems.length} peças`}
+        fileName={`mala-${String(trip.destino || "viagem").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.png`}
+        looks={sortedLooks.map((l: any) => ({
+          day: l.trip_day,
+          label: periodOf(l).replace(/^Dia\s*\d+\s*[·\-–:]?\s*/i, "") || l.occasion,
+          pieces: [...(l.items || [])].sort((a: any, b: any) => slot(a.category) - slot(b.category)).map((it: any) => ({ name: it.name, photo: it.photo_id ? `/api/closet/photos/${it.photo_id}` : null })),
+        }))}
+      />
       <div className="action-row no-print">
         <PrintButton>🖨️ Imprimir / salvar PDF</PrintButton>
         <Link href={`/mala/${id}?step=1`}>Editar respostas</Link>

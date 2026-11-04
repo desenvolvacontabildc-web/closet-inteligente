@@ -343,3 +343,8 @@ details.adjust>summary{padding:12px 0;font-size:15px}
   .trip-board{grid-template-columns:repeat(3,1fr)}
   .board-look{box-shadow:none}
 }
+
+/* Exportar mala como imagem */
+.export-trip{margin-top:14px}
+.export-panel{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+.export-preview{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line)}
