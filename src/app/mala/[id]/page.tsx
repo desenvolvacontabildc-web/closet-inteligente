@@ -4,7 +4,7 @@ import { withProfile } from "@/server/profile-session";
 import { saveTripStep, addTripEvent, removeTripEvent, generateTripPlan, toggleChecklistItem, removeTripItem, addTripItem, swapTripItem, deleteTripLook, regenerateTripLook } from "@/server/trip-actions";
 import {
   TRANSPORTE_OPCOES, BAGAGEM_OPCOES, SENSIBILIDADE_OPCOES, OBJETIVO_OPCOES, EVENTO_TIPOS, PERIODO_OPCOES, LAZER_OPCOES, DRESS_CODE_OPCOES,
-  ESTILO_OPCOES, PRIORIDADE_OPCOES, REPETICAO_OPCOES, LAVANDERIA_OPCOES, ESTRATEGIA_OPCOES, NECESSIDADE_OPCOES, INCLUIR_OPCOES, type TripEvent,
+  ESTILO_OPCOES, PRIORIDADE_OPCOES, REPETICAO_OPCOES, LAVANDERIA_OPCOES, ESTRATEGIA_OPCOES, NECESSIDADE_OPCOES, INCLUIR_OPCOES, CHECKLIST_TEMPLATE, type TripEvent,
 } from "@/server/trip-options";
 import { generateLookIllustration } from "@/server/look-actions";
 import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits";
@@ -332,7 +332,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
           for (const it of selectedItems) g[pieceGroup(it)].push({ name: it.name, photo: it.photo_id ? `/api/closet/photos/${it.photo_id}` : null });
           return g as any;
         })()}
-        checklist={Object.keys(trip.checklist || {}).map((label) => ({ label, done: !!(trip.checklist || {})[label] }))}
+        checklist={[...CHECKLIST_TEMPLATE.filter((label) => label in (trip.checklist || {})), ...Object.keys(trip.checklist || {}).filter((label) => !CHECKLIST_TEMPLATE.includes(label))].map((label) => ({ label, done: !!(trip.checklist || {})[label] }))}
       />
       <div className="action-row no-print">
         <PrintButton>🖨️ Imprimir / salvar PDF</PrintButton>

@@ -93,9 +93,9 @@ export default function TripPoster({ destination, days, objective, fileName, loo
         if (n === 0) return 0; const t = (w - PAD * 2 - 12 * (perRow - 1)) / perRow;
         return PAD + 40 + Math.ceil(n / perRow) * (t + 8 + 34 + 12) + PAD - 12;
       };
-      const checkH = PAD + 40 + checklist.length * 30 + PAD;
-      const leftH = secH(leftW, groups.swim.length, 6) + (groups.swim.length ? 18 : 0) + secH(leftW, groups.clothes.length, 6);
-      const rightH = secH(rightW, groups.shoes.length, 4) + secH(rightW, groups.bags.length, 4) + secH(rightW, groups.accessories.length, 4) + (checklist.length ? checkH : 0) + 18 * 3;
+      const checkH = PAD + 40 + Math.ceil(checklist.length / 2) * 32 + PAD;
+      const leftH = secH(leftW, groups.swim.length, 6) + (groups.swim.length ? 18 : 0) + secH(leftW, groups.clothes.length, 6) + (checklist.length ? checkH + 18 : 0);
+      const rightH = secH(rightW, groups.shoes.length, 4) + secH(rightW, groups.bags.length, 4) + secH(rightW, groups.accessories.length, 4) + 18 * 3;
       const H = topH + lookRows * lookRowH + 24 + Math.max(leftH, rightH) + 90;
 
       const canvas = document.createElement("canvas");
@@ -176,20 +176,23 @@ export default function TripPoster({ destination, days, objective, fileName, loo
       let ly = sy;
       if (groups.swim.length) ly = drawSection(M, ly, leftW, "Biquínis e saída", groups.swim, 6) + 18;
       ly = drawSection(M, ly, leftW, "Roupas na mala", groups.clothes, 6);
+      if (checklist.length) {
+        ly += 18;
+        ctx.fillStyle = PANEL; rr(ctx, M, ly, leftW, checkH, 18); ctx.fill(); ctx.strokeStyle = PANEL_LINE; ctx.lineWidth = 1.2; rr(ctx, M, ly, leftW, checkH, 18); ctx.stroke();
+        ctx.fillStyle = WINE; ctx.font = "600 22px Georgia, serif"; spaced(ctx, 1); ctx.fillText("CHECKLIST DA MALA", M + PAD, ly + PAD + 22); spaced(ctx, 0);
+        const half = Math.ceil(checklist.length / 2);
+        checklist.forEach((it, i) => {
+          const colX = M + PAD + (i < half ? 0 : (leftW - PAD * 2) / 2), rowI = i < half ? i : i - half;
+          const cy = ly + PAD + 56 + rowI * 32;
+          ctx.strokeStyle = WINE; ctx.lineWidth = 1.8; rr(ctx, colX, cy - 15, 18, 18, 4); ctx.stroke();
+          if (it.done) { ctx.beginPath(); ctx.moveTo(colX + 4, cy - 6); ctx.lineTo(colX + 8, cy - 2); ctx.lineTo(colX + 15, cy - 12); ctx.stroke(); }
+          ctx.fillStyle = INK; ctx.font = "500 16px system-ui, sans-serif"; ctx.fillText(it.label, colX + 30, cy);
+        });
+      }
       let ry = sy; const rx = M + leftW + 20;
       ry = drawSection(rx, ry, rightW, "Sapatos da viagem", groups.shoes, 4) + (groups.shoes.length ? 18 : 0);
       ry = drawSection(rx, ry, rightW, "Bolsas da viagem", groups.bags, 4) + (groups.bags.length ? 18 : 0);
       ry = drawSection(rx, ry, rightW, "Acessórios (essenciais)", groups.accessories, 4) + (groups.accessories.length ? 18 : 0);
-      if (checklist.length) {
-        ctx.fillStyle = PANEL; rr(ctx, rx, ry, rightW, checkH, 18); ctx.fill(); ctx.strokeStyle = PANEL_LINE; ctx.lineWidth = 1.2; rr(ctx, rx, ry, rightW, checkH, 18); ctx.stroke();
-        ctx.fillStyle = WINE; ctx.font = "600 22px Georgia, serif"; spaced(ctx, 1); ctx.fillText("CHECKLIST DA MALA", rx + PAD, ry + PAD + 22); spaced(ctx, 0);
-        checklist.forEach((it, i) => {
-          const cy = ry + PAD + 52 + i * 30;
-          ctx.strokeStyle = WINE; ctx.lineWidth = 1.8; rr(ctx, rx + PAD, cy - 15, 18, 18, 4); ctx.stroke();
-          if (it.done) { ctx.beginPath(); ctx.moveTo(rx + PAD + 4, cy - 6); ctx.lineTo(rx + PAD + 8, cy - 2); ctx.lineTo(rx + PAD + 15, cy - 12); ctx.stroke(); }
-          ctx.fillStyle = INK; ctx.font = "500 16px system-ui, sans-serif"; ctx.fillText(it.label, rx + PAD + 30, cy);
-        });
-      }
 
       // ---------- rodapé
       ctx.textAlign = "center"; ctx.fillStyle = MUTED; ctx.font = "500 15px system-ui, sans-serif"; spaced(ctx, 3);
