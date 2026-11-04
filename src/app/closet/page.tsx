@@ -1,4 +1,4 @@
-import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createItem } from "@/server/closet-actions"; import SubmitButton from "@/components/submit-button";
+import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createItem } from "@/server/closet-actions"; import SubmitButton from "@/components/submit-button"; import { reviewCandidates } from "@/server/closet-review";
 export default async function Closet({searchParams}:{searchParams:Promise<{category?:string;color?:string;status?:string;error?:string;f_name?:string;f_category?:string;f_color?:string;f_description?:string}>}){
   const {category,color,status,error,f_name,f_category,f_color,f_description}=await searchParams;
   const data=await withProfile(async c=>{
@@ -13,16 +13,18 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
     const categories=(await c.query("SELECT DISTINCT category FROM closet_items ORDER BY category")).rows.map((r:any)=>r.category);
     const colors=(await c.query("SELECT DISTINCT color FROM closet_items WHERE color<>'' ORDER BY color")).rows.map((r:any)=>r.color);
     const forgotten=(await c.query("SELECT id,name,category FROM closet_items ci WHERE status='ACTIVE' AND NOT EXISTS (SELECT 1 FROM look_items li WHERE li.item_id=ci.id) ORDER BY created_at ASC LIMIT 6")).rows;
-    return {items,categories,colors,forgotten};
+    const reviewCount=(await reviewCandidates(c,200)).length;
+    return {items,categories,colors,forgotten,reviewCount};
   });
   if(!data)redirect("/");
-  const {items,categories,colors,forgotten}=data;
+  const {items,categories,colors,forgotten,reviewCount}=data;
   return <main className="shell">
     <div className="top"><span className="eyebrow">MEU CLOSET</span><Link href="/home">Voltar</Link></div>
     <h1>Suas peças</h1>
     {error&&<p role="alert" className="trial-banner">{error}</p>}
-    {forgotten.length>0&&!category&&!color&&!status&&<div className="trial-banner">
-      <p>Peças esquecidas — ainda não entraram em nenhum look: {forgotten.map((i:any)=>i.name).join(", ")}. <Link href="/looks">Que tal montar um look com elas?</Link></p>
+    {(forgotten.length>0||reviewCount>0)&&!category&&!color&&!status&&<div className="trial-banner">
+      {forgotten.length>0&&<p>Peças esquecidas — ainda não entraram em nenhum look: {forgotten.map((i:any)=>i.name).join(", ")}. Toque numa peça e gere 3 looks com ela.</p>}
+      {reviewCount>0&&<p style={forgotten.length>0?{marginTop:8}:undefined}>🧹 {reviewCount} peça{reviewCount===1?"":"s"} parada{reviewCount===1?"":"s"} pede{reviewCount===1?"":"m"} uma revisão: manter, doar ou descartar. <Link href="/closet/revisao">Revisar agora</Link></p>}
     </div>}
     <details className="add-panel" open={!!error||items.length===0}>
       <summary><span aria-hidden="true">＋</span> Adicionar peça</summary>

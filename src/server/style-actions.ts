@@ -172,7 +172,9 @@ export async function generateWardrobeGaps(f: FormData) {
     const items = (await c.query("SELECT name, category FROM closet_items WHERE status='ACTIVE' ORDER BY category, name")).rows;
     if (items.length === 0) return { ok: false as const, message: "Cadastre ao menos uma peça no closet antes de pedir essa sugestão." };
     const dossier = (await c.query("SELECT dossier FROM style_profiles WHERE user_id=$1", [userId])).rows[0]?.dossier || null;
-    return { ok: true as const, items, dossier };
+    // Tendências publicadas pela administradora (Radar de Tendências) -- fonte preferida das sugestões por tendência.
+    const trends = (await c.query("SELECT title, body FROM list_active_trends(6)")).rows.map((t: any) => ({ title: t.title, body: String(t.body || "").slice(0, 400) }));
+    return { ok: true as const, items, dossier, trends };
   });
   if (!ctx) redirect(returnPath);
   if (!ctx.ok) bounce(returnPath, ctx.message);
@@ -192,7 +194,12 @@ export async function generateWardrobeGaps(f: FormData) {
             `Se o closet já for amplo, variado em cor e cobre bem essas categorias, responda que está suficiente -- não sugira por sugerir. ` +
             `Se estiver faltando algo, sugira no máximo 3 peças ESPECÍFICAS (categoria + cor, ex.: "bolsa dourada estruturada", "sandália branca de tiras", "blazer rosa") seguindo regras de estilo de contraste e versatilidade -- ` +
             `por exemplo, se o closet for majoritariamente monocromático ou escuro (muito preto/neutro), priorize UMA peça ou acessório de cor viva ou metálica pra dar destaque e contraste (ex.: bolsa dourada, sandália branca, blazer rosa), em vez de sugerir mais peças na mesma paleta. Nunca sugira algo que ela já tem. ` +
-            `Responda apenas JSON: {"sufficient":true|false,"reasoning":"1-2 frases explicando o motivo","suggestions":[{"item":"categoria + cor","why":"1 frase, regra de estilo aplicada"}]}. Se sufficient=true, suggestions deve ser [].`,
+            `Depois, sugira também até 2 peças que sejam TENDÊNCIA atual e que realmente combinem com o estilo e as cores dela (julgue o gosto dela pelo que já existe no closet e pela colorimetria). ` +
+            (ctx.trends.length > 0
+              ? `Tendências publicadas pelo app nesta temporada (prefira estas como fonte):\n${JSON.stringify(ctx.trends)}\n`
+              : `Nenhuma tendência foi publicada ainda no app; use tendências atuais amplamente reconhecidas da estação, só as que combinam com ela. `) +
+            `Só inclua uma tendência se ela servir de verdade no estilo dela e for fácil de usar com as peças que já tem; nunca force, e nunca sugira algo que ela já tem. Se nada combinar, "tendencias" deve ser []. ` +
+            `Responda apenas JSON: {"sufficient":true|false,"reasoning":"1-2 frases explicando o motivo","suggestions":[{"item":"categoria + cor","why":"1 frase, regra de estilo aplicada"}],"tendencias":[{"tendencia":"nome curto da tendência","item":"peça específica (categoria + cor)","why":"1 frase: por que combina com ela e com o que ela já tem"}]}. Se sufficient=true, suggestions deve ser [].`,
         }],
       }],
     });
@@ -203,11 +210,12 @@ export async function generateWardrobeGaps(f: FormData) {
   let parsed: any;
   try { parsed = JSON.parse(out.output_text); } catch (e) { console.error("generateWardrobeGaps JSON inválido:", e); bounce(returnPath, "A IA não retornou um resultado válido. Tente novamente."); }
   const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 3).map((s: any) => ({ item: String(s.item || "").slice(0, 120), why: String(s.why || "").slice(0, 300) })) : [];
+  const trendSuggestions = Array.isArray(parsed.tendencias) ? parsed.tendencias.slice(0, 2).map((t: any) => ({ tendencia: String(t.tendencia || "").slice(0, 80), item: String(t.item || "").slice(0, 120), why: String(t.why || "").slice(0, 300) })).filter((t: any) => t.item) : [];
 
   const saved = await withProfile(async (c, userId) => {
     await c.query(
-      "UPDATE profiles SET wardrobe_gap_sufficient=$1, wardrobe_gap_reasoning=$2, wardrobe_gap_suggestions=$3::jsonb, wardrobe_gap_updated_at=now() WHERE user_id=$4",
-      [!!parsed.sufficient, String(parsed.reasoning || "").slice(0, 500), JSON.stringify(suggestions), userId],
+      "UPDATE profiles SET wardrobe_gap_sufficient=$1, wardrobe_gap_reasoning=$2, wardrobe_gap_suggestions=$3::jsonb, wardrobe_gap_trends=$4::jsonb, wardrobe_gap_updated_at=now() WHERE user_id=$5",
+      [!!parsed.sufficient, String(parsed.reasoning || "").slice(0, 500), JSON.stringify(suggestions), JSON.stringify(trendSuggestions), userId],
     );
     return true;
   });

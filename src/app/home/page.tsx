@@ -5,11 +5,13 @@ import { withProfile } from "@/server/profile-session";
 import { aiUsageRemaining, imageGenerationsRemaining, checkAndGrantMilestones, MILESTONE_LABEL, PLAN_LABEL, type Plan } from "@/server/limits";
 import { fetchCurrentWeather } from "@/server/weather";
 import SubmitButton from "@/components/submit-button";
+import { reviewCandidates } from "@/server/closet-review";
+import { snoozeClosetReview } from "@/server/closet-review-actions";
 export default async function Home({searchParams}:{searchParams:Promise<{error?:string,skip?:string}>}){
  const {error,skip}=await searchParams;
  const skipIds=(skip||"").split(",").filter(Boolean);
  const profile=await withProfile(async(c,id)=>{
-   const p=(await c.query("SELECT p.display_name,p.onboarding_completed,p.avatar_object_key,p.city FROM profiles p WHERE p.user_id=$1",[id])).rows[0];
+   const p=(await c.query("SELECT p.display_name,p.onboarding_completed,p.avatar_object_key,p.city,p.closet_review_snooze_until FROM profiles p WHERE p.user_id=$1",[id])).rows[0];
    if(!p)return null;
    const sub=(await c.query("SELECT * FROM my_subscription($1)",[id])).rows[0];
    const aiRemaining=await aiUsageRemaining(c,id);
@@ -36,11 +38,13 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        (SELECT MAX(l.created_at) FROM look_items li JOIN looks l ON l.id=li.look_id WHERE li.item_id=ci.id) AS last_used_at
      FROM closet_items ci WHERE ci.status='ACTIVE' AND ci.id::text != ALL($1::text[])
      ORDER BY last_used_at ASC NULLS FIRST LIMIT 1`,[skipIds])).rows[0]||null;
-   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas};
+   const review=await reviewCandidates(c,50);
+   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review};
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city}=profile;
+ const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until}=profile;
+ const showReview=review.length>0&&(!closet_review_snooze_until||new Date(closet_review_snooze_until)<new Date());
  const weather=await fetchCurrentWeather(city||"");
  const firstName=((display_name||"").trim().split(/\s+/)[0]||"").toLowerCase().replace(/^./,(ch:string)=>ch.toUpperCase());
  const poucasPecas=activeItems.length<8;
@@ -149,6 +153,21 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        <Link href="/closet"><span aria-hidden="true">👗</span>Adicionar peças</Link>
        <Link href="/vitrine"><span aria-hidden="true">🛍️</span>Comprar com desconto</Link>
      </div>
+     {showReview&&<div className="card home-review">
+       <h2>🧹 Hora de rever seu closet</h2>
+       <p className="look-meta">{review.length} peça{review.length===1?"":"s"} parada{review.length===1?"":"s"} há um bom tempo. Vale manter, doar ou descartar?</p>
+       <div className="home-review-thumbs">
+         {review.slice(0,4).map((r:any)=>(
+           <Link href={`/closet/${r.id}`} key={r.id} className="home-review-thumb" aria-label={r.name}>
+             {r.photo_id?<img src={`/api/closet/photos/${r.photo_id}`} alt={r.name} loading="lazy"/>:<span className="cover-empty">👗</span>}
+           </Link>
+         ))}
+       </div>
+       <div className="action-row">
+         <Link href="/closet/revisao"><strong>Revisar agora</strong></Link>
+         <form action={snoozeClosetReview}><input type="hidden" name="return_path" value="/home"/><button className="link">Agora não (lembrar em 30 dias)</button></form>
+       </div>
+     </div>}
      {trend&&<Link href="/tendencias" className="trend-teaser">
        {trend.object_key&&<img src={`/api/tendencias/photos/${trend.id}`} alt={trend.title}/>}
        <div>

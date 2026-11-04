@@ -119,7 +119,7 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
         ) ORDER BY ci.category)
        FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS items
       FROM looks l WHERE l.kind NOT IN ('DAILY','TRIP','ANALYSIS') ORDER BY l.created_at DESC`)).rows;
-    const prof = (await c.query("SELECT default_visual_style, wardrobe_gap_sufficient, wardrobe_gap_reasoning, wardrobe_gap_suggestions, wardrobe_gap_updated_at FROM profiles WHERE user_id=$1", [userId])).rows[0];
+    const prof = (await c.query("SELECT default_visual_style, wardrobe_gap_sufficient, wardrobe_gap_reasoning, wardrobe_gap_suggestions, wardrobe_gap_trends, wardrobe_gap_updated_at FROM profiles WHERE user_id=$1", [userId])).rows[0];
     const aiRemaining = await aiUsageRemaining(c, userId);
     const imgRemaining = await imageGenerationsRemaining(c, userId);
     return { items, looks, aiRemaining, imgRemaining, defaultVisualStyle: prof?.default_visual_style || "ILUSTRACAO", wardrobeGap: prof };
@@ -274,7 +274,7 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
     </section>}
 
     <div className="card">
-      <h2>Peças coringa pra comprar</h2>
+      <h2>🛍️ O que vale comprar</h2>
       {wardrobeGap?.wardrobe_gap_updated_at ? (
         wardrobeGap.wardrobe_gap_sufficient ? (
           <p className="look-meta">Você já tem peças coringa suficientes no closet. {wardrobeGap.wardrobe_gap_reasoning}</p>
@@ -287,9 +287,19 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
           </ul>
         </>)
       ) : <p className="look-meta">Ainda não analisei seu closet pra isso.</p>}
+      {(wardrobeGap?.wardrobe_gap_trends || []).length > 0 && <>
+        <h3 className="sub-head">✨ Tendências que combinam com você</h3>
+        <ul>
+          {wardrobeGap.wardrobe_gap_trends.map((t: any, idx: number) => (
+            <li key={idx}><strong>{t.item}</strong>{t.tendencia ? <> <span className="pill-note">{t.tendencia}</span></> : null} — {t.why}</li>
+          ))}
+        </ul>
+      </>}
+      {wardrobeGap?.wardrobe_gap_updated_at && Date.now() - new Date(wardrobeGap.wardrobe_gap_updated_at).getTime() > 30 * 86400000 &&
+        <p className="look-meta">⏰ Essas sugestões têm mais de 30 dias. Atualize para ver o que mudou e as tendências novas.</p>}
       <form action={generateWardrobeGaps}>
         <input type="hidden" name="return_path" value="/looks" />
-        <SubmitButton disabled={aiRemaining === 0} pendingText="Analisando seu closet...">{wardrobeGap?.wardrobe_gap_updated_at ? "Analisar de novo" : "Analisar meu closet"}</SubmitButton>
+        <SubmitButton disabled={aiRemaining === 0} pendingText="Analisando seu closet...">{wardrobeGap?.wardrobe_gap_updated_at ? "Atualizar sugestões de compra" : "Ver o que vale comprar"}</SubmitButton>
       </form>
       {aiRemaining === 0 && <p className="look-meta">⚠️ Seu limite de IA deste mês acabou. Veja os planos em Perfil → Assinatura.</p>}
     </div>
