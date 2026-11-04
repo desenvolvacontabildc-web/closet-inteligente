@@ -2,10 +2,16 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
 import { createTrip, deleteTrip } from "@/server/trip-actions";
+import SubmitButton from "@/components/submit-button";
+import ConfirmButton from "@/components/confirm-button";
 
-export default async function Mala() {
+export default async function Mala({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
   const data = await withProfile(async (c) => {
-    const trips = (await c.query("SELECT id,destino,data_ida,data_volta,status,created_at FROM trip_plans ORDER BY created_at DESC")).rows;
+    const trips = (await c.query(`SELECT t.id,t.destino,t.data_ida,t.data_volta,t.dias,t.status,t.created_at,
+        (SELECT count(*)::int FROM looks l WHERE l.trip_id=t.id) AS looks_count,
+        (SELECT count(*)::int FROM trip_items ti WHERE ti.trip_id=t.id) AS items_count
+      FROM trip_plans t ORDER BY t.created_at DESC`)).rows;
     return { trips };
   });
   if (!data) redirect("/");
@@ -13,33 +19,36 @@ export default async function Mala() {
   const planejamento = trips.filter((t: any) => t.status === "PLANEJAMENTO");
   const concluidas = trips.filter((t: any) => t.status === "CONCLUIDA");
 
-  return <main className="shell">
+  const row = (t: any, href: string, meta: string) => (
+    <div className="trip-row" key={t.id}>
+      <Link href={href} className="trip-row-main">
+        <strong>{t.destino || "Viagem sem destino"}</strong>
+        <small>{meta}</small>
+      </Link>
+      <form action={deleteTrip}>
+        <input type="hidden" name="trip_id" value={t.id} />
+        <ConfirmButton className="link" message={`Excluir a mala "${t.destino || "sem destino"}"? Os looks dela serão apagados (as peças continuam no closet).`}>Excluir</ConfirmButton>
+      </form>
+    </div>
+  );
+
+  return <main className="shell narrow">
     <div className="top"><span className="eyebrow">MALA INTELIGENTE</span><Link href="/home">Voltar</Link></div>
-    <h1>Vamos montar sua mala usando o que você já tem no closet.</h1>
-    <form action={createTrip}><button>Criar nova mala</button></form>
+    <h1>Monte sua mala com o que já tem no closet.</h1>
+    <p className="look-meta">Você conta como é a viagem (dias, motivo e cada compromisso, de dia ou à noite) e a IA monta um look para cada ocasião usando só peças reais. Depois você ajusta, troca e descarta o que quiser.</p>
+    {error && <p role="alert" className="trial-banner">{error}</p>}
+    <form action={createTrip}><SubmitButton pendingText="Criando...">＋ Criar nova mala</SubmitButton></form>
 
     {planejamento.length > 0 && <section className="card">
-      <h2>Malas em planejamento</h2>
-      <ul>
-        {planejamento.map((t: any) => (
-          <li key={t.id}><Link href={`/mala/${t.id}?step=1`}>{t.destino || "Sem destino ainda"}</Link>
-            <form action={deleteTrip} style={{ display: "inline" }}><input type="hidden" name="trip_id" value={t.id} /><button className="link">Excluir</button></form>
-          </li>
-        ))}
-      </ul>
+      <h2>Em planejamento</h2>
+      {planejamento.map((t: any) => row(t, `/mala/${t.id}?step=1`, "Continue de onde parou"))}
     </section>}
 
     {concluidas.length > 0 && <section className="card">
-      <h2>Malas concluídas / histórico de viagens</h2>
-      <ul>
-        {concluidas.map((t: any) => (
-          <li key={t.id}><Link href={`/mala/${t.id}`}>{t.destino}</Link> {t.data_ida && <span className="look-meta">{new Date(t.data_ida).toLocaleDateString("pt-BR")}</span>}
-            <form action={deleteTrip} style={{ display: "inline" }}><input type="hidden" name="trip_id" value={t.id} /><button className="link">Excluir</button></form>
-          </li>
-        ))}
-      </ul>
+      <h2>Malas prontas</h2>
+      {concluidas.map((t: any) => row(t, `/mala/${t.id}`, `${t.dias ? `${t.dias} dia${t.dias === 1 ? "" : "s"} · ` : ""}${t.items_count} peças · ${t.looks_count} looks${t.data_ida ? ` · ${new Date(t.data_ida).toLocaleDateString("pt-BR")}` : ""}`))}
     </section>}
 
-    {trips.length === 0 && <p className="look-meta">Você ainda não criou nenhuma mala.</p>}
+    {trips.length === 0 && <p className="empty-note">Você ainda não criou nenhuma mala.</p>}
   </main>;
 }
