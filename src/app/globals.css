@@ -483,3 +483,6 @@ input[type=file]::file-selector-button{background:var(--soft);color:var(--ink);f
 .user-row{border-radius:var(--radius-sm);background:var(--surface)}
 
 @media (prefers-reduced-motion:reduce){button,.admin-tile,.quick-actions a{transition:none}}
+
+.welcome>p.eyebrow{font-size:10.5px;line-height:1.4;max-width:none;color:var(--gold-ink)}
+.welcome .look-meta{margin-top:6px}
