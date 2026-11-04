@@ -254,3 +254,28 @@ button.reject:hover:not(:disabled){filter:none;border-color:#b3261e;color:#b3261
 /* Campos de arquivo mais amigáveis */
 input[type=file]{font-size:13px;padding:8px;border:1px dashed #d8c9b3;border-radius:12px;background:#fffdf9;width:100%;min-height:0}
 input[type=file]::file-selector-button{border:0;border-radius:999px;background:var(--soft);color:var(--ink);font-weight:600;padding:8px 14px;margin-right:10px;cursor:pointer}
+
+/* Look/peça do dia na Home: capa grande ao lado do texto */
+.day-look{display:grid;grid-template-columns:minmax(0,120px) 1fr;gap:16px;background:#fff;border-radius:16px;padding:14px;margin-top:12px;box-shadow:var(--shadow)}
+.day-cover{aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:var(--soft)}
+.day-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.day-body{display:flex;flex-direction:column;justify-content:space-between;gap:10px}
+.day-body strong{display:block;font-size:17px;margin:2px 0}
+@media (max-width:420px){.day-look{grid-template-columns:minmax(0,96px) 1fr;gap:12px}}
+.ready-tile[open]>summary .ready-cover{aspect-ratio:auto;height:min(460px,75vw)}
+.ready-tile[open] .ready-cover img{object-fit:contain}
+
+/* Closet: formulário de adicionar recolhido, filtro compacto e grade fluida */
+.add-panel{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:0 18px}
+.add-panel>summary{cursor:pointer;font-weight:700;color:var(--accent);padding:14px 0;list-style:none;display:flex;align-items:center;gap:8px;font-size:16px}
+.add-panel>summary::-webkit-details-marker{display:none}
+.add-panel>summary span{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:color-mix(in srgb,var(--accent) 14%,transparent);font-size:18px;line-height:1}
+.add-panel[open]>summary{border-bottom:1px solid var(--line);margin-bottom:6px}
+.add-panel .form{border:0;box-shadow:none;padding:6px 0 18px;margin:0;display:grid;gap:10px}
+.filter-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding-bottom:8px}
+.filter-form label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.filter-form select{font:inherit;padding:10px;border:1px solid #ddd0bb;border-radius:12px;background:#fff;min-height:44px}
+.filter-form button{margin-top:0}
+.closet-grid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
+.closet-tile .thumb{transition:transform .2s,box-shadow .2s}
+.closet-tile:hover .thumb{transform:translateY(-2px);box-shadow:var(--shadow)}

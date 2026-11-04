@@ -24,8 +24,9 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
     {forgotten.length>0&&!category&&!color&&!status&&<div className="trial-banner">
       <p>Peças esquecidas — ainda não entraram em nenhum look: {forgotten.map((i:any)=>i.name).join(", ")}. <Link href="/looks">Que tal montar um look com elas?</Link></p>
     </div>}
+    <details className="add-panel" open={!!error||items.length===0}>
+      <summary><span aria-hidden="true">＋</span> Adicionar peça</summary>
     <form action={createItem} encType="multipart/form-data" className="form">
-      <h2>Adicionar peça</h2>
       <input name="name" placeholder="Nome da peça" defaultValue={f_name||""} required/>
       <input name="category" placeholder="Categoria" defaultValue={f_category||""} required/>
       <input name="color" placeholder="Cor" defaultValue={f_color||""}/>
@@ -33,8 +34,11 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
       <textarea name="description" placeholder="Observações" defaultValue={f_description||""}/>
       <SubmitButton pendingText="Adicionando... (se enviou foto, a IA analisa em seguida, até 20s)">Adicionar ao closet</SubmitButton>
     </form>
-    <h2>Peças cadastradas</h2>
-    <form className="form" style={{display:"flex",flexDirection:"row",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+    </details>
+    <div className="section-head"><h2>Peças cadastradas</h2><span className="look-meta">{items.length} {items.length===1?"peça":"peças"}{(category||color||status)?" com este filtro":""}</span></div>
+    <details className="more filter-panel" open={!!(category||color||status)}>
+    <summary>Filtrar peças{(category||color||status)?" (filtro ativo)":""}</summary>
+    <form className="filter-form">
       <label>Categoria
         <select name="category" defaultValue={category||""}>
           <option value="">Todas</option>
@@ -62,6 +66,7 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
       <button>Filtrar</button>
       {(category||color||status)&&<Link href="/closet">Limpar filtro</Link>}
     </form>
+    </details>
     <div className="closet-grid">{items.map((i:any)=>(
       <Link className="closet-tile" href={`/closet/${i.id}`} key={i.id}>
         <span className="thumb">{i.photo_id?<img src={`/api/closet/photos/${i.photo_id}`} alt={i.name}/>:"👗"}</span>

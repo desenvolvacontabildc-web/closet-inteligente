@@ -42,6 +42,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
  if(!profile.onboarding_completed)redirect("/onboarding");
  const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city}=profile;
  const weather=await fetchCurrentWeather(city||"");
+ const firstName=((display_name||"").trim().split(/\s+/)[0]||"").toLowerCase().replace(/^./,(ch:string)=>ch.toUpperCase());
  const poucasPecas=activeItems.length<8;
  const dayPieceDays=dayPiece?.last_used_at?Math.floor((Date.now()-new Date(dayPiece.last_used_at).getTime())/86400000):null;
  const trialDaysLeft=sub?.status==="TRIAL"&&sub.trial_ends_at?Math.max(0,Math.ceil((new Date(sub.trial_ends_at).getTime()-Date.now())/86400000)):null;
@@ -59,7 +60,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        {avatar_object_key
          ? <img className="avatar" src="/api/perfil/foto" alt={display_name}/>
          : <span className="avatar avatar-placeholder">👤</span>}
-       <h1>Olá, {display_name}.</h1>
+       <h1>Olá, {firstName}.</h1>
      </div>
      {weather
        ? <p className="look-meta">{weather.chovendo?"🌧️":weather.temp>=28?"☀️":"🌤️"} Hoje em {weather.city}: {weather.temp}°C{weather.chovendo?", chance de chuva":""}.</p>
@@ -92,9 +93,12 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
              </div>
            </div>
          ))}
-       </div>:dayLook?<div className="trend-teaser" style={{flexDirection:"column",alignItems:"flex-start"}}>
-         {dayLook.has_photo?<img src={`/api/looks/${dayLook.id}/photo`} alt={dayLook.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>
-           :dayLook.has_illustration?<img src={`/api/looks/${dayLook.id}/illustration`} alt={dayLook.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>:null}
+       </div>:dayLook?<div className="day-look">
+         <div className="day-cover">
+           {dayLook.has_photo?<img src={`/api/looks/${dayLook.id}/photo`} alt={dayLook.name}/>
+             :dayLook.has_illustration?<img src={`/api/looks/${dayLook.id}/illustration`} alt={dayLook.name}/>:<span className="cover-empty">✨</span>}
+         </div>
+         <div className="day-body">
          <div>
            <span className="eyebrow">LOOK DO DIA</span>
            <strong>{dayLook.name||(dayLook.status==="APPROVED"?"Um look que você já aprovou":"Uma opção pronta pra hoje")}</strong>
@@ -108,8 +112,10 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
            </form>}
            <Link href={`/home?skip=${dayLook.id}`}>Gerar outra sugestão</Link>
          </div>
-       </div>:dayPiece?<div className="trend-teaser" style={{flexDirection:"column",alignItems:"flex-start"}}>
-         {dayPiece.photo_id&&<img src={`/api/closet/photos/${dayPiece.photo_id}`} alt={dayPiece.name} style={{width:80,height:80,objectFit:"cover",borderRadius:12}}/>}
+         </div>
+       </div>:dayPiece?<div className="day-look">
+         <div className="day-cover">{dayPiece.photo_id?<img src={`/api/closet/photos/${dayPiece.photo_id}`} alt={dayPiece.name}/>:<span className="cover-empty">👗</span>}</div>
+         <div className="day-body">
          <div>
            <span className="eyebrow">PEÇA DO DIA</span>
            <strong>{dayPiece.name}</strong>
@@ -121,6 +127,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
              <SubmitButton pendingText="Pensando... (pode levar até 20s)">Montar look com esta peça</SubmitButton>
            </form>
            <Link href={`/home?skip=${dayPiece.id}`}>Gerar outra sugestão</Link>
+         </div>
          </div>
        </div>:null}
        <details>

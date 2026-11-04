@@ -37,15 +37,18 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
         ? <img className="avatar" src="/api/perfil/foto" alt={displayName || "Foto de perfil"}/>
         : <span className="avatar avatar-placeholder">👤</span>}
       <div>
-        <h1>{displayName || "Você"}</h1>
+        <h1>{(displayName || "Você").toLowerCase().replace(/(^|\s)\S/g, (m: string) => m.toUpperCase())}</h1>
         <p>{email}</p>
       </div>
     </div>
-    <form action={uploadAvatar} encType="multipart/form-data" className="form">
-      <input type="hidden" name="redirect_to" value="/perfil"/>
-      <label>{hasAvatar ? "Trocar foto" : "Adicionar foto"}<input type="file" name="avatar" accept="image/*" required/></label>
-      <button>Salvar foto</button>
-    </form>
+    <details className="more">
+      <summary>{hasAvatar ? "Trocar foto de perfil" : "Adicionar foto de perfil"}</summary>
+      <form action={uploadAvatar} encType="multipart/form-data" className="stack">
+        <input type="hidden" name="redirect_to" value="/perfil"/>
+        <input type="file" name="avatar" accept="image/*" required/>
+        <SubmitButton pendingText="Enviando...">Salvar foto</SubmitButton>
+      </form>
+    </details>
 
     <div className="card">
       <h2>Meu avatar de estilo</h2>
