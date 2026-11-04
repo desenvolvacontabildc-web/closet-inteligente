@@ -24,8 +24,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       <form action={login} className="card secondary">
         <h2>Já tenho conta</h2>
         {error === "credentials" && <p role="alert">E-mail ou senha inválidos.</p>}
-        {error === "blocked" && <p role="alert">Acesso bloqueado. Fale com a administradora.</p>}
-        {error === "trial_expired" && <p role="alert">Seu teste gratuito de 7 dias terminou. Fale com a administradora para continuar.</p>}
+        {error === "blocked" && <p role="alert">Acesso bloqueado. Fale com a equipe do Closet.</p>}
         <label>E-mail<input name="email" type="email" required /></label>
         <label>Senha<input name="password" type="password" required /></label>
         <button>Entrar</button>

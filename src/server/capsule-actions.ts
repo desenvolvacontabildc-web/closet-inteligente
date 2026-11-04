@@ -10,7 +10,7 @@ export async function generateCapsule(f: FormData) {
   const target = Math.min(30, Math.max(5, Number(f.get("target") || 15)));
   const ctx = await withProfile(async (c, userId) => {
     const sub = await mySubscription(c, userId);
-    if (!hasPlanAtLeast(sub, "FASHION")) return { ok: false as const, message: "O Closet Cápsula é exclusivo dos planos Fashion e Super Star (ou do teste gratuito). Fale com a administradora para migrar de plano." };
+    if (!hasPlanAtLeast(sub, "FASHION")) return { ok: false as const, message: "O Closet Cápsula é exclusivo dos planos Fashion e Super Star (ou do teste gratuito). Veja os planos em Perfil → Assinatura." };
     if (!process.env.OPENAI_API_KEY) return { ok: false as const, message: "Recurso de IA não configurado." };
     const budget = await bumpAndCheckAiUsage(c, userId);
     if (!budget.ok) return { ok: false as const, message: budget.message || "Limite de uso de IA atingido." };

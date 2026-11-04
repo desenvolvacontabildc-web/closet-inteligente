@@ -17,7 +17,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
    const todayLooks=(await c.query(`SELECT l.id,l.name,l.occasion,l.illustration_object_key IS NOT NULL AS has_illustration,
      (SELECT lf.kind FROM look_feedback lf WHERE lf.look_id=l.id ORDER BY lf.created_at DESC LIMIT 1) AS last_feedback,
      (SELECT array_agg(ci.name) FROM look_items li JOIN closet_items ci ON ci.id=li.item_id WHERE li.look_id=l.id) AS pieces
-     FROM looks l WHERE l.kind='DAILY' AND l.created_at::date=current_date ORDER BY l.created_at`)).rows;
+     FROM looks l WHERE l.kind='DAILY' AND l.status<>'REJECTED' AND l.created_at::date=current_date ORDER BY l.created_at`)).rows;
    const activeItems=(await c.query("SELECT id,name,category FROM closet_items WHERE status='ACTIVE' ORDER BY category,name")).rows;
    const trend=(await c.query("SELECT * FROM list_active_trends(1)")).rows[0]||null;
    // LOOK DO DIA: muda todo dia (chave de desempate estável por data), priorizando looks já
@@ -51,8 +51,8 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
    {novasConquistas.map((m:any)=>(
      <div className="trial-banner" key={m.reason}><p>🎉 Parabéns! Você completa {MILESTONE_LABEL[m.reason]||m.reason} de Closet Inteligente e ganhou {m.credits} créditos bônus de geração de imagem!</p></div>
    ))}
-   {trialDaysLeft!==null&&<div className="trial-banner"><p>{trialDaysLeft>0?`Faltam ${trialDaysLeft} dia${trialDaysLeft===1?"":"s"} do seu teste gratuito.`:"Seu teste gratuito termina hoje."} Fale com a administradora para assinar e manter o acesso ao seu Closet.</p></div>}
-   {sub?.status==="ACTIVE"&&<div className="trial-banner"><p>Plano {PLAN_LABEL[sub.plan as Plan]||sub.plan}{aiRemaining!==null?` · restam ${aiRemaining} operações de IA este mês`:" · operações de IA ilimitadas"}.</p></div>}
+   {trialDaysLeft!==null&&<div className="trial-banner"><p>{trialDaysLeft>0?`Faltam ${trialDaysLeft} dia${trialDaysLeft===1?"":"s"} do seu teste gratuito.`:"Seu teste gratuito termina hoje."} <Link href="/assinatura">Escolha um plano</Link> para manter o acesso ao seu Closet.</p></div>}
+   {sub?.status==="ACTIVE"&&<p className="usage-line">Plano {PLAN_LABEL[sub.plan as Plan]||sub.plan}{aiRemaining!==null?` · restam ${aiRemaining} operações de IA este mês`:" · operações de IA ilimitadas"}.</p>}
    <section className="welcome">
      <p className="eyebrow">SEU CLOSET ESTÁ PRONTO</p>
      <div className="avatar-row">
@@ -137,10 +137,10 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        </details>
      </div>
      <div className="quick-actions">
-       <Link href="/looks">Criar look</Link>
-       <Link href="/looks/analisar">Analisar meu look</Link>
-       <Link href="/closet">Adicionar peças</Link>
-       <Link href="/vitrine">Comprar com desconto</Link>
+       <Link href="/looks"><span aria-hidden="true">✨</span>Criar look</Link>
+       <Link href="/looks/analisar"><span aria-hidden="true">📸</span>Analisar meu look</Link>
+       <Link href="/closet"><span aria-hidden="true">👗</span>Adicionar peças</Link>
+       <Link href="/vitrine"><span aria-hidden="true">🛍️</span>Comprar com desconto</Link>
      </div>
      {trend&&<Link href="/tendencias" className="trend-teaser">
        {trend.object_key&&<img src={`/api/tendencias/photos/${trend.id}`} alt={trend.title}/>}

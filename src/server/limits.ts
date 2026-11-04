@@ -92,7 +92,7 @@ export async function checkImageAllowance(c: PoolClient, userId: string): Promis
   if (used < cfg.image_gen_monthly_limit) return { ok: true, source: "PLAN" };
   const bonus = await bonusImageCredits(c, userId);
   if (bonus > 0) return { ok: true, source: "BONUS" };
-  return { ok: false, message: `Seu plano ${PLAN_LABEL[plan]} permite ${cfg.image_gen_monthly_limit} gerações de imagem por mês. Esse limite já foi atingido — fale com a administradora para comprar mais créditos ou mudar de plano.` };
+  return { ok: false, message: `Seu plano ${PLAN_LABEL[plan]} permite ${cfg.image_gen_monthly_limit} gerações de imagem por mês. Esse limite já foi atingido — veja os planos em Perfil → Assinatura para ter mais.` };
 }
 
 /** Chamar só depois que a geração de imagem funcionou de verdade -- o contador do plano já se
@@ -129,6 +129,6 @@ export async function bumpAndCheckAiUsage(c: PoolClient, userId: string): Promis
   const cfg = await planConfig(c, sub.plan);
   if (cfg.ai_ops_monthly_limit === null) return { ok: true };
   const monthly = await c.query("SELECT COALESCE(SUM(count),0) n FROM ai_usage WHERE user_id=$1 AND day >= date_trunc('month', current_date)::date", [userId]);
-  if (Number(monthly.rows[0].n) > cfg.ai_ops_monthly_limit) return { ok: false, message: `Seu plano ${PLAN_LABEL[sub.plan]} permite ${cfg.ai_ops_monthly_limit} operações de IA por mês. Esse limite já foi atingido este mês — fale com a administradora para comprar mais créditos ou mudar de plano.` };
+  if (Number(monthly.rows[0].n) > cfg.ai_ops_monthly_limit) return { ok: false, message: `Seu plano ${PLAN_LABEL[sub.plan]} permite ${cfg.ai_ops_monthly_limit} operações de IA por mês. Esse limite já foi atingido este mês — veja os planos em Perfil → Assinatura para ter mais.` };
   return { ok: true };
 }

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
 import { bumpAndCheckAiUsage, checkImageAllowance, consumeImageAllowance } from "./limits";
 import { bounce } from "./action-error";
+import { flash } from "./flash";
 import { fetchCurrentWeather } from "./weather";
 const store = new Client({ endPoint: (process.env.S3_ENDPOINT || "http://storage:9000").replace(/^https?:\/\//, "").split(":")[0], port: 9000, useSSL: false, accessKey: process.env.S3_ACCESS_KEY_ID || "closet-web", secretKey: process.env.S3_SECRET_ACCESS_KEY || "" });
 async function readObject(key: string): Promise<Buffer> {
@@ -161,8 +162,26 @@ export async function submitLookFeedback(f: FormData) {
     if (kind === "LIKE" && look.rows[0].status !== "WORN") {
       await c.query("UPDATE looks SET status='APPROVED', approved_at=now(), updated_at=now() WHERE id=$1", [lookId]);
     }
+    // "Não é pra mim": a composição sai da lista (fica só o que foi aprovado). Não apaga nada --
+    // dá pra restaurar em "Descartados" e o feedback segue valendo para as próximas sugestões.
+    if (kind === "DISLIKE" && look.rows[0].status !== "WORN") {
+      await c.query("UPDATE looks SET status='REJECTED', updated_at=now() WHERE id=$1", [lookId]);
+    }
     return true;
   });
+  await flash(kind === "LIKE" ? "Look aprovado! Ele agora aparece em Looks prontos." : "Composição descartada. Ela some da lista (dá para restaurar em Descartados).", kind === "LIKE" ? "ok" : "info");
+  redirect(returnPath);
+}
+
+/** Traz de volta uma composição descartada. */
+export async function restoreLook(f: FormData) {
+  const lookId = String(f.get("look_id") || "");
+  const returnPath = String(f.get("return_path") || "/looks");
+  await withProfile(async (c) => {
+    await c.query("UPDATE looks SET status='SUGGESTED', updated_at=now() WHERE id=$1 AND status='REJECTED'", [lookId]);
+    return true;
+  });
+  await flash("Look restaurado: ele volta para as sugestões.");
   redirect(returnPath);
 }
 
@@ -327,7 +346,7 @@ export async function suggestLooks(f: FormData) {
 export async function generateTodayLook(f: FormData) {
   const baseItemId = String(f.get("base_item_id") || "").trim();
   const pre = await withProfile(async (c, userId) => {
-    const existing = await c.query("SELECT id FROM looks WHERE kind='DAILY' AND created_at::date=current_date LIMIT 1");
+    const existing = await c.query("SELECT id FROM looks WHERE kind='DAILY' AND status<>'REJECTED' AND created_at::date=current_date LIMIT 1");
     if (existing.rowCount) return { userId, skip: true as const, request: "" };
     let request = "Monte 2 opções de look para hoje, variadas entre si, práticas e alinhadas com o estilo da cliente para um dia comum, usando peças reais do closet ativo.";
     if (baseItemId) {
