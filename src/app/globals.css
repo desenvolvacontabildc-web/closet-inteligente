@@ -318,12 +318,12 @@ input[type=file]::file-selector-button{border:0;border-radius:999px;background:v
 .event-list.compact li{background:none;padding:2px 0}
 .trip-reasoning{max-width:68ch;color:var(--muted);margin:6px 0 0}
 .alert-soft{border-color:#efd9b0;background:#fffaf0}
-.trip-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:14px;align-items:start}
+.trip-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:14px;align-items:start}
 .board-look{background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px;box-shadow:var(--shadow);break-inside:avoid}
 .board-look header{display:flex;flex-direction:column;gap:2px;margin-bottom:8px;min-height:44px}
 .board-day{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
 .board-look header strong{font-size:13px;line-height:1.25}
-.board-pieces{display:grid;gap:8px}
+.board-pieces{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .board-pieces figure{margin:0}
 .board-pieces img,.board-ph{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:24px}
 .board-pieces figcaption{font-size:11px;line-height:1.25;margin-top:3px;color:#4a3f38}
@@ -340,6 +340,6 @@ details.adjust>summary{padding:12px 0;font-size:15px}
   .bottom-nav,.no-print,.toast,.billing-banner,.top{display:none!important}
   body{padding-bottom:0;background:#fff}
   .shell{padding:0}
-  .trip-board{grid-template-columns:repeat(4,1fr)}
+  .trip-board{grid-template-columns:repeat(3,1fr)}
   .board-look{box-shadow:none}
 }

@@ -221,7 +221,7 @@ export async function generateTripPlan(f: FormData) {
             `(3) Para os dias sem compromisso, monte looks de ${objetivoTxt[tripRow.objetivo] || "rotina"} (no máximo um por dia livre). (4) Reaproveite peças versáteis entre looks diferentes conforme a preferência de repetição, mas cada compromisso deve ter um look distinto dos demais. ` +
             `(5) Se o closet não atende bem algum compromisso (ex.: jantar formal sem peça adequada), NÃO invente uma peça: registre em "alerts" e monte o melhor possível com o que existe.\n` +
             `Responda apenas JSON: {"selected_item_ids":["..."],"looks":[{"day":1,"label":"Dia 1 · Chegada","event":null,"occasion":"...","item_ids":["..."]}],"alerts":["..."],"reasoning":"1-3 frases explicando a lógica da mala"}. ` +
-            `Em "event" use o número do compromisso (#) que o look atende, ou null. Em "label" escreva algo curto no formato "Dia N · nome do compromisso (dia/noite)".`,
+            `Em "event" use o número do compromisso (#) que o look atende, ou null. Em "label" escreva algo curto no formato "Dia N · nome do compromisso (dia/noite)", sem o número # do compromisso.`,
         }],
       }],
     });

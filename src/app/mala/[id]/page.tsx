@@ -44,7 +44,7 @@ function slot(category: string): number {
   return 5;
 }
 
-const periodOf = (l: any) => String(l.trip_period || l.name || "Look");
+const periodOf = (l: any) => String(l.trip_period || l.name || "Look").replace(/\s*\(#\d+\)/g, "").trim();
 
 export default async function TripWizard({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ step?: string; error?: string }> }) {
   const { id } = await params;
