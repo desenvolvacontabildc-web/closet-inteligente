@@ -87,7 +87,7 @@ export default function TripPoster({ destination, days, objective, fileName, loo
       const maxLines = Math.min(6, Math.max(2, ...looks.map((l) => l.pieces.length)));
       const lookRowH = tileH + 62 + maxLines * 22 + 26;
       const lookRows = Math.ceil(looks.length / cols);
-      const topH = 214;
+      const topH = 252;
       const innerW = W - M * 2, leftW = innerW * 0.58 - 10, rightW = innerW - leftW - 20, PAD = 22;
       const secH = (w: number, n: number, perRow: number) => {
         if (n === 0) return 0; const t = (w - PAD * 2 - 12 * (perRow - 1)) / perRow;
