@@ -1,7 +1,9 @@
 import Link from "next/link"; import { redirect } from "next/navigation"; import { withProfile } from "@/server/profile-session"; import { createItem } from "@/server/closet-actions"; import SubmitButton from "@/components/submit-button"; import { reviewCandidates } from "@/server/closet-review";
+import { standardizeProgress, isStandardizing } from "@/server/closet-standardize";
+import { startStandardize } from "@/server/closet-standardize-actions";
 export default async function Closet({searchParams}:{searchParams:Promise<{category?:string;color?:string;status?:string;error?:string;f_name?:string;f_category?:string;f_color?:string;f_description?:string}>}){
   const {category,color,status,error,f_name,f_category,f_color,f_description}=await searchParams;
-  const data=await withProfile(async c=>{
+  const data=await withProfile(async (c,userId)=>{
     const filters:string[]=[]; const params:string[]=[];
     if(category){params.push(category);filters.push(`category=$${params.length}`)}
     if(color){params.push(color);filters.push(`color=$${params.length}`)}
@@ -14,10 +16,12 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
     const colors=(await c.query("SELECT DISTINCT color FROM closet_items WHERE color<>'' ORDER BY color")).rows.map((r:any)=>r.color);
     const forgotten=(await c.query("SELECT id,name,category FROM closet_items ci WHERE status='ACTIVE' AND NOT EXISTS (SELECT 1 FROM look_items li WHERE li.item_id=ci.id) ORDER BY created_at ASC LIMIT 6")).rows;
     const reviewCount=(await reviewCandidates(c,200)).length;
-    return {items,categories,colors,forgotten,reviewCount};
+    const isAdmin=!!(await c.query("SELECT is_admin FROM app_users WHERE id=$1",[userId])).rows[0]?.is_admin;
+    const std=isAdmin?await standardizeProgress(c):null;
+    return {items,categories,colors,forgotten,reviewCount,std,standardizing:isStandardizing(userId)};
   });
   if(!data)redirect("/");
-  const {items,categories,colors,forgotten,reviewCount}=data;
+  const {items,categories,colors,forgotten,reviewCount,std,standardizing}=data;
   return <main className="shell">
     <div className="top"><span className="eyebrow">MEU CLOSET</span><Link href="/home">Voltar</Link></div>
     <h1>Suas peças</h1>
@@ -37,6 +41,17 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
       <SubmitButton pendingText="Adicionando... (se enviou foto, a IA analisa em seguida, até 20s)">Adicionar ao closet</SubmitButton>
     </form>
     </details>
+    {std&&<details className="add-panel" open={standardizing}>
+      <summary><span aria-hidden="true">✦</span> Padronizar fotos das peças (administradora)</summary>
+      <div className="std-panel">
+        <p className="look-meta">Gera uma foto de catálogo de cada peça (só a peça, fundo marfim, mesma luz) a partir da foto original, que continua guardada. Hoje: <strong>{std.done} de {std.total}</strong> prontas{std.failed>0?`, ${std.failed} com falha`:""}.{standardizing?" Em andamento: atualize a página para ver o progresso.":""}</p>
+        <div className="action-row">
+          <form action={startStandardize}><input type="hidden" name="limit" value="3"/><SubmitButton disabled={standardizing} pendingText="Iniciando...">Testar com 3 peças</SubmitButton></form>
+          <form action={startStandardize}><SubmitButton disabled={standardizing||std.done>=std.total} pendingText="Iniciando...">{`Padronizar as ${Math.max(0,std.total-std.done)} restantes`}</SubmitButton></form>
+        </div>
+        <p className="look-meta">Cada peça usa 1 geração de imagem (custo estimado de R$ 0,30 cada).</p>
+      </div>
+    </details>}
     <div className="section-head"><h2>Peças cadastradas</h2><span className="look-meta">{items.length} {items.length===1?"peça":"peças"}{(category||color||status)?" com este filtro":""}</span></div>
     <details className="more filter-panel" open={!!(category||color||status)}>
     <summary>Filtrar peças{(category||color||status)?" (filtro ativo)":""}</summary>
