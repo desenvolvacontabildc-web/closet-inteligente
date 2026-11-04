@@ -170,7 +170,7 @@ function ResultsView({ dossier, profile, closetItems, error }: any) {
       <div className="product-grid">
         {closetMatches.map((it: any) => (
           <div key={it.id} className="card">
-            {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} /> : <span className="look-thumb-placeholder">👗</span>}
+            {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} /> : <span className="look-thumb-placeholder">✦</span>}
             <h3>{it.name}</h3><p className="look-meta">{it.category}</p>
           </div>
         ))}

@@ -1,11 +1,16 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { Cormorant_Garamond, Manrope } from "next/font/google";
 import type { ReactNode } from "react";
 import { withProfile } from "@/server/profile-session";
 import { resolveAccent } from "@/server/accent";
 import BottomNav from "./bottom-nav";
 import FlashToast from "@/components/flash-toast";
 
-export const metadata: Metadata = { title: "Closet Inteligente", themeColor: "#a9714c" };
+const displayFont = Cormorant_Garamond({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-cormorant", display: "swap" });
+const uiFont = Manrope({ subsets: ["latin"], variable: "--font-manrope", display: "swap" });
+
+export const metadata: Metadata = { title: "Closet Inteligente" };
+export const viewport: Viewport = { themeColor: "#f7f2ec" };
 
 const GRACE_DAYS = 5;
 let lastBillingMaintenance = 0; // roda no máximo a cada 10 min por processo (o bloqueio em si é calculado no banco, sem depender disto)
@@ -49,7 +54,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const accent = resolveAccent(ctx?.experience_tokens?.accent);
   const locked = ctx?.status === "SUSPENDED" || ctx?.status === "TRIAL_EXPIRED";
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={`${displayFont.variable} ${uiFont.variable}`}>
       <body style={{ "--accent": accent } as React.CSSProperties}>
         {ctx?.notice && !locked && <a className="billing-banner" href="/assinatura">{ctx.notice}</a>}
         {children}

@@ -3,10 +3,12 @@ const LOGIN_ERRORS = ["credentials", "blocked", "trial_expired"];
 export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string; ref?: string }> }) {
   const { error, ref } = await searchParams;
   const registerError = error && !LOGIN_ERRORS.includes(error) ? error : null;
-  return <main className="shell">
+  return <main className="shell landing">
+    <header className="brand-bar"><span className="brand-mark" aria-hidden="true">CI</span><span className="brand-name">Closet Inteligente</span></header>
     <section className="hero">
-      <span className="eyebrow">CLOSET INTELIGENTE</span>
+      <span className="eyebrow">Seu estilo, organizado</span>
       <h1>Um closet que conhece você.</h1>
+      <hr className="hero-rule" />
       <p>Comece com seu perfil e receba uma experiência feita para o seu jeito.</p>
       <p>Não é só um closet: é um estilo que evolui com você -- looks pensados pro seu dia, sugestões que melhoram com o uso, e recompensas por continuar ativa (créditos de bônus no cadastro, em marcos de uso e quando você indica uma amiga).</p>
     </section>
@@ -30,5 +32,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
         <button>Entrar</button>
       </form>
     </div>
+    <footer className="landing-foot"><span>© Closet Inteligente</span><a href="/termos">Termos de Uso</a><a href="/privacidade">Privacidade</a></footer>
   </main>;
 }

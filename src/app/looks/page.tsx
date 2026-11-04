@@ -8,7 +8,7 @@ import SubmitButton from "@/components/submit-button";
 import ConfirmButton from "@/components/confirm-button";
 
 const STATUS_LABEL: Record<string, string> = { SUGGESTED: "Sugestão da IA", PHOTOGRAPHED: "Com foto e avaliação", APPROVED: "Aprovado", WORN: "Já usei", REJECTED: "Descartado", OUTDATED: "Desatualizado" };
-const EVAL_LABEL: Record<string, string> = { veredito: "⭐ Opinião", caimento: "👗 Caimento", proporcao: "📐 Proporção", cores: "🎨 Cores", sugestao: "💡 Sugestão", quando_usar: "📅 Quando usar" };
+const EVAL_LABEL: Record<string, string> = { veredito: "Opinião", caimento: "Caimento", proporcao: "Proporção", cores: "Cores", sugestao: "Sugestão", quando_usar: "Quando usar" };
 const STYLE_LABEL: Record<string, string> = { REALISTA: "Fotografia realista", AVATAR: "Meu avatar", ILUSTRACAO: "Ilustração" };
 const POST_USE_LABEL: Record<string, string> = { AMEI: "Amei", GOSTEI: "Gostei", MUDARIA: "Funcionou, mas mudaria algo", NAO_REPETIRIA: "Não repetiria" };
 const TABS = [{ key: "todos", label: "Todos" }, { key: "usados", label: "Usados" }, { key: "descartados", label: "Descartados" }];
@@ -33,7 +33,7 @@ function Cover({ l }: { l: LookRow }) {
   if (withPhoto.length > 0) {
     return <div className={`cover-collage n${withPhoto.length}`}>{withPhoto.map((it: any) => <img key={it.id} src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" />)}</div>;
   }
-  return <span className="cover-empty">✨</span>;
+  return <span className="cover-empty">✦</span>;
 }
 
 /** Tudo sobre um look: peças, avaliação e ações. Fica recolhido dentro dos cards/fotos. */
@@ -48,7 +48,7 @@ function LookDetails({ l, ctx, mode }: { l: LookRow; ctx: Ctx; mode: "ready" | "
     {(l.items || []).length > 0 && <div className="outfit-collage">
       {(l.items || []).map((it: any) => (
         <div className="outfit-collage-item" key={it.id}>
-          {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} /> : <span className="outfit-collage-placeholder">👕</span>}
+          {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} /> : <span className="outfit-collage-placeholder">✦</span>}
           <span>{it.name}</span>
         </div>
       ))}
@@ -56,7 +56,7 @@ function LookDetails({ l, ctx, mode }: { l: LookRow; ctx: Ctx; mode: "ready" | "
 
     {evaluation && <div className="eval-grid">
       {Object.entries(evaluation).map(([key, text]) => text && (
-        <div className="eval-card" key={key}><strong>{EVAL_LABEL[key] || "💬 Avaliação"}</strong><p>{text}</p></div>
+        <div className="eval-card" key={key}><strong>{EVAL_LABEL[key] || "Avaliação"}</strong><p>{text}</p></div>
       ))}
     </div>}
 
@@ -88,8 +88,8 @@ function LookDetails({ l, ctx, mode }: { l: LookRow; ctx: Ctx; mode: "ready" | "
             {Object.entries(STYLE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
-        <SubmitButton disabled={ctx.imgRemaining === 0} pendingText="Gerando imagem... (pode levar até 2 minutos)">🖼️ {l.has_illustration ? "Gerar imagem de novo" : "Gerar inspiração em imagem"}</SubmitButton>
-        <p className="look-meta">{ctx.imgRemaining === 0 ? "⚠️ Seu limite de gerações de imagem deste mês acabou. Veja os planos em Perfil → Assinatura." : ctx.imgRemaining !== null ? `Usa 1 das suas ${ctx.imgRemaining} gerações de imagem restantes.` : "Gerações de imagem ilimitadas no seu plano."}</p>
+        <SubmitButton disabled={ctx.imgRemaining === 0} pendingText="Gerando imagem... (pode levar até 2 minutos)">{l.has_illustration ? "Gerar imagem de novo" : "Gerar inspiração em imagem"}</SubmitButton>
+        <p className="look-meta">{ctx.imgRemaining === 0 ? "Atenção: Seu limite de gerações de imagem deste mês acabou. Veja os planos em Perfil → Assinatura." : ctx.imgRemaining !== null ? `Usa 1 das suas ${ctx.imgRemaining} gerações de imagem restantes.` : "Gerações de imagem ilimitadas no seu plano."}</p>
       </form>
       <form action={uploadLookPhoto} encType="multipart/form-data" className="stack">
         <input type="hidden" name="look_id" value={l.id} />
@@ -100,7 +100,7 @@ function LookDetails({ l, ctx, mode }: { l: LookRow; ctx: Ctx; mode: "ready" | "
 
     <form action={deleteLook} className="delete-row">
       <input type="hidden" name="id" value={l.id} /><input type="hidden" name="return_path" value={ctx.returnPath} />
-      <ConfirmButton className="danger-btn" message={`Excluir o look "${l.name || "sem nome"}" para sempre? As peças do seu closet continuam guardadas, mas o look e as imagens dele serão apagados. Isso não pode ser desfeito.`}>🗑 Excluir look</ConfirmButton>
+      <ConfirmButton className="danger-btn" message={`Excluir o look "${l.name || "sem nome"}" para sempre? As peças do seu closet continuam guardadas, mas o look e as imagens dele serão apagados. Isso não pode ser desfeito.`}>Excluir look</ConfirmButton>
     </form>
   </div>;
 }
@@ -155,20 +155,20 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
     <div className="top"><span className="eyebrow">MEUS LOOKS</span><Link href="/home">Voltar</Link></div>
     <h1>Seus looks</h1>
     {error && <p role="alert" className="trial-banner">{error}</p>}
-    <p className="usage-line">🧠 {aiRemaining === null ? "IA ilimitada" : `${aiRemaining} operaç${aiRemaining === 1 ? "ão" : "ões"} de IA`} · 🖼️ {imgRemaining === null ? "imagens ilimitadas" : `${imgRemaining} imagem${imgRemaining === 1 ? "" : "ns"} este período`}</p>
+    <p className="usage-line">{aiRemaining === null ? "IA ilimitada" : `${aiRemaining} operaç${aiRemaining === 1 ? "ão" : "ões"} de IA`} · {imgRemaining === null ? "imagens ilimitadas" : `${imgRemaining} imagem${imgRemaining === 1 ? "" : "ns"} este período`}</p>
 
     <div className="action-cards">
       <div className="card compact">
-        <h2>📸 Analisar esse look</h2>
+        <h2>Analisar esse look</h2>
         <p className="look-meta">Envie uma foto sua usando um look e receba uma opinião sincera. Gostou? Salve como look pronto.</p>
         <Link href="/looks/analisar"><button>Analisar meu look</button></Link>
       </div>
       <form action={suggestLooks} className="card compact">
-        <h2>✨ Pedir sugestão de looks</h2>
+        <h2>Pedir sugestão de looks</h2>
         <p className="look-meta">Monta combinações só com peças reais do seu closet, sem gastar imagem.</p>
         <input name="request" placeholder='Ex.: "3 looks pra reuniões essa semana"' required />
         <SubmitButton disabled={aiRemaining === 0} pendingText="Pensando... (até 20s)">Gerar sugestão com IA</SubmitButton>
-        {aiRemaining === 0 && <p className="look-meta">⚠️ Seu limite de IA deste mês acabou. Veja os planos em Perfil → Assinatura.</p>}
+        {aiRemaining === 0 && <p className="look-meta">Atenção: Seu limite de IA deste mês acabou. Veja os planos em Perfil → Assinatura.</p>}
       </form>
     </div>
     <details className="more diy">
@@ -274,7 +274,7 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
     </section>}
 
     <div className="card">
-      <h2>🛍️ O que vale comprar</h2>
+      <h2>O que vale comprar</h2>
       {wardrobeGap?.wardrobe_gap_updated_at ? (
         wardrobeGap.wardrobe_gap_sufficient ? (
           <p className="look-meta">Você já tem peças coringa suficientes no closet. {wardrobeGap.wardrobe_gap_reasoning}</p>
@@ -288,7 +288,7 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
         </>)
       ) : <p className="look-meta">Ainda não analisei seu closet pra isso.</p>}
       {(wardrobeGap?.wardrobe_gap_trends || []).length > 0 && <>
-        <h3 className="sub-head">✨ Tendências que combinam com você</h3>
+        <h3 className="sub-head">Tendências que combinam com você</h3>
         <ul>
           {wardrobeGap.wardrobe_gap_trends.map((t: any, idx: number) => (
             <li key={idx}><strong>{t.item}</strong>{t.tendencia ? <> <span className="pill-note">{t.tendencia}</span></> : null} — {t.why}</li>
@@ -301,7 +301,7 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
         <input type="hidden" name="return_path" value="/looks" />
         <SubmitButton disabled={aiRemaining === 0} pendingText="Analisando seu closet...">{wardrobeGap?.wardrobe_gap_updated_at ? "Atualizar sugestões de compra" : "Ver o que vale comprar"}</SubmitButton>
       </form>
-      {aiRemaining === 0 && <p className="look-meta">⚠️ Seu limite de IA deste mês acabou. Veja os planos em Perfil → Assinatura.</p>}
+      {aiRemaining === 0 && <p className="look-meta">Atenção: Seu limite de IA deste mês acabou. Veja os planos em Perfil → Assinatura.</p>}
     </div>
   </main>;
 }

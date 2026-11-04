@@ -27,13 +27,13 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
     {error && <p role="alert" className="trial-banner">{error}</p>}
 
     <div className="admin-tiles">
-      <Link href="/admin/usuarias" className="admin-tile"><strong>👥 Usuárias</strong><small>{clients.length} cadastrada{clients.length === 1 ? "" : "s"} · {active.length} assinante{active.length === 1 ? "" : "s"}</small>{attention > 0 && <span className="pill">{attention} precisa{attention === 1 ? "" : "m"} de atenção</span>}</Link>
-      <Link href="/admin/precos" className="admin-tile"><strong>💲 Preços e planos</strong><small>Valores e limites de cada plano</small></Link>
-      <Link href="/admin/descontos" className="admin-tile"><strong>🏷️ Descontos</strong><small>Desconto do cartão recorrente</small></Link>
-      <Link href="/admin/beneficios" className="admin-tile"><strong>🎁 Benefícios</strong><small>Créditos de imagem e Colorimetria</small></Link>
-      <Link href="/admin/parceiras" className="admin-tile"><strong>🤝 Parcerias</strong><small>Parceiras e vitrine</small></Link>
-      <Link href="/admin/tendencias" className="admin-tile"><strong>✨ Tendências</strong><small>Radar de tendências</small></Link>
-      <Link href="/admin/achadinhos" className="admin-tile"><strong>🛍️ Achadinhos</strong><small>Achados com desconto</small></Link>
+      <Link href="/admin/usuarias" className="admin-tile"><strong>Usuárias</strong><small>{clients.length} cadastrada{clients.length === 1 ? "" : "s"} · {active.length} assinante{active.length === 1 ? "" : "s"}</small>{attention > 0 && <span className="pill">{attention} precisa{attention === 1 ? "" : "m"} de atenção</span>}</Link>
+      <Link href="/admin/precos" className="admin-tile"><strong>Preços e planos</strong><small>Valores e limites de cada plano</small></Link>
+      <Link href="/admin/descontos" className="admin-tile"><strong>Descontos</strong><small>Desconto do cartão recorrente</small></Link>
+      <Link href="/admin/beneficios" className="admin-tile"><strong>Benefícios</strong><small>Créditos de imagem e Colorimetria</small></Link>
+      <Link href="/admin/parceiras" className="admin-tile"><strong>Parcerias</strong><small>Parceiras e vitrine</small></Link>
+      <Link href="/admin/tendencias" className="admin-tile"><strong>Tendências</strong><small>Radar de tendências</small></Link>
+      <Link href="/admin/achadinhos" className="admin-tile"><strong>Achadinhos</strong><small>Achados com desconto</small></Link>
     </div>
 
     <section className="card">
@@ -61,7 +61,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
       <h2>Gasto estimado com ilustração de IA este mês</h2>
       <p className="look-pieces"><strong>{brl(Number(imageSpend.estimated_cents))}</strong> · {imageSpend.month_count} ilustração{Number(imageSpend.month_count) === 1 ? "" : "ões"} gerada{Number(imageSpend.month_count) === 1 ? "" : "s"} (estimativa de R$ 0,30 cada)</p>
       {imageSpendOverLimit
-        ? <p role="alert">⚠️ Passou de {brl(IMAGE_SPEND_ALERT_CENTS)} este mês. Vale checar o consumo direto na OpenAI.</p>
+        ? <p role="alert">Atenção: Passou de {brl(IMAGE_SPEND_ALERT_CENTS)} este mês. Vale checar o consumo direto na OpenAI.</p>
         : <p className="look-meta">Aviso automático se passar de {brl(IMAGE_SPEND_ALERT_CENTS)}/mês.</p>}
     </section>
   </main>;

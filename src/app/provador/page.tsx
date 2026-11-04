@@ -58,7 +58,7 @@ export default async function Provador({ searchParams }: { searchParams: Promise
               ))}
             </div>}
       </fieldset>
-      <SubmitButton disabled={!canGenerate} pendingText="Gerando imagem... (pode levar até 2 minutos)">🪞 Gerar no provador</SubmitButton>
+      <SubmitButton disabled={!canGenerate} pendingText="Gerando imagem... (pode levar até 2 minutos)">Gerar no provador</SubmitButton>
       <p className="look-meta">A IA tenta manter cor, tecido e corte de cada peça como nas suas fotos, mas confira o resultado antes de divulgar. Nunca é gerada a imagem de uma pessoa real sem a foto dela.</p>
     </form>
 

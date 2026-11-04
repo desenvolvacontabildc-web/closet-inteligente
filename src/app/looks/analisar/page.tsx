@@ -23,9 +23,9 @@ export default async function AnalisarLook({ searchParams }: { searchParams: Pro
       <label>Para qual ocasião é? (opcional)
         <input name="occasion" placeholder="Ex.: reunião de trabalho, jantar, casamento de dia" defaultValue={f_occasion || ""} />
       </label>
-      <SubmitButton disabled={aiRemaining === 0} pendingText="Analisando seu look... (pode levar até 30s)">📸 Analisar meu look</SubmitButton>
+      <SubmitButton disabled={aiRemaining === 0} pendingText="Analisando seu look... (pode levar até 30s)">Analisar meu look</SubmitButton>
       <p className="look-meta">
-        {aiRemaining === 0 ? "⚠️ Seu limite de operações de IA acabou. Veja os planos em Perfil → Assinatura."
+        {aiRemaining === 0 ? "Atenção: Seu limite de operações de IA acabou. Veja os planos em Perfil → Assinatura."
           : aiRemaining === null ? "Usa 1 operação de IA (ilimitadas no seu plano)." : `Usa 1 das suas ${aiRemaining} operações de IA restantes.`}
         {" "}Sua foto fica guardada só na sua conta e você pode descartá-la a qualquer momento.
       </p>

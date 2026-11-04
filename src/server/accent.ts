@@ -1,11 +1,11 @@
 export const ACCENT_PALETTE: Record<string, string> = {
-  "Caramelo": "#a9714c",
-  "Terracota": "#b2694a",
-  "Vinho": "#7d3f4d",
-  "Rosa antigo": "#a97887",
-  "Verde-oliva": "#6b7353",
-  "Azul-marinho": "#3d4f66",
-  "Preto elegante": "#2f2a28",
+  "Caramelo": "#8d6240",
+  "Terracota": "#a15a3f",
+  "Vinho": "#6e2f40",
+  "Rosa antigo": "#9a6676",
+  "Verde-oliva": "#5f6b4c",
+  "Azul-marinho": "#2f4560",
+  "Preto elegante": "#26211f",
 };
 export const DEFAULT_ACCENT = ACCENT_PALETTE["Caramelo"];
 export function resolveAccent(value: string | undefined | null): string {

@@ -4,7 +4,7 @@ import { withProfile } from "@/server/profile-session";
 import { saveAnalyzedLook, discardAnalyzedLook } from "@/server/look-analysis-actions";
 import SubmitButton from "@/components/submit-button";
 
-const EVAL_LABEL: Record<string, string> = { caimento: "👗 Caimento", proporcao: "📐 Proporção", cores: "🎨 Cores", sugestao: "💡 O que eu mudaria", quando_usar: "📅 Quando usar" };
+const EVAL_LABEL: Record<string, string> = { caimento: "Caimento", proporcao: "Proporção", cores: "Cores", sugestao: "O que eu mudaria", quando_usar: "Quando usar" };
 
 export default async function AnaliseResultado({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,7 +32,7 @@ export default async function AnaliseResultado({ params }: { params: Promise<{ i
     <img src={`/api/looks/${look.id}/photo`} alt="Foto do seu look" style={{ maxWidth: "100%", maxHeight: 460, borderRadius: 16, display: "block", margin: "8px 0" }} />
     {look.occasion && <p className="look-meta">Ocasião: {look.occasion}</p>}
 
-    {evaluation.veredito && <div className="card"><h2>⭐ Minha opinião</h2><p>{evaluation.veredito}</p></div>}
+    {evaluation.veredito && <div className="card"><h2>Minha opinião</h2><p>{evaluation.veredito}</p></div>}
     <div className="eval-grid">
       {Object.entries(EVAL_LABEL).map(([key, label]) => evaluation[key] ? (
         <div className="eval-card" key={key}><strong>{label}</strong><p>{evaluation[key]}</p></div>
@@ -61,7 +61,7 @@ export default async function AnaliseResultado({ params }: { params: Promise<{ i
           <label key={m.id} className="checkbox"><input type="checkbox" name="items" value={m.id} defaultChecked /> {m.name} · {m.category}</label>
         ))}
       </fieldset>}
-      <SubmitButton pendingText="Salvando...">💾 Salvar look</SubmitButton>
+      <SubmitButton pendingText="Salvando...">Salvar look</SubmitButton>
     </form>
 
     <form action={discardAnalyzedLook}>

@@ -14,10 +14,10 @@ export default async function Beneficios({ searchParams }: { searchParams: Promi
     <section className="card">
       <h2>Regras automáticas</h2>
       <ul>
-        <li>🎁 <strong>Cadastro:</strong> créditos bônus de geração de imagem ao concluir o perfil.</li>
-        <li>🗓️ <strong>Marcos de uso:</strong> créditos extras com 1, 3, 6 e 12 meses de conta (5 / 10 / 15 / 30).</li>
-        <li>🤝 <strong>Indicação:</strong> 10 créditos para quem indicou, quando a amiga indicada vira assinante pagante.</li>
-        <li>🎨 <strong>Colorimetria:</strong> incluída no plano Super Star; as demais usuárias podem receber como cortesia abaixo.</li>
+        <li><strong>Cadastro:</strong> créditos bônus de geração de imagem ao concluir o perfil.</li>
+        <li><strong>Marcos de uso:</strong> créditos extras com 1, 3, 6 e 12 meses de conta (5 / 10 / 15 / 30).</li>
+        <li><strong>Indicação:</strong> 10 créditos para quem indicou, quando a amiga indicada vira assinante pagante.</li>
+        <li><strong>Colorimetria:</strong> incluída no plano Super Star; as demais usuárias podem receber como cortesia abaixo.</li>
       </ul>
     </section>
 

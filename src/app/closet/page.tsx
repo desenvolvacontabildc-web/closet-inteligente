@@ -24,7 +24,7 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
     {error&&<p role="alert" className="trial-banner">{error}</p>}
     {(forgotten.length>0||reviewCount>0)&&!category&&!color&&!status&&<div className="trial-banner">
       {forgotten.length>0&&<p>Peças esquecidas — ainda não entraram em nenhum look: {forgotten.map((i:any)=>i.name).join(", ")}. Toque numa peça e gere 3 looks com ela.</p>}
-      {reviewCount>0&&<p style={forgotten.length>0?{marginTop:8}:undefined}>🧹 {reviewCount} peça{reviewCount===1?"":"s"} parada{reviewCount===1?"":"s"} pede{reviewCount===1?"":"m"} uma revisão: manter, doar ou descartar. <Link href="/closet/revisao">Revisar agora</Link></p>}
+      {reviewCount>0&&<p style={forgotten.length>0?{marginTop:8}:undefined}>{reviewCount} peça{reviewCount===1?"":"s"} parada{reviewCount===1?"":"s"} pede{reviewCount===1?"":"m"} uma revisão: manter, doar ou descartar. <Link href="/closet/revisao">Revisar agora</Link></p>}
     </div>}
     <details className="add-panel" open={!!error||items.length===0}>
       <summary><span aria-hidden="true">＋</span> Adicionar peça</summary>
@@ -71,8 +71,8 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
     </details>
     <div className="closet-grid">{items.map((i:any)=>(
       <Link className="closet-tile" href={`/closet/${i.id}`} key={i.id}>
-        <span className="thumb">{i.photo_id?<img src={`/api/closet/photos/${i.photo_id}`} alt={i.name}/>:"👗"}</span>
-        <strong>{i.condition_notes&&"⚠️ "}{i.name}</strong>
+        <span className="thumb">{i.photo_id?<img src={`/api/closet/photos/${i.photo_id}`} alt={i.name}/>:"✦"}</span>
+        <strong>{i.condition_notes&&"Atenção: "}{i.name}</strong>
         <span>{i.code} · {i.color||"cor a definir"}</span>
       </Link>
     ))}</div>

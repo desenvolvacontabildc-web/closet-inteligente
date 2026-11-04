@@ -54,7 +54,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
    <span className="eyebrow">CLOSET INTELIGENTE</span>
    {error&&<p role="alert" className="trial-banner">{error}</p>}
    {novasConquistas.map((m:any)=>(
-     <div className="trial-banner" key={m.reason}><p>🎉 Parabéns! Você completa {MILESTONE_LABEL[m.reason]||m.reason} de Closet Inteligente e ganhou {m.credits} créditos bônus de geração de imagem!</p></div>
+     <div className="trial-banner" key={m.reason}><p>Parabéns! Você completa {MILESTONE_LABEL[m.reason]||m.reason} de Closet Inteligente e ganhou {m.credits} créditos bônus de geração de imagem!</p></div>
    ))}
    {trialDaysLeft!==null&&<div className="trial-banner"><p>{trialDaysLeft>0?`Faltam ${trialDaysLeft} dia${trialDaysLeft===1?"":"s"} do seu teste gratuito.`:"Seu teste gratuito termina hoje."} <Link href="/assinatura">Escolha um plano</Link> para manter o acesso ao seu Closet.</p></div>}
    {sub?.status==="ACTIVE"&&<p className="usage-line">Plano {PLAN_LABEL[sub.plan as Plan]||sub.plan}{aiRemaining!==null?` · restam ${aiRemaining} operações de IA este mês`:" · operações de IA ilimitadas"}.</p>}
@@ -63,11 +63,11 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      <div className="avatar-row">
        {avatar_object_key
          ? <img className="avatar" src="/api/perfil/foto" alt={display_name}/>
-         : <span className="avatar avatar-placeholder">👤</span>}
+         : <span className="avatar avatar-placeholder">✦</span>}
        <h1>Olá, {firstName}.</h1>
      </div>
      {weather
-       ? <p className="look-meta">{weather.chovendo?"🌧️":weather.temp>=28?"☀️":"🌤️"} Hoje em {weather.city}: {weather.temp}°C{weather.chovendo?", chance de chuva":""}.</p>
+       ? <p className="look-meta">Hoje em {weather.city}: {weather.temp}°C{weather.chovendo?", chance de chuva":""}.</p>
        : <p className="look-meta">Cadastre sua cidade no <Link href="/perfil">Perfil</Link> pra eu te avisar aqui do clima do dia.</p>}
      <div className="empty">
        <h2>Look para hoje</h2>
@@ -76,14 +76,14 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          {todayLooks.map((l:any)=>(
            <div className="look-card" key={l.id}>
              {l.has_illustration?<img src={`/api/looks/${l.id}/illustration`} alt="Ilustração do look de hoje"/>
-               :<span className="look-thumb-placeholder">✨<small>Sem imagem ainda</small></span>}
+               :<span className="look-thumb-placeholder">✦<small>Sem imagem ainda</small></span>}
              <h3>{l.name||"Opção de hoje"}</h3>
              <p className="look-meta">{l.occasion||"Dia comum"}</p>
              <p className="look-pieces">{(l.pieces||[]).join(" + ")}</p>
              {!l.has_illustration&&<form action={generateLookIllustration}>
                <input type="hidden" name="look_id" value={l.id}/>
                <input type="hidden" name="return_path" value="/home"/>
-               <SubmitButton className="link" pendingText="Gerando imagem... (pode levar até 2 minutos)">🖼️ Gerar inspiração em imagem</SubmitButton>
+               <SubmitButton className="link" pendingText="Gerando imagem... (pode levar até 2 minutos)">Gerar inspiração em imagem</SubmitButton>
              </form>}
              <div className="action-row">
                <form action={submitLookFeedback}>
@@ -100,7 +100,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        </div>:dayLook?<div className="day-look">
          <div className="day-cover">
            {dayLook.has_photo?<img src={`/api/looks/${dayLook.id}/photo`} alt={dayLook.name}/>
-             :dayLook.has_illustration?<img src={`/api/looks/${dayLook.id}/illustration`} alt={dayLook.name}/>:<span className="cover-empty">✨</span>}
+             :dayLook.has_illustration?<img src={`/api/looks/${dayLook.id}/illustration`} alt={dayLook.name}/>:<span className="cover-empty">✦</span>}
          </div>
          <div className="day-body">
          <div>
@@ -112,13 +112,13 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
            <Link href="/looks">Ver look</Link>
            {!dayLook.has_illustration&&!dayLook.has_photo&&<form action={generateLookIllustration}>
              <input type="hidden" name="look_id" value={dayLook.id}/><input type="hidden" name="return_path" value="/home"/>
-             <SubmitButton className="link" pendingText="Gerando... (pode levar até 2 minutos)">🖼️ Gerar imagem</SubmitButton>
+             <SubmitButton className="link" pendingText="Gerando... (pode levar até 2 minutos)">Gerar imagem</SubmitButton>
            </form>}
            <Link href={`/home?skip=${dayLook.id}`}>Gerar outra sugestão</Link>
          </div>
          </div>
        </div>:dayPiece?<div className="day-look">
-         <div className="day-cover">{dayPiece.photo_id?<img src={`/api/closet/photos/${dayPiece.photo_id}`} alt={dayPiece.name}/>:<span className="cover-empty">👗</span>}</div>
+         <div className="day-cover">{dayPiece.photo_id?<img src={`/api/closet/photos/${dayPiece.photo_id}`} alt={dayPiece.name}/>:<span className="cover-empty">✦</span>}</div>
          <div className="day-body">
          <div>
            <span className="eyebrow">PEÇA DO DIA</span>
@@ -148,18 +148,18 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        </details>
      </div>
      <div className="quick-actions">
-       <Link href="/looks"><span aria-hidden="true">✨</span>Criar look</Link>
-       <Link href="/looks/analisar"><span aria-hidden="true">📸</span>Analisar meu look</Link>
-       <Link href="/closet"><span aria-hidden="true">👗</span>Adicionar peças</Link>
-       <Link href="/vitrine"><span aria-hidden="true">🛍️</span>Comprar com desconto</Link>
+       <Link href="/looks"><span aria-hidden="true">✦</span>Criar look</Link>
+       <Link href="/looks/analisar"><span aria-hidden="true">✦</span>Analisar meu look</Link>
+       <Link href="/closet"><span aria-hidden="true">✦</span>Adicionar peças</Link>
+       <Link href="/vitrine"><span aria-hidden="true">✦</span>Comprar com desconto</Link>
      </div>
      {showReview&&<div className="card home-review">
-       <h2>🧹 Hora de rever seu closet</h2>
+       <h2>Hora de rever seu closet</h2>
        <p className="look-meta">{review.length} peça{review.length===1?"":"s"} parada{review.length===1?"":"s"} há um bom tempo. Vale manter, doar ou descartar?</p>
        <div className="home-review-thumbs">
          {review.slice(0,4).map((r:any)=>(
            <Link href={`/closet/${r.id}`} key={r.id} className="home-review-thumb" aria-label={r.name}>
-             {r.photo_id?<img src={`/api/closet/photos/${r.photo_id}`} alt={r.name} loading="lazy"/>:<span className="cover-empty">👗</span>}
+             {r.photo_id?<img src={`/api/closet/photos/${r.photo_id}`} alt={r.name} loading="lazy"/>:<span className="cover-empty">✦</span>}
            </Link>
          ))}
        </div>

@@ -93,8 +93,8 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
         return <div key={p.plan} className="strategy-card">
           <strong>{PLAN_LABEL[p.plan as Plan]}</strong> — {formatPrice(p.base_price_cents)}/mês no Pix
           {hasPromo
-            ? <p className="look-meta">💳 No <strong>cartão recorrente</strong>: <strong>{formatPrice(p.promo_price_cents)}/mês nos primeiros {p.promo_months} meses</strong>, depois {formatPrice(p.base_price_cents)}/mês.</p>
-            : <p className="look-meta">💳 No cartão recorrente: {formatPrice(p.base_price_cents)}/mês, cobrado automaticamente.</p>}
+            ? <p className="look-meta">No <strong>cartão recorrente</strong>: <strong>{formatPrice(p.promo_price_cents)}/mês nos primeiros {p.promo_months} meses</strong>, depois {formatPrice(p.base_price_cents)}/mês.</p>
+            : <p className="look-meta">No cartão recorrente: {formatPrice(p.base_price_cents)}/mês, cobrado automaticamente.</p>}
           <div className="action-row">
             <form action={startPixCheckout}>
               <input type="hidden" name="plan" value={p.plan} />

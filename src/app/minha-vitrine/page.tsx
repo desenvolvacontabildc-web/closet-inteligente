@@ -54,12 +54,12 @@ export default async function MinhaVitrine({ searchParams }: { searchParams: Pro
       {me.review_note && <p><strong>Recado da equipe:</strong> {me.review_note}</p>}
     </div>}
     {me.approved && !me.live && <div className="card alert-card" role="status">
-      <h2>🎉 Loja aprovada{me.approved_at ? ` em ${new Date(me.approved_at).toLocaleDateString("pt-BR")}` : ""}!</h2>
+      <h2>Loja aprovada{me.approved_at ? ` em ${new Date(me.approved_at).toLocaleDateString("pt-BR")}` : ""}!</h2>
       <p>{expired ? "O período do seu pacote acabou, por isso a loja saiu da vitrine." : "Falta só ativar o seu pacote para a loja aparecer na vitrine."} Escolha abaixo e pague com Pix ou cartão.</p>
       {me.review_note && <p><strong>Recado da equipe:</strong> {me.review_note}</p>}
     </div>}
     {me.live && <div className={`card${canPay ? " alert-card" : ""}`} role="status">
-      <h2>✅ Sua loja está na vitrine</h2>
+      <h2>Sua loja está na vitrine</h2>
       <p className="look-meta">{periodEnd ? `Pacote ${expired ? "venceu" : "pago"} até ${periodEnd.toLocaleDateString("pt-BR")}.` : ""}{expired && hideIn !== null ? ` A loja sai da vitrine em ${Math.max(0, hideIn)} dia(s) se não renovar.` : daysLeft !== null && daysLeft <= 7 && daysLeft >= 0 ? ` Renove em até ${daysLeft} dia(s) para continuar aparecendo.` : ""}</p>
     </div>}
 
@@ -144,7 +144,7 @@ export default async function MinhaVitrine({ searchParams }: { searchParams: Pro
             <h3>{it.name} {!it.active && <span className="chip">pausada</span>}</h3>
             {it.description && <p>{it.description}</p>}
             <p>{brl(it.price_cents)}{it.discount_percent > 0 && ` · ${it.discount_percent}% OFF → ${brl(Math.round(it.price_cents * (1 - it.discount_percent / 100)))}`}</p>
-            <p className="look-meta">👁 {st?.views30 ?? 0} · 💬 {st?.clicks30 ?? 0} contato(s) nos últimos 30 dias · total {st?.views_total ?? 0} / {st?.clicks_total ?? 0}</p>
+            <p className="look-meta">{st?.views30 ?? 0} visualizações · {st?.clicks30 ?? 0} contato(s) nos últimos 30 dias · total {st?.views_total ?? 0} / {st?.clicks_total ?? 0}</p>
             <details>
               <summary>Editar peça</summary>
               <form action={updatePartnerItem} encType="multipart/form-data" className="form">

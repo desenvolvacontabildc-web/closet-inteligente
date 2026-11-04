@@ -6,7 +6,7 @@ export const OBJETIVO_OPCOES = [
   { value: "TRABALHO", label: "Trabalho", desc: "Viagem a trabalho: reuniões, eventos e compromissos profissionais." },
   { value: "MISTO", label: "Trabalho e passeio", desc: "Compromissos profissionais e também tempo livre para passear." },
 ];
-export const PERIODO_OPCOES = [{ value: "DIA", label: "☀️ De dia" }, { value: "NOITE", label: "🌙 À noite" }];
+export const PERIODO_OPCOES = [{ value: "DIA", label: "De dia" }, { value: "NOITE", label: "À noite" }];
 export const EVENTO_TIPOS = [
   "Reunião", "Seminário / congresso", "Almoço de negócios", "Jantar de negócios", "Jantar formal", "Jantar casual",
   "Almoço", "Casamento", "Festa / balada", "Evento social", "Palestra / apresentação", "Passeio especial", "Praia / piscina", "Outro",

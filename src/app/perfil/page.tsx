@@ -35,7 +35,7 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
     <div className="avatar-row">
       {hasAvatar
         ? <img className="avatar" src="/api/perfil/foto" alt={displayName || "Foto de perfil"}/>
-        : <span className="avatar avatar-placeholder">👤</span>}
+        : <span className="avatar avatar-placeholder">✦</span>}
       <div>
         <h1>{(displayName || "Você").toLowerCase().replace(/(^|\s)\S/g, (m: string) => m.toUpperCase())}</h1>
         <p>{email}</p>
@@ -88,7 +88,7 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
     <div className="card">
       <h2>Sua assinatura</h2>
       <p>{sub.status === "TRIAL" ? "Teste gratuito" : `Plano ${PLAN_LABEL[sub.plan]}`} · status {sub.status}</p>
-      <p className="look-meta">🎁 {bonusCredits>0?`Você tem ${bonusCredits} crédito${bonusCredits===1?"":"s"} bônus de geração de imagem (não expiram, usados depois do limite do plano).`:"Sem créditos bônus no momento -- ganhe cadastrando-se, indicando amigas ou completando marcos de uso."}</p>
+      <p className="look-meta">{bonusCredits>0?`Você tem ${bonusCredits} crédito${bonusCredits===1?"":"s"} bônus de geração de imagem (não expiram, usados depois do limite do plano).`:"Sem créditos bônus no momento -- ganhe cadastrando-se, indicando amigas ou completando marcos de uso."}</p>
       <Link href="/assinatura"><button>{sub.status==="TRIAL"?"Assinar um plano":"Gerenciar assinatura"}</button></Link>
     </div>
     <div className="card">

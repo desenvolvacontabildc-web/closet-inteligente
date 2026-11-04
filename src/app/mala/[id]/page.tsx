@@ -130,7 +130,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
 
   if (step === 2) return wrap("Clima previsto", <>
     {trip.clima?.previsao_disponivel
-      ? <p className="look-meta">🌤️ {trip.clima.local}: mínima {trip.clima.temp_min}°C, máxima {trip.clima.temp_max}°C, chance de chuva {trip.clima.chance_chuva}%.</p>
+      ? <p className="look-meta">{trip.clima.local}: mínima {trip.clima.temp_min}°C, máxima {trip.clima.temp_max}°C, chance de chuva {trip.clima.chance_chuva}%.</p>
       : <p className="look-meta">Não consegui a previsão exata para essa data (data distante ou destino não encontrado). A IA vai considerar o clima típico da região.</p>}
     <p className="look-meta">Você sente mais frio ou calor do que a maioria das pessoas?</p>
     <Chips name="sensibilidade_termica" options={SENSIBILIDADE_OPCOES} defaultValues={[trip.sensibilidade_termica]} multiple={false} />
@@ -161,7 +161,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
         {eventos.length > 0 && <ul className="event-list">
           {eventos.map((e) => (
             <li key={e.id}>
-              <span><strong>{e.periodo === "NOITE" ? "🌙" : "☀️"} {e.tipo}</strong>{e.dress_code ? ` · ${e.dress_code}` : ""}{e.detalhe ? <small>{e.detalhe}</small> : null}</span>
+              <span><strong>{e.periodo === "NOITE" ? "✦" : "✦"} {e.tipo}</strong>{e.dress_code ? ` · ${e.dress_code}` : ""}{e.detalhe ? <small>{e.detalhe}</small> : null}</span>
               <form action={removeTripEvent}><input type="hidden" name="trip_id" value={id} /><input type="hidden" name="event_id" value={e.id} /><button className="link" aria-label={`Remover ${e.tipo}`}>Remover</button></form>
             </li>
           ))}
@@ -215,7 +215,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
       {closetItems.map((it: any) => (
         <label key={it.id}>
           <input type="checkbox" name="levar_ids" value={it.id} defaultChecked={(trip.levar_ids || []).includes(it.id)} />
-          {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" /> : <span className="ph">👕</span>}
+          {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" /> : <span className="ph">✦</span>}
           {it.name}
         </label>
       ))}
@@ -225,7 +225,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
       {closetItems.map((it: any) => (
         <label key={it.id}>
           <input type="checkbox" name="evitar_ids" value={it.id} defaultChecked={(trip.evitar_ids || []).includes(it.id)} />
-          {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" /> : <span className="ph">👕</span>}
+          {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" /> : <span className="ph">✦</span>}
           {it.name}
         </label>
       ))}
@@ -270,13 +270,13 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
         <p><strong>Estilo:</strong> {(trip.estilo || []).join(", ") || "—"}</p>
         <p><strong>Estratégia:</strong> {ESTRATEGIA_OPCOES.find(o => o.value === trip.estrategia)?.label || "Equilibrada"}</p>
         <p><strong>Compromissos:</strong> {eventos.length === 0 ? "nenhum cadastrado" : `${eventos.length} (${dia} de dia, ${noite} à noite)`}</p>
-        {eventos.length > 0 && <ul className="event-list compact">{eventos.map(e => <li key={e.id}><span>{e.periodo === "NOITE" ? "🌙" : "☀️"} {e.tipo}{e.dress_code ? ` · ${e.dress_code}` : ""}{e.detalhe ? ` — ${e.detalhe}` : ""}</span></li>)}</ul>}
+        {eventos.length > 0 && <ul className="event-list compact">{eventos.map(e => <li key={e.id}><span>{e.periodo === "NOITE" ? "✦" : "✦"} {e.tipo}{e.dress_code ? ` · ${e.dress_code}` : ""}{e.detalhe ? ` — ${e.detalhe}` : ""}</span></li>)}</ul>}
         <div className="wizard-nav"><Link href={`/mala/${id}?step=9`}>← Voltar</Link><Link href={`/mala/${id}?step=1`}>Editar respostas</Link></div>
       </div>
       <form action={generateTripPlan}>
         <input type="hidden" name="trip_id" value={id} />
-        <SubmitButton disabled={aiRemaining === 0 || faltaBasico} pendingText="Montando sua mala... (pode levar até 40s)">✨ Gerar minha mala</SubmitButton>
-        {aiRemaining === 0 && <p className="look-meta">⚠️ Seu limite de operações de IA acabou. Veja os planos em Perfil → Assinatura.</p>}
+        <SubmitButton disabled={aiRemaining === 0 || faltaBasico} pendingText="Montando sua mala... (pode levar até 40s)">Gerar minha mala</SubmitButton>
+        {aiRemaining === 0 && <p className="look-meta">Atenção: Seu limite de operações de IA acabou. Veja os planos em Perfil → Assinatura.</p>}
       </form>
     </main>;
   }
@@ -310,7 +310,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
       <p className="look-meta">{trip.dias ? `${trip.dias} dia${trip.dias === 1 ? "" : "s"}` : ""}{trip.data_ida ? ` · ${new Date(trip.data_ida).toLocaleDateString("pt-BR")}${trip.data_volta ? ` a ${new Date(trip.data_volta).toLocaleDateString("pt-BR")}` : ""}` : ""} · {OBJETIVO_LABEL[trip.objetivo] || "viagem"} · {selectedItems.length} peça{selectedItems.length === 1 ? "" : "s"} · {looks.length} look{looks.length === 1 ? "" : "s"}</p>
       {trip.reasoning && <p className="trip-reasoning">{trip.reasoning}</p>}
       {(trip.alerts || []).length > 0 && <div className="card alert-soft">
-        <h2>⚠️ Atenção</h2>
+        <h2>Atenção</h2>
         {trip.alerts.map((a: string, i: number) => <p key={i} className="look-meta">{a}</p>)}
       </div>}
 
@@ -335,7 +335,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
         checklist={[...CHECKLIST_TEMPLATE.filter((label) => label in (trip.checklist || {})), ...Object.keys(trip.checklist || {}).filter((label) => !CHECKLIST_TEMPLATE.includes(label))].map((label) => ({ label, done: !!(trip.checklist || {})[label] }))}
       />
       <div className="action-row no-print">
-        <PrintButton>🖨️ Imprimir / salvar PDF</PrintButton>
+        <PrintButton>Imprimir / salvar PDF</PrintButton>
         <Link href={`/mala/${id}?step=1`}>Editar respostas</Link>
         <a href="#ajustes">Ajustar looks e peças</a>
       </div>
@@ -353,7 +353,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
               <div className="board-pieces">
                 {pieces.map((it: any) => (
                   <figure key={it.id}>
-                    {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" /> : <span className="board-ph">👕</span>}
+                    {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" /> : <span className="board-ph">✦</span>}
                     <figcaption>{it.name}</figcaption>
                   </figure>
                 ))}
@@ -395,15 +395,15 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
             <div className="action-row">
               <form action={regenerateTripLook}>
                 <input type="hidden" name="trip_id" value={id} /><input type="hidden" name="look_id" value={l.id} />
-                <SubmitButton disabled={aiRemaining === 0} pendingText="Pensando... (até 20s)">✨ Sugerir outra versão deste look</SubmitButton>
+                <SubmitButton disabled={aiRemaining === 0} pendingText="Pensando... (até 20s)">Sugerir outra versão deste look</SubmitButton>
               </form>
               <form action={generateLookIllustration}>
                 <input type="hidden" name="look_id" value={l.id} /><input type="hidden" name="return_path" value={`/mala/${id}#ajustes`} />
-                <SubmitButton disabled={imgRemaining === 0} pendingText="Gerando imagem... (até 2 min)">🖼️ {l.has_illustration ? "Gerar imagem de novo" : "Gerar imagem do look"}</SubmitButton>
+                <SubmitButton disabled={imgRemaining === 0} pendingText="Gerando imagem... (até 2 min)">{l.has_illustration ? "Gerar imagem de novo" : "Gerar imagem do look"}</SubmitButton>
               </form>
               <form action={deleteTripLook}>
                 <input type="hidden" name="trip_id" value={id} /><input type="hidden" name="look_id" value={l.id} />
-                <ConfirmButton className="danger-btn" message={`Descartar o look "${periodOf(l)}" da mala? As peças continuam no closet.`} pendingText="Descartando...">🗑 Descartar look</ConfirmButton>
+                <ConfirmButton className="danger-btn" message={`Descartar o look "${periodOf(l)}" da mala? As peças continuam no closet.`} pendingText="Descartando...">Descartar look</ConfirmButton>
               </form>
             </div>
           </details>;
@@ -419,7 +419,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
             <div className="product-grid">
               {its.map((it: any) => (
                 <div className="card secondary" key={it.id}>
-                  {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" /> : <span className="look-thumb-placeholder">👕</span>}
+                  {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" /> : <span className="look-thumb-placeholder">✦</span>}
                   <h3>{it.name}</h3>
                   <form action={removeTripItem}>
                     <input type="hidden" name="trip_id" value={id} /><input type="hidden" name="item_id" value={it.id} />

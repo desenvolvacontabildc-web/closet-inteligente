@@ -16,7 +16,7 @@ export default async function Tendencias() {
         <div className="look-card" key={t.id}>
           {t.object_key
             ? <img src={`/api/tendencias/photos/${t.id}`} alt={t.title}/>
-            : <span className="look-thumb-placeholder">✨<small>Tendência</small></span>}
+            : <span className="look-thumb-placeholder">✦<small>Tendência</small></span>}
           <h3>{t.title}</h3>
           {t.body && <p className="look-pieces">{t.body}</p>}
           <p className="look-meta">{new Date(t.created_at).toLocaleDateString("pt-BR")}</p>

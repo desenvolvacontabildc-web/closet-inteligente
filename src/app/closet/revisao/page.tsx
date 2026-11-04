@@ -25,14 +25,14 @@ export default async function RevisaoCloset({ searchParams }: { searchParams: Pr
     {error && <p role="alert" className="trial-banner">{error}</p>}
 
     {batch.length === 0
-      ? <div className="empty-note">🎉 Tudo revisado! Nenhuma peça pede atenção agora. Eu aviso de novo quando houver peças paradas.</div>
+      ? <div className="empty-note">Tudo revisado! Nenhuma peça pede atenção agora. Eu aviso de novo quando houver peças paradas.</div>
       : <>
           <p className="usage-line">{total} peça{total === 1 ? "" : "s"} para rever · mostrando {batch.length}</p>
           <div className="review-list">
             {batch.map((p) => (
               <article className="review-card" key={p.id}>
                 <Link href={`/closet/${p.id}`} className="review-thumb" aria-label={`Abrir ${p.name}`}>
-                  {p.photo_id ? <img src={`/api/closet/photos/${p.photo_id}`} alt={p.name} loading="lazy" /> : <span className="cover-empty">👗</span>}
+                  {p.photo_id ? <img src={`/api/closet/photos/${p.photo_id}`} alt={p.name} loading="lazy" /> : <span className="cover-empty">✦</span>}
                 </Link>
                 <div className="review-body">
                   <h3>{p.name}</h3>
@@ -41,7 +41,7 @@ export default async function RevisaoCloset({ searchParams }: { searchParams: Pr
                   <div className="review-actions">
                     <form action={generateLooksWithItem}>
                       <input type="hidden" name="item_id" value={p.id} />
-                      <SubmitButton pendingText="Montando 3 looks... (até 30s)">✨ Montar looks com ela</SubmitButton>
+                      <SubmitButton pendingText="Montando 3 looks... (até 30s)">Montar looks com ela</SubmitButton>
                     </form>
                     <form action={reviewItem}>
                       <input type="hidden" name="item_id" value={p.id} /><input type="hidden" name="decision" value="KEEP" />

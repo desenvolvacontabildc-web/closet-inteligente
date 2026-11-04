@@ -59,7 +59,7 @@ export default async function UsuariaDetalhe({ params, searchParams }: { params:
           : "Gerenciada manualmente (sem cobrança automática)"}
       </p>
       {a.sub_status === "TRIAL" && a.trial_ends_at && <p className="look-meta">Teste termina em {new Date(a.trial_ends_at).toLocaleDateString("pt-BR")}.</p>}
-      {overview?.promo_cycles_left > 0 && <p className="look-meta">🏷️ Desconto do cartão: faltam {overview.promo_cycles_left} mês(es) com preço promocional.</p>}
+      {overview?.promo_cycles_left > 0 && <p className="look-meta">Desconto do cartão: faltam {overview.promo_cycles_left} mês(es) com preço promocional.</p>}
       <p className="look-meta">Mensalidade atual: {brl(a.monthly_fee_cents)}{a.discount_cents > 0 ? ` − desconto ${brl(a.discount_cents)}` : ""}</p>
       <form action={setSubscription} className="form">
         <input type="hidden" name="user_id" value={a.user_id} /><input type="hidden" name="return_to" value={back} />
@@ -107,7 +107,7 @@ export default async function UsuariaDetalhe({ params, searchParams }: { params:
 
     <section className="card">
       <h2>Benefícios</h2>
-      <p className="look-meta">🎁 {overview?.bonus_credits ?? 0} crédito(s) bônus de imagem · {overview?.referrals ?? 0} indicação(ões){overview?.referral_code ? ` · código ${overview.referral_code}` : ""}</p>
+      <p className="look-meta">{overview?.bonus_credits ?? 0} crédito(s) bônus de imagem · {overview?.referrals ?? 0} indicação(ões){overview?.referral_code ? ` · código ${overview.referral_code}` : ""}</p>
       <p className="look-meta">Colorimetria: {hasColorimetria ? (overview.modules.find((m: any) => m.module === "COLORIMETRIA").status) : "não liberada"}</p>
       {!self && <>
         <form action={grantCredits} className="form">

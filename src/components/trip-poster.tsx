@@ -132,7 +132,7 @@ export default function TripPoster({ destination, days, objective, fileName, loo
           else {
             // sem imagem do look: empilha as fotos das peças (cima, baixo, calçado, bolsa)
             const ps = l.pieces.filter((p) => p.photo && imgs.get(p.photo!)).slice(0, 4);
-            if (ps.length === 0) { ctx.fillStyle = "#c9b79c"; ctx.font = "400 44px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("👗", x + tileW / 2, rowY + tileH / 2 + 14); ctx.textAlign = "left"; }
+            if (ps.length === 0) { ctx.fillStyle = "#c9b79c"; ctx.font = "400 44px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("✦", x + tileW / 2, rowY + tileH / 2 + 14); ctx.textAlign = "left"; }
             else { const h = tileH / ps.length; ps.forEach((p, k) => cover(ctx, imgs.get(p.photo!)!, x, rowY + k * h, tileW, h - 2, k === 0 ? 10 : 2)); }
           }
           // etiqueta do dia
@@ -218,7 +218,7 @@ export default function TripPoster({ destination, days, objective, fileName, loo
   const withImage = looks.length - missing.length;
   return (
     <section className="card export-trip no-print" id="exportar">
-      <h2>📤 Exportar mala como imagem</h2>
+      <h2>Exportar mala como imagem</h2>
       <p className="look-meta">Gera um pôster com todos os looks lado a lado, as peças de cada um, sapatos, bolsas, acessórios e o checklist. {withImage} de {looks.length} look{looks.length === 1 ? "" : "s"} já têm imagem; os outros usam as fotos das peças.</p>
 
       {missing.length > 0 && <div className="export-gen">
@@ -228,18 +228,18 @@ export default function TripPoster({ destination, days, objective, fileName, loo
           </select>
         </label>
         <button type="button" onClick={generateMissing} disabled={!!genProgress || imagesRemaining === 0}>
-          {genProgress ? "Gerando..." : `🖼️ Gerar a imagem dos ${missing.length} look${missing.length === 1 ? "" : "s"} que faltam`}
+          {genProgress ? "Gerando..." : `Gerar a imagem dos ${missing.length} look${missing.length === 1 ? "" : "s"} que faltam`}
         </button>
         <p className="look-meta">{imagesRemaining === null ? "Gerações de imagem ilimitadas no seu plano." : `Usa ${missing.length} das suas ${imagesRemaining} gerações de imagem restantes.`}{genProgress ? ` ${genProgress}` : ""}</p>
         {genError && <p role="alert" className="look-meta" style={{ color: "#b3261e" }}>{genError}</p>}
       </div>}
 
-      <button type="button" onClick={makePoster} disabled={busy || !!genProgress || looks.length === 0}>{busy ? "Montando a imagem..." : "📤 Montar imagem da mala"}</button>
+      <button type="button" onClick={makePoster} disabled={busy || !!genProgress || looks.length === 0}>{busy ? "Montando a imagem..." : "Montar imagem da mala"}</button>
       {error && <p role="alert" className="look-meta" style={{ color: "#b3261e" }}>{error}</p>}
       {preview && <div className="export-panel" ref={panelRef}>
         <img src={preview} alt={`Pôster da mala ${destination}`} className="export-preview" />
         <div className="action-row">
-          <button type="button" onClick={download}>⬇️ Baixar imagem</button>
+          <button type="button" onClick={download}>Baixar imagem</button>
           <button type="button" className="reject" onClick={share}>Compartilhar</button>
           <button type="button" className="link" onClick={() => { URL.revokeObjectURL(preview); setPreview(null); setBlob(null); }}>Fechar</button>
         </div>
