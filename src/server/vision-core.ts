@@ -15,7 +15,9 @@ export type VisionParsed = { category?: string; color?: string; description?: st
 
 /** Fase 1 (dentro da transação do chamador): valida orçamento de IA e busca a foto no S3
  * pra montar o data URL. Não chama a IA. */
-export async function prepareVisionAnalysis(c: PoolClient, userId: string, photoId: string): Promise<{ ok: true; itemId: string; dataUrl: string } | { ok: false; message: string }> {
+export type VisionHint = { name?: string; category?: string };
+
+export async function prepareVisionAnalysis(c: PoolClient, userId: string, photoId: string): Promise<{ ok: true; itemId: string; dataUrl: string; hint: VisionHint } | { ok: false; message: string }> {
   if (!process.env.OPENAI_API_KEY) return { ok: false, message: "Análise visual não configurada." };
   const budget = await bumpAndCheckAiUsage(c, userId);
   if (!budget.ok) return { ok: false, message: budget.message || "Limite de operações de IA atingido." };
@@ -24,12 +26,17 @@ export async function prepareVisionAnalysis(c: PoolClient, userId: string, photo
   const chunks: Buffer[] = [];
   for await (const ch of await s3.getObject(process.env.S3_BUCKET || "closet-private", q.rows[0].object_key) as any) chunks.push(Buffer.from(ch));
   const dataUrl = `data:${q.rows[0].content_type};base64,${Buffer.concat(chunks).toString("base64")}`;
-  return { ok: true, itemId: q.rows[0].item_id, dataUrl };
+  const it = (await c.query("SELECT name, category FROM closet_items WHERE id=$1 AND user_id=$2", [q.rows[0].item_id, userId])).rows[0];
+  return { ok: true, itemId: q.rows[0].item_id, dataUrl, hint: { name: it?.name, category: it?.category } };
 }
 
 /** Fase 2 (fora de qualquer transação, sem conexão de banco): chama a IA de fato. */
-export async function callVisionAI(dataUrl: string): Promise<{ ok: true; parsed: VisionParsed } | { ok: false; message: string }> {
+export async function callVisionAI(dataUrl: string, hint?: VisionHint): Promise<{ ok: true; parsed: VisionParsed } | { ok: false; message: string }> {
   let out: any;
+  // Quando a foto mostra a cliente vestida (com várias peças), a IA precisa saber QUAL peça descrever.
+  const foco = hint?.name
+    ? `A cliente cadastrou esta peça como "${hint.name}"${hint.category ? ` (categoria ${hint.category})` : ""}. A foto pode mostrar uma pessoa usando várias peças: descreva SOMENTE essa peça (ignore blusa, calça, sapato e acessórios que não sejam ela) e mantenha a categoria coerente com o nome. `
+    : "";
   try {
     out = await new OpenAI().responses.create({
       model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
@@ -39,6 +46,7 @@ export async function callVisionAI(dataUrl: string): Promise<{ ok: true; parsed:
           {
             type: "input_text",
             text:
+              foco +
               "Identifique a peça de roupa/acessório na foto e descreva seus atributos de estilo, pra um personal stylist usar depois sem precisar olhar a foto de novo. " +
               "Além disso, avalie apenas o que estiver visível na foto quanto a amassado, sujeira, manchas ou desgaste (ex.: sapato sujo ou gasto). " +
               "Responda apenas JSON: {\"category\":\"...\",\"color\":\"...\",\"description\":\"...\",\"condition_notes\":\"...\",\"attributes\":{" +

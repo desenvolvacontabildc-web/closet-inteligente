@@ -8,7 +8,7 @@ export async function analyzePhoto(f: FormData) {
   const prep = await withProfile(async (c, userId) => prepareVisionAnalysis(c, userId, id));
   if (!prep) redirect("/");
   if (!prep.ok) bounce(`/closet/${itemId}`, prep.message);
-  const result = await callVisionAI(prep.dataUrl);
+  const result = await callVisionAI(prep.dataUrl, prep.hint);
   if (!result.ok) bounce(`/closet/${itemId}`, result.message);
   const saved = await withProfile(async (c, userId) => { await writeVisionResult(c, userId, prep.itemId, result.parsed); return true; });
   if (!saved) redirect("/");

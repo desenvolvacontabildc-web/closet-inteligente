@@ -42,7 +42,7 @@ export async function createItem(f:FormData){
     return {visionInput,std:hasPhoto?{userId,tenantId,itemId}:null};
   });
   if(created?.visionInput){
-    const result=await callVisionAI(created.visionInput.dataUrl);
+    const result=await callVisionAI(created.visionInput.dataUrl,{name,category});
     if(result.ok)await withProfile(async(c,userId)=>{await writeVisionResult(c,userId,created.visionInput!.itemId,result.parsed);return true});
     else console.error("createItem: análise automática falhou:",result.message);
   }

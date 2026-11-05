@@ -9,9 +9,11 @@ export async function uploadPhoto(f:FormData){
   const id=String(f.get("item_id")||""),file=f.get("photo");
   if(!(file instanceof File)||!file.type.startsWith("image/"))bounce(`/closet/${id}`,"Envie uma imagem.");
   const buf=Buffer.from(await file.arrayBuffer()),key=`items/${id}/${randomUUID()}`;
+  let hint:{name?:string;category?:string}={};
   const prepared=await withProfile(async(c,userId)=>{
-    const item=await c.query("SELECT 1 FROM closet_items WHERE id=$1 AND user_id=$2",[id,userId]);
+    const item=await c.query("SELECT name,category FROM closet_items WHERE id=$1 AND user_id=$2",[id,userId]);
     if(!item.rowCount)bounce("/closet","Peça não encontrada.");
+    hint={name:item.rows[0].name,category:item.rows[0].category};
     const existing=await c.query("SELECT count(*) n FROM closet_item_photos WHERE item_id=$1",[id]);
     try{await store.putObject(process.env.S3_BUCKET||"closet-private",key,buf,buf.length,{"Content-Type":file.type})}
     catch(e){console.error("uploadPhoto putObject falhou:",e);bounce(`/closet/${id}`,"Não foi possível enviar a foto agora. Tente de novo em instantes.")}
@@ -30,7 +32,7 @@ export async function uploadPhoto(f:FormData){
     return {dataUrl,std:{userId,tenantId}};
   });
   if(prepared?.dataUrl){
-    const result=await callVisionAI(prepared.dataUrl);
+    const result=await callVisionAI(prepared.dataUrl,hint);
     if(result.ok)await withProfile(async(c,userId)=>{await writeVisionResult(c,userId,id,result.parsed);return true});
     else console.error("uploadPhoto: análise automática falhou:",result.message);
   }
