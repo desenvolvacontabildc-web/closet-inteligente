@@ -15,7 +15,14 @@ export async function createItem(f:FormData){
   const buf=hasPhoto?Buffer.from(await (file as File).arrayBuffer()):null;
   const created=await withProfile(async(c,userId)=>{
     const n=await c.query("SELECT count(*)::int+1 next FROM closet_items WHERE user_id=$1 AND category=$2",[userId,category]);
-    const code=`${category.slice(0,3).toUpperCase()}-${String(n.rows[0].next).padStart(3,"0")}`;
+    // O código não pode repetir (a contagem por categoria falha quando peças mudam de categoria ou são excluídas).
+    let num=Number(n.rows[0].next),code="";
+    for(;;){
+      code=`${category.slice(0,3).toUpperCase()}-${String(num).padStart(3,"0")}`;
+      const dup=await c.query("SELECT 1 FROM closet_items WHERE user_id=$1 AND code=$2",[userId,code]);
+      if(!dup.rowCount)break;
+      num++;
+    }
     const item=await c.query(
       "INSERT INTO closet_items(tenant_id,user_id,code,name,category,color,description) VALUES(current_setting('app.tenant_id')::uuid,$1,$2,$3,$4,$5,$6) RETURNING id",
       [userId,code,name,category,color,description],
