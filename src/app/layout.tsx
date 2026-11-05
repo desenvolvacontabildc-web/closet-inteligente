@@ -6,7 +6,7 @@ import { resolveAccent } from "@/server/accent";
 import BottomNav from "./bottom-nav";
 import FlashToast from "@/components/flash-toast";
 
-const displayFont = Cormorant_Garamond({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-cormorant", display: "swap" });
+const displayFont = Cormorant_Garamond({ subsets: ["latin"], weight: ["500", "600", "700"], style: ["normal", "italic"], variable: "--font-cormorant", display: "swap" });
 const uiFont = Manrope({ subsets: ["latin"], variable: "--font-manrope", display: "swap" });
 
 export const metadata: Metadata = { title: "Closet Inteligente" };

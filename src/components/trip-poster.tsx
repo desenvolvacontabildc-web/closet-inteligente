@@ -18,8 +18,11 @@ const STYLE_OPTIONS = [
   { value: "ILUSTRACAO", label: "Ilustração" },
 ];
 
-// paleta do pôster (tons de papel e vinho, no estilo do modelo)
-const BG = "#efe8de", INK = "#3b2a2a", WINE = "#5b2b2f", MUTED = "#7d6f62", PANEL = "#f6f0e8", PANEL_LINE = "#ddd1c2", PILL = "#6e4f3e";
+// paleta do pôster = a mesma do app (marfim, espresso e dourado envelhecido)
+const BG = "#f7f2ec", INK = "#241d1f", WINE = "#241d1f", MUTED = "#74685f", PANEL = "#fffdfa", PANEL_LINE = "#e8dfd3", PILL = "#241d1f";
+const SOFT = "#f2eadf", GOLD = "#b08d57", GOLD_INK = "#86693c";
+// fontes do app (Cormorant Garamond + Manrope), lidas das variáveis do site na hora de desenhar
+let DISP = "Georgia, serif", UI = "system-ui, sans-serif";
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => resolve(null); img.src = src; });
@@ -74,7 +77,11 @@ export default function TripPoster({ destination, days, objective, fileName, loo
   async function makePoster() {
     setBusy(true); setError(null);
     try {
-      const S = 2, W = 1700, M = 44, GAP = 8;
+      const cs = getComputedStyle(document.documentElement);
+      DISP = cs.getPropertyValue("--font-cormorant").trim() || "Georgia, serif";
+      UI = cs.getPropertyValue("--font-manrope").trim() || "system-ui, sans-serif";
+      await Promise.all([`500 40px ${DISP}`, `italic 500 40px ${DISP}`, `600 40px ${DISP}`, `500 16px ${UI}`, `600 16px ${UI}`, `700 16px ${UI}`].map((f) => document.fonts.load(f).catch(() => null)));
+      const S = 2, W = 1700, M = 44, GAP = 10;
       const urls = new Set<string>();
       looks.forEach((l) => { if (l.imageUrl) urls.add(l.imageUrl); l.pieces.forEach((p) => p.photo && urls.add(p.photo)); });
       Object.values(groups).forEach((g: Piece[]) => g.forEach((p) => p.photo && urls.add(p.photo)));
@@ -87,7 +94,7 @@ export default function TripPoster({ destination, days, objective, fileName, loo
       const maxLines = Math.min(6, Math.max(2, ...looks.map((l) => l.pieces.length)));
       const lookRowH = tileH + 62 + maxLines * 22 + 26;
       const lookRows = Math.ceil(looks.length / cols);
-      const topH = 252;
+      const topH = 304;
       const innerW = W - M * 2, leftW = innerW * 0.58 - 10, rightW = innerW - leftW - 20, PAD = 22;
       const secH = (w: number, n: number, perRow: number) => {
         if (n === 0) return 0; const t = (w - PAD * 2 - 12 * (perRow - 1)) / perRow;
@@ -105,20 +112,21 @@ export default function TripPoster({ destination, days, objective, fileName, loo
       ctx.textBaseline = "alphabetic";
 
       // ---------- cabeçalho
-      ctx.strokeStyle = PANEL_LINE; ctx.lineWidth = 1.5; rr(ctx, M, M, 340, 150, 14); ctx.stroke();
-      ctx.font = "400 40px system-ui, sans-serif"; ctx.fillStyle = WINE; ctx.fillText("✈", M + 22, M + 64);
-      ctx.fillStyle = MUTED; ctx.font = "700 14px system-ui, sans-serif"; spaced(ctx, 2); ctx.fillText("DESTINO", M + 90, M + 36); spaced(ctx, 0);
-      ctx.fillStyle = WINE; ctx.font = "800 26px system-ui, sans-serif"; ctx.fillText(ellipsize(ctx, destination.toUpperCase(), 230), M + 90, M + 68);
-      ctx.fillStyle = INK; ctx.font = "500 17px system-ui, sans-serif";
-      ctx.fillText(days ? `${days} ${days === 1 ? "DIA" : "DIAS"}` : "", M + 90, M + 98);
-      ctx.fillText(ellipsize(ctx, objective, 240), M + 90, M + 124);
+      ctx.strokeStyle = GOLD; ctx.lineWidth = 1.4; rr(ctx, M, M + 6, 330, 150, 16); ctx.stroke();
+      ctx.font = `400 34px ${UI}`; ctx.fillStyle = GOLD_INK; ctx.fillText("✈", M + 24, M + 70);
+      ctx.fillStyle = GOLD_INK; ctx.font = `700 12px ${UI}`; spaced(ctx, 3); ctx.fillText("DESTINO", M + 84, M + 40); spaced(ctx, 0);
+      ctx.fillStyle = INK; ctx.font = `600 36px ${DISP}`; ctx.fillText(ellipsize(ctx, destination, 226), M + 84, M + 78);
+      ctx.fillStyle = MUTED; ctx.font = `600 13px ${UI}`; spaced(ctx, 1.5);
+      ctx.fillText(days ? `${days} ${days === 1 ? "DIA" : "DIAS"}` : "", M + 84, M + 106); ctx.fillText(ellipsize(ctx, objective, 226), M + 84, M + 130); spaced(ctx, 0);
 
-      ctx.textAlign = "center"; ctx.fillStyle = WINE; ctx.font = "600 74px Georgia, 'Times New Roman', serif";
-      ctx.fillText("MINHA MALA", W / 2, M + 74); ctx.fillText("DE VIAGEM", W / 2, M + 148);
-      ctx.fillStyle = MUTED; ctx.font = "500 18px system-ui, sans-serif"; spaced(ctx, 4); ctx.fillText("CONFORTO, ESTILO E PRATICIDADE", W / 2, M + 182); spaced(ctx, 0);
+      ctx.textAlign = "center";
+      ctx.fillStyle = INK; ctx.font = `500 100px ${DISP}`; ctx.fillText("Minha mala", W / 2, M + 90);
+      ctx.fillStyle = GOLD_INK; ctx.font = `italic 500 100px ${DISP}`; ctx.fillText("de viagem", W / 2, M + 178);
+      ctx.fillStyle = MUTED; ctx.font = `600 13px ${UI}`; spaced(ctx, 6); ctx.fillText("CONFORTO  ·  ESTILO  ·  PRATICIDADE", W / 2, M + 214); spaced(ctx, 0);
       ctx.textAlign = "left";
-      ctx.fillStyle = WINE; ctx.font = "italic 400 30px Georgia, serif";
-      wrap(ctx, "Mais que looks, liberdade para viver novas histórias.", 330, 3).forEach((ln, i) => ctx.fillText(ln, W - M - 340, M + 50 + i * 38));
+      ctx.fillStyle = INK; ctx.font = `italic 500 34px ${DISP}`;
+      wrap(ctx, "Mais que looks, liberdade para viver novas histórias.", 330, 3).forEach((ln, i) => ctx.fillText(ln, W - M - 340, M + 52 + i * 42));
+      ctx.fillStyle = GOLD; ctx.fillRect(M, topH - 30, W - M * 2, 1.2);
 
       // ---------- looks lado a lado
       for (let r = 0; r < lookRows; r++) {
@@ -126,30 +134,30 @@ export default function TripPoster({ destination, days, objective, fileName, loo
         for (let c = 0; c < cols; c++) {
           const i = r * cols + c; if (i >= looks.length) break;
           const l = looks[i]; const x = M + c * (tileW + GAP);
-          ctx.fillStyle = "#e4dacd"; rr(ctx, x, rowY, tileW, tileH, 10); ctx.fill();
+          ctx.fillStyle = SOFT; rr(ctx, x, rowY, tileW, tileH, 14); ctx.fill();
           const main = l.imageUrl ? imgs.get(l.imageUrl) : null;
-          if (main) cover(ctx, main, x, rowY, tileW, tileH, 10);
+          if (main) cover(ctx, main, x, rowY, tileW, tileH, 14);
           else {
             // sem imagem do look: empilha as fotos das peças (cima, baixo, calçado, bolsa)
             const ps = l.pieces.filter((p) => p.photo && imgs.get(p.photo!)).slice(0, 4);
-            if (ps.length === 0) { ctx.fillStyle = "#c9b79c"; ctx.font = "400 44px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("✦", x + tileW / 2, rowY + tileH / 2 + 14); ctx.textAlign = "left"; }
-            else { const h = tileH / ps.length; ps.forEach((p, k) => cover(ctx, imgs.get(p.photo!)!, x, rowY + k * h, tileW, h - 2, k === 0 ? 10 : 2)); }
+            if (ps.length === 0) { ctx.fillStyle = GOLD; ctx.font = `400 44px ${UI}`; ctx.textAlign = "center"; ctx.fillText("✦", x + tileW / 2, rowY + tileH / 2 + 14); ctx.textAlign = "left"; }
+            else { const h = tileH / ps.length; ps.forEach((p, k) => cover(ctx, imgs.get(p.photo!)!, x, rowY + k * h, tileW, h - 2, k === 0 ? 14 : 2)); }
           }
           // etiqueta do dia
-          ctx.font = "800 13px system-ui, sans-serif"; spaced(ctx, 1.5);
+          ctx.font = `800 13px ${UI}`; spaced(ctx, 1.5);
           const dayTxt = `DIA ${l.day}`; const dw = ctx.measureText(dayTxt).width + 22;
-          ctx.fillStyle = "rgba(255,255,255,0.88)"; rr(ctx, x + 10, rowY + 10, dw, 26, 13); ctx.fill();
+          ctx.fillStyle = "rgba(255,253,250,0.92)"; rr(ctx, x + 10, rowY + 10, dw, 26, 13); ctx.fill();
           ctx.fillStyle = WINE; ctx.fillText(dayTxt, x + 21, rowY + 28); spaced(ctx, 0);
           // faixa do tipo (AEROLOOK, EVENTO...)
           const py = rowY + tileH + 8;
-          ctx.fillStyle = PILL; ctx.fillRect(x, py, tileW, 36);
-          ctx.fillStyle = "#fff"; ctx.font = "700 15px system-ui, sans-serif"; spaced(ctx, 2); ctx.textAlign = "center";
+          ctx.fillStyle = PILL; rr(ctx, x, py, tileW, 36, 18); ctx.fill();
+          ctx.fillStyle = "#f0e3cb"; ctx.font = `700 14px ${UI}`; spaced(ctx, 2.5); ctx.textAlign = "center";
           ctx.fillText(ellipsize(ctx, l.tag, tileW - 10), x + tileW / 2, py + 24); spaced(ctx, 0);
           // peças do look
-          ctx.fillStyle = INK; ctx.font = "500 15px system-ui, sans-serif";
+          ctx.fillStyle = INK; ctx.font = `500 15px ${UI}`;
           const nameLines = [l.label, ...l.pieces.map((p) => p.name)].slice(0, maxLines + 1);
           nameLines.forEach((t, k) => {
-            ctx.font = k === 0 ? "700 15px system-ui, sans-serif" : "500 15px system-ui, sans-serif";
+            ctx.font = k === 0 ? `700 15px ${UI}` : `500 15px ${UI}`;
             ctx.fillText(ellipsize(ctx, t, tileW - 8), x + tileW / 2, py + 62 + k * 22);
           });
           ctx.textAlign = "left";
@@ -161,12 +169,12 @@ export default function TripPoster({ destination, days, objective, fileName, loo
         if (items.length === 0) return y;
         const h = secH(w, items.length, perRow), t = (w - PAD * 2 - 12 * (perRow - 1)) / perRow;
         ctx.fillStyle = PANEL; rr(ctx, x, y, w, h, 18); ctx.fill(); ctx.strokeStyle = PANEL_LINE; ctx.lineWidth = 1.2; rr(ctx, x, y, w, h, 18); ctx.stroke();
-        ctx.fillStyle = WINE; ctx.font = "600 22px Georgia, serif"; spaced(ctx, 1); ctx.fillText(title.toUpperCase(), x + PAD, y + PAD + 22); spaced(ctx, 0);
+        ctx.fillStyle = INK; ctx.font = `500 30px ${DISP}`; ctx.fillText(title, x + PAD, y + PAD + 24); ctx.fillStyle = GOLD; ctx.fillRect(x + PAD, y + PAD + 34, 34, 1.5);
         items.forEach((p, i) => {
           const cx = x + PAD + (i % perRow) * (t + 12), cy = y + PAD + 40 + Math.floor(i / perRow) * (t + 8 + 34 + 12);
           const img = p.photo ? imgs.get(p.photo) : null;
-          if (img) cover(ctx, img, cx, cy, t, t, 12); else { ctx.fillStyle = "#e4dacd"; rr(ctx, cx, cy, t, t, 12); ctx.fill(); }
-          ctx.fillStyle = INK; ctx.font = "500 13px system-ui, sans-serif"; ctx.textAlign = "center";
+          if (img) cover(ctx, img, cx, cy, t, t, 12); else { ctx.fillStyle = SOFT; rr(ctx, cx, cy, t, t, 12); ctx.fill(); }
+          ctx.fillStyle = INK; ctx.font = `500 13px ${UI}`; ctx.textAlign = "center";
           wrap(ctx, p.name, t, 2).forEach((ln, k) => ctx.fillText(ln, cx + t / 2, cy + t + 20 + k * 16));
           ctx.textAlign = "left";
         });
@@ -179,14 +187,14 @@ export default function TripPoster({ destination, days, objective, fileName, loo
       if (checklist.length) {
         ly += 18;
         ctx.fillStyle = PANEL; rr(ctx, M, ly, leftW, checkH, 18); ctx.fill(); ctx.strokeStyle = PANEL_LINE; ctx.lineWidth = 1.2; rr(ctx, M, ly, leftW, checkH, 18); ctx.stroke();
-        ctx.fillStyle = WINE; ctx.font = "600 22px Georgia, serif"; spaced(ctx, 1); ctx.fillText("CHECKLIST DA MALA", M + PAD, ly + PAD + 22); spaced(ctx, 0);
+        ctx.fillStyle = INK; ctx.font = `500 30px ${DISP}`; ctx.fillText("Checklist da mala", M + PAD, ly + PAD + 24); ctx.fillStyle = GOLD; ctx.fillRect(M + PAD, ly + PAD + 34, 34, 1.5);
         const half = Math.ceil(checklist.length / 2);
         checklist.forEach((it, i) => {
           const colX = M + PAD + (i < half ? 0 : (leftW - PAD * 2) / 2), rowI = i < half ? i : i - half;
           const cy = ly + PAD + 56 + rowI * 32;
-          ctx.strokeStyle = WINE; ctx.lineWidth = 1.8; rr(ctx, colX, cy - 15, 18, 18, 4); ctx.stroke();
+          ctx.strokeStyle = GOLD_INK; ctx.lineWidth = 1.8; rr(ctx, colX, cy - 15, 18, 18, 4); ctx.stroke();
           if (it.done) { ctx.beginPath(); ctx.moveTo(colX + 4, cy - 6); ctx.lineTo(colX + 8, cy - 2); ctx.lineTo(colX + 15, cy - 12); ctx.stroke(); }
-          ctx.fillStyle = INK; ctx.font = "500 16px system-ui, sans-serif"; ctx.fillText(it.label, colX + 30, cy);
+          ctx.fillStyle = INK; ctx.font = `500 16px ${UI}`; ctx.fillText(it.label, colX + 30, cy);
         });
       }
       let ry = sy; const rx = M + leftW + 20;
@@ -195,7 +203,8 @@ export default function TripPoster({ destination, days, objective, fileName, loo
       ry = drawSection(rx, ry, rightW, "Acessórios (essenciais)", groups.accessories, 4) + (groups.accessories.length ? 18 : 0);
 
       // ---------- rodapé
-      ctx.textAlign = "center"; ctx.fillStyle = MUTED; ctx.font = "500 15px system-ui, sans-serif"; spaced(ctx, 3);
+      ctx.fillStyle = GOLD; ctx.fillRect(M, H - 74, W - M * 2, 1.2);
+      ctx.textAlign = "center"; ctx.fillStyle = MUTED; ctx.font = `600 13px ${UI}`; spaced(ctx, 3.5);
       ctx.fillText("FEITO COM O QUE VOCÊ JÁ TEM NO CLOSET  ·  CLOSET INTELIGENTE", W / 2, H - 36); spaced(ctx, 0); ctx.textAlign = "left";
 
       const b: Blob | null = await new Promise((res) => canvas.toBlob(res, "image/png"));
