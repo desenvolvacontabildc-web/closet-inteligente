@@ -42,9 +42,10 @@ export async function callVisionAI(dataUrl: string): Promise<{ ok: true; parsed:
               "Identifique a peça de roupa/acessório na foto e descreva seus atributos de estilo, pra um personal stylist usar depois sem precisar olhar a foto de novo. " +
               "Além disso, avalie apenas o que estiver visível na foto quanto a amassado, sujeira, manchas ou desgaste (ex.: sapato sujo ou gasto). " +
               "Responda apenas JSON: {\"category\":\"...\",\"color\":\"...\",\"description\":\"...\",\"condition_notes\":\"...\",\"attributes\":{" +
-              "\"subcategoria\":\"...\",\"cores_secundarias\":\"...\",\"estampa\":\"...\",\"tecido\":\"...\",\"modelagem\":\"...\",\"comprimento\":\"...\"," +
+              "\"subcategoria\":\"...\",\"cores_secundarias\":\"...\",\"estampa\":\"...\",\"tecido\":\"...\",\"modelagem\":\"...\",\"comprimento\":\"...\",\"mangas\":\"...\",\"decote\":\"...\"," +
               "\"estilo\":\"...\",\"estacao\":\"...\",\"formalidade\":\"...\",\"ocasioes\":\"...\",\"combina_com\":\"...\"}}. " +
               "Em condition_notes, se houver algo visível a corrigir, descreva o problema e sugira uma ação prática curta (ex.: \"Parece amassada — passar a ferro antes de usar\"). Se nada estiver visivelmente errado, deixe condition_notes vazio. " +
+              "Em attributes.comprimento use um de: curto (acima do joelho: short, minissaia, cropped), midi (panturrilha), longo (tornozelo/chão), ou para calças: curta/pantacourt/comprida. Em attributes.mangas use: sem mangas (regata/alça), curtas, 3/4 ou longas. Avalie o comprimento pela proporção da peça na foto, nunca pelo nome. " +
               "Em attributes, seja breve (poucas palavras por campo, ex.: estilo:\"casual elegante\", ocasioes:\"trabalho, jantar\", combina_com:\"preto, jeans, branco\"). Se não conseguir avaliar algum campo pela foto, deixe como string vazia. Nunca invente detalhes nem afirme algo que não seja visível na imagem.",
           },
           { type: "input_image", image_url: dataUrl, detail: "low" },

@@ -43,8 +43,29 @@ async function prepareIllustration(c: any, userId: string, itemIds: string[], de
   }
   // Nunca inventar peça de roupa ou acessório extra, nem alterar cor/estampa das peças reais
   // referenciadas -- pra não parecer que a cliente tem algo que ela não tem.
+  // Ficha de cada peça (comprimento, mangas, modelagem, tecido): sem isso a IA "adivinha" pelo nome e já
+  // tratou short-saia curto como saia longa, ou regata como blusa de manga.
+  const specRows = (await c.query(
+    "SELECT name, color, description, attributes FROM closet_items WHERE id = ANY($1::uuid[])", [itemIds],
+  )).rows;
+  const fichas = specRows.map((r: any) => {
+    const a = (r.attributes || {}) as Record<string, string>;
+    const parts = [
+      r.color && `cor ${r.color}`,
+      a.comprimento && `comprimento ${a.comprimento}`,
+      a.mangas && `mangas: ${a.mangas}`,
+      a.decote && `decote ${a.decote}`,
+      a.modelagem && `modelagem ${a.modelagem}`,
+      a.tecido && `tecido ${a.tecido}`,
+    ].filter(Boolean);
+    return parts.length ? `- ${r.name}: ${parts.join("; ")}` : "";
+  }).filter(Boolean);
+  const fichaTexto = fichas.length
+    ? " Ficha de cada peça (siga à risca): " + fichas.join(" | ") + ". " +
+      "Respeite o COMPRIMENTO real de cada peça (curta continua curta: short, short-saia e minissaia ficam acima do joelho; midi na altura da panturrilha; longa até o tornozelo) e as MANGAS reais (regata/sem mangas continua sem mangas; manga curta ou longa exatamente como na referência). Na dúvida, copie o comprimento e as mangas da foto de referência, nunca o que seria 'típico' para o nome da peça."
+    : " Respeite o COMPRIMENTO real e as MANGAS reais de cada peça, copiando da foto de referência (peça curta continua curta; regata sem mangas continua sem mangas).";
   const semInvencao =
-    "IMPORTANTE, siga rigorosamente: a cliente veste SOMENTE estas peças, nada além disso: " + description + ". " +
+    "IMPORTANTE, siga rigorosamente: a cliente veste SOMENTE estas peças, nada além disso: " + description + "." + fichaTexto + " " +
     "NÃO adicione nenhuma peça de roupa extra que não esteja nessa lista (sem blazer, casaco, cardigã, colete, lenço, cinto vistoso ou camada extra por conta própria). " +
     "Cada peça de roupa que tiver uma imagem de referência real deve aparecer EXATAMENTE como está na foto de referência -- mesma cor, tecido, corte e estampa, sem inventar variação. " +
     "Para qualquer item não descrito na lista e sem referência (ex.: sapato, bolsa), use algo básico, neutro e discreto (ex.: sapato nude simples, sem bolsa à vista) -- nunca invente uma peça de destaque, cor ou estampa chamativa que não esteja na lista.";

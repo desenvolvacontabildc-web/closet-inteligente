@@ -62,7 +62,7 @@ export async function generateProvadorLook(f: FormData) {
   const names = prep.items.map((i) => i.name).join(", ");
   const semInvencao =
     `IMPORTANTE, siga rigorosamente: ela veste SOMENTE estas peças, nada além disso: ${prep.items.map((i) => `${i.name}${i.description ? ` (${i.description})` : ""}`).join("; ")}. ` +
-    `Cada peça deve aparecer EXATAMENTE como na foto de referência dela (mesma cor, tecido, corte e estampa), sem inventar variação. NÃO adicione peças extras de destaque (blazer, casaco, lenço, cinto chamativo); para o que não foi listado (ex.: sapato), use algo básico, neutro e discreto. ` +
+    `Cada peça deve aparecer EXATAMENTE como na foto de referência dela (mesma cor, tecido, corte e estampa), sem inventar variação. Respeite o COMPRIMENTO real e as MANGAS reais de cada peça, copiando da foto de referência (peça curta continua curta; regata sem mangas continua sem mangas). NÃO adicione peças extras de destaque (blazer, casaco, lenço, cinto chamativo); para o que não foi listado (ex.: sapato), use algo básico, neutro e discreto. ` +
     `Fundo neutro claro, sem texto, sem logotipo e sem marca d'água na imagem.`;
   let prompt: string;
   if (modelKind === "MINHA_FOTO") {
