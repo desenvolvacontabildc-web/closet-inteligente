@@ -104,6 +104,23 @@ export async function adminListPlans(){
   });
   return result||[];
 }
+export async function adminStandardLimits(){
+  const result=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_list_standard_limits($1)",[userId])).rows}
+    catch(e){console.error("adminStandardLimits falhou:",e);return null}
+  });
+  return result||[];
+}
+export async function setStandardLimit(f:FormData){
+  const plan=String(f.get("plan")||"");
+  const raw=String(f.get("limit")||"").trim();
+  const limit=raw===""?null:Math.max(0,Math.floor(Number(raw)));
+  try{
+    await withProfile(async(c,userId)=>{await c.query("SELECT admin_set_standard_limit($1,$2,$3)",[userId,plan,limit]);return true});
+  }catch(e){console.error("setStandardLimit falhou:",e);bounce("/admin/precos","Não foi possível salvar o limite.")}
+  await flash("Limite de fotos de catálogo salvo.");
+  redirect("/admin/precos");
+}
 export async function setPlanConfig(f:FormData){
   const plan=String(f.get("plan")||"");
   const aiLimitRaw=String(f.get("ai_limit")||"").trim();

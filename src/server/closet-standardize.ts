@@ -97,6 +97,31 @@ export async function runStandardizeBatch(ctx: Ctx, limit?: number): Promise<voi
 
 export function isStandardizing(userId: string): boolean { return running.has(userId); }
 
+/** Quantas fotos de catálogo a usuária ainda pode gerar neste mês (administradora: sem limite; teste gratuito usa o
+ * limite do plano Fashion). */
+export async function standardAllowance(c: PoolClient, userId: string): Promise<{ ok: boolean; limit: number | null; used: number }> {
+  const admin = (await c.query("SELECT is_admin FROM app_users WHERE id=$1", [userId])).rows[0]?.is_admin;
+  if (admin) return { ok: true, limit: null, used: 0 };
+  const sub = (await c.query("SELECT status, plan FROM my_subscription($1)", [userId])).rows[0];
+  const plan = !sub || sub.status === "TRIAL" ? "FASHION" : sub.plan;
+  const limit = (await c.query("SELECT get_standard_limit($1) l", [plan])).rows[0]?.l as number | null;
+  const used = Number((await c.query("SELECT count(*)::int n FROM closet_items WHERE standard_at >= date_trunc('month', now())")).rows[0]?.n || 0);
+  return { ok: limit === null || used < limit, limit, used };
+}
+
+/** Disparada ao cadastrar uma peça com foto (ou trocar a foto): gera a foto de catálogo em segundo plano, sem
+ * atrasar o envio. Fora da cota do plano ou com a IA indisponível, a peça só continua com a foto original. */
+export function scheduleStandardize(ctx: Ctx, itemId: string): void {
+  if (!process.env.OPENAI_API_KEY) return;
+  void (async () => {
+    try {
+      const allowed = await withUserTx(ctx, (c) => standardAllowance(c, ctx.userId));
+      if (!allowed.ok) { console.log("scheduleStandardize: cota mensal de fotos de catálogo esgotada para", ctx.userId); return; }
+      await standardizeItem(ctx, itemId);
+    } catch (e) { console.error("scheduleStandardize falhou:", e); }
+  })();
+}
+
 export async function standardizeProgress(c: PoolClient): Promise<{ total: number; done: number; failed: number }> {
   const r = (await c.query(
     `SELECT count(*)::int total, count(*) FILTER (WHERE standard_status='DONE')::int done, count(*) FILTER (WHERE standard_status='FAILED')::int failed

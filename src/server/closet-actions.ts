@@ -1,5 +1,5 @@
 "use server";
-import { redirect } from "next/navigation"; import { randomUUID } from "node:crypto"; import { Client } from "minio"; import { withProfile } from "./profile-session"; import { callVisionAI, writeVisionResult } from "./vision-core"; import { bumpAndCheckAiUsage } from "./limits"; import { flash } from "./flash"; import { bounce } from "./action-error";
+import { redirect } from "next/navigation"; import { randomUUID } from "node:crypto"; import { Client } from "minio"; import { withProfile } from "./profile-session"; import { callVisionAI, writeVisionResult } from "./vision-core"; import { bumpAndCheckAiUsage } from "./limits"; import { flash } from "./flash"; import { scheduleStandardize } from "./closet-standardize"; import { bounce } from "./action-error";
 const store=new Client({endPoint:(process.env.S3_ENDPOINT||"http://storage:9000").replace(/^https?:\/\//,'').split(':')[0],port:9000,useSSL:false,accessKey:process.env.S3_ACCESS_KEY_ID||"closet-web",secretKey:process.env.S3_SECRET_ACCESS_KEY||""});
 /** Cadastro em si roda numa transação curta; a análise automática por IA (se houver foto)
  * roda DEPOIS, fora de qualquer transação -- nunca deixa a conexão do pool presa durante a
@@ -38,13 +38,15 @@ export async function createItem(f:FormData){
         else visionInput={itemId,dataUrl:`data:${(file as File).type};base64,${buf.toString("base64")}`};
       }
     }
-    return {visionInput};
+    const tenantId=(await c.query("SELECT current_setting('app.tenant_id') t")).rows[0].t as string;
+    return {visionInput,std:hasPhoto?{userId,tenantId,itemId}:null};
   });
   if(created?.visionInput){
     const result=await callVisionAI(created.visionInput.dataUrl);
     if(result.ok)await withProfile(async(c,userId)=>{await writeVisionResult(c,userId,created.visionInput!.itemId,result.parsed);return true});
     else console.error("createItem: análise automática falhou:",result.message);
   }
+  if(created?.std)scheduleStandardize({userId:created.std.userId,tenantId:created.std.tenantId},created.std.itemId);
   redirect("/closet");
 }
 export async function updateItem(f:FormData){const id=String(f.get("id")||"");const confidence=String(f.get("confidence")||"CONFIRMED"),status=String(f.get("status")||"ACTIVE");await withProfile(async(c,userId)=>{await c.query("UPDATE closet_items SET name=$1,category=$2,color=$3,description=$4,photo_url=$5,confidence=$6,status=$7,updated_at=now() WHERE id=$8 AND user_id=$9",[f.get("name"),f.get("category"),f.get("color"),f.get("description"),f.get("photo_url"),confidence,status,id,userId]);return true});redirect(`/closet/${id}`)}

@@ -1,4 +1,5 @@
 "use server";
+import { scheduleStandardize } from "./closet-standardize";
 import { redirect } from "next/navigation"; import { randomUUID } from "node:crypto"; import { Client } from "minio"; import { withProfile } from "./profile-session"; import { callVisionAI, writeVisionResult } from "./vision-core"; import { bumpAndCheckAiUsage } from "./limits"; import { bounce } from "./action-error";
 const store=new Client({endPoint:(process.env.S3_ENDPOINT||"http://storage:9000").replace(/^https?:\/\//,'').split(':')[0],port:9000,useSSL:false,accessKey:process.env.S3_ACCESS_KEY_ID||"closet-web",secretKey:process.env.S3_SECRET_ACCESS_KEY||""});
 export async function photoUrl(key:string){return store.presignedGetObject(process.env.S3_BUCKET||"closet-private",key,900)}
@@ -25,13 +26,15 @@ export async function uploadPhoto(f:FormData){
         else dataUrl=`data:${file.type};base64,${buf.toString("base64")}`;
       }
     }
-    return {dataUrl};
+    const tenantId=(await c.query("SELECT current_setting('app.tenant_id') t")).rows[0].t as string;
+    return {dataUrl,std:{userId,tenantId}};
   });
   if(prepared?.dataUrl){
     const result=await callVisionAI(prepared.dataUrl);
     if(result.ok)await withProfile(async(c,userId)=>{await writeVisionResult(c,userId,id,result.parsed);return true});
     else console.error("uploadPhoto: análise automática falhou:",result.message);
   }
+  if(prepared?.std)scheduleStandardize(prepared.std,id);
   redirect(`/closet/${id}`);
 }
 export async function confirmPhoto(f:FormData){const id=String(f.get("photo_id")||""),item=String(f.get("item_id")||"");await withProfile(async(c,userId)=>{await c.query("UPDATE closet_item_photos SET confidence='CONFIRMED' WHERE id=$1 AND item_id=$2 AND user_id=$3",[id,item,userId]);return true});redirect(`/closet/${item}`)}

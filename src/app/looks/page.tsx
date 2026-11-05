@@ -36,6 +36,18 @@ function Cover({ l }: { l: LookRow }) {
   return <span className="cover-empty">✦</span>;
 }
 
+/** Botão principal para ver o look em imagem (a função que mais faz sentido para as usuárias): fica sempre à vista
+ * enquanto o look ainda não tem imagem ou foto. */
+function GenerateImageCta({ l, ctx }: { l: LookRow; ctx: Ctx }) {
+  if (l.has_illustration || l.has_photo) return null;
+  return <form action={generateLookIllustration} className="gen-cta">
+    <input type="hidden" name="look_id" value={l.id} /><input type="hidden" name="return_path" value={ctx.returnPath} />
+    <input type="hidden" name="visual_style" value={l.visual_style || ctx.defaultVisualStyle} />
+    <SubmitButton disabled={ctx.imgRemaining === 0} pendingText="Gerando imagem... (até 2 minutos)">Ver este look em imagem</SubmitButton>
+    <p className="look-meta">{ctx.imgRemaining === 0 ? "Seu limite de imagens deste mês acabou. Veja os planos em Perfil → Assinatura." : ctx.imgRemaining !== null ? `Usa 1 das suas ${ctx.imgRemaining} gerações de imagem.` : "Gerações de imagem ilimitadas no seu plano."}</p>
+  </form>;
+}
+
 /** Tudo sobre um look: peças, avaliação e ações. Fica recolhido dentro dos cards/fotos. */
 function LookDetails({ l, ctx, mode }: { l: LookRow; ctx: Ctx; mode: "ready" | "pending" | "rejected" }) {
   const evaluation = parseEvaluation(l.photo_evaluation);
@@ -44,6 +56,8 @@ function LookDetails({ l, ctx, mode }: { l: LookRow; ctx: Ctx; mode: "ready" | "
     <h3>{l.name || "Look sem nome"}</h3>
     <p className="look-meta">{l.occasion || "Ocasião não informada"} · {STATUS_LABEL[l.status] || l.status}</p>
     <p className="look-pieces">{(l.items || []).map((it: any) => it.name).join(" + ") || "Sem peças"}</p>
+
+    {mode !== "rejected" && <GenerateImageCta l={l} ctx={ctx} />}
 
     {(l.items || []).length > 0 && <div className="outfit-collage">
       {(l.items || []).map((it: any) => (
@@ -88,7 +102,7 @@ function LookDetails({ l, ctx, mode }: { l: LookRow; ctx: Ctx; mode: "ready" | "
             {Object.entries(STYLE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
-        <SubmitButton disabled={ctx.imgRemaining === 0} pendingText="Gerando imagem... (pode levar até 2 minutos)">{l.has_illustration ? "Gerar imagem de novo" : "Gerar inspiração em imagem"}</SubmitButton>
+        <SubmitButton disabled={ctx.imgRemaining === 0} pendingText="Gerando imagem... (pode levar até 2 minutos)">{l.has_illustration ? "Gerar a imagem de novo" : "Gerar imagem neste estilo"}</SubmitButton>
         <p className="look-meta">{ctx.imgRemaining === 0 ? "Atenção: Seu limite de gerações de imagem deste mês acabou. Veja os planos em Perfil → Assinatura." : ctx.imgRemaining !== null ? `Usa 1 das suas ${ctx.imgRemaining} gerações de imagem restantes.` : "Gerações de imagem ilimitadas no seu plano."}</p>
       </form>
       <form action={uploadLookPhoto} encType="multipart/form-data" className="stack">
@@ -238,6 +252,7 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
                 <h3>{l.name || "Look sem nome"}</h3>
                 <p className="look-meta">{l.occasion || "Ocasião não informada"}</p>
                 <p className="look-pieces">{(l.items || []).map((it: any) => it.name).join(" + ") || "Sem peças"}</p>
+                <GenerateImageCta l={l} ctx={ctx} />
                 <div className="decide-actions">
                   <form action={submitLookFeedback}>
                     <input type="hidden" name="look_id" value={l.id} /><input type="hidden" name="kind" value="LIKE" /><input type="hidden" name="return_path" value={ctx.returnPath} />

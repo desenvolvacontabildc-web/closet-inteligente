@@ -83,7 +83,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
              {!l.has_illustration&&<form action={generateLookIllustration}>
                <input type="hidden" name="look_id" value={l.id}/>
                <input type="hidden" name="return_path" value="/home"/>
-               <SubmitButton className="link" pendingText="Gerando imagem... (pode levar até 2 minutos)">Gerar inspiração em imagem</SubmitButton>
+               <SubmitButton pendingText="Gerando imagem... (pode levar até 2 minutos)">Ver este look em imagem</SubmitButton>
              </form>}
              <div className="action-row">
                <form action={submitLookFeedback}>
@@ -112,7 +112,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
            <Link href="/looks">Ver look</Link>
            {!dayLook.has_illustration&&!dayLook.has_photo&&<form action={generateLookIllustration}>
              <input type="hidden" name="look_id" value={dayLook.id}/><input type="hidden" name="return_path" value="/home"/>
-             <SubmitButton className="link" pendingText="Gerando... (pode levar até 2 minutos)">Gerar imagem</SubmitButton>
+             <SubmitButton pendingText="Gerando... (pode levar até 2 minutos)">Ver este look em imagem</SubmitButton>
            </form>}
            <Link href={`/home?skip=${dayLook.id}`}>Gerar outra sugestão</Link>
          </div>

@@ -488,3 +488,7 @@ input[type=file]::file-selector-button{background:var(--soft);color:var(--ink);f
 .welcome .look-meta{margin-top:6px}
 
 .std-panel{padding:6px 0 18px}
+
+.gen-cta{margin:12px 0 4px}
+.gen-cta button{margin-top:0}
+.gen-cta .look-meta{margin-top:6px}
