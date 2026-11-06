@@ -64,7 +64,7 @@ function normalizePlan(raw: any, vezes: number): HairPlan | null {
       .map((p: any) => ({ rotulo: String(p?.rotulo || "").trim().slice(0, 40), valor: String(p?.valor || "").trim().slice(0, 120) }))
       .filter((p: any) => p.rotulo && p.valor),
     prioridades: strs(raw.prioridades, 5, 140),
-    justificativa_periodo: String(raw.justificativa_periodo || "").trim().slice(0, 400),
+    justificativa_periodo: String(raw.justificativa_periodo || "").trim().slice(0, 700),
     semanas, dicas: strs(raw.dicas, 6, 200), alerta: String(raw.alerta || "").trim().slice(0, 400),
   };
 }
@@ -86,7 +86,7 @@ function buildPrompt(a: Answers): string {
     `- Gestante ou amamentando: ${a.gestante ? "SIM (evite ativos não recomendados nesse período e sugira confirmar com o médico)" : "não"}.\n` +
     `- Alergias ou sensibilidades: ${a.alergias || "nenhuma informada"}. Produtos que já usa: ${a.produtos_atuais || "não informados"}.\n\n` +
     `REGRAS:\n` +
-    `1. Escolha o período do ciclo (total de semanas, entre 4 e 8) conforme a NECESSIDADE real do cabelo: danos fortes, química recente, quebra ou transição pedem ciclos mais longos; cabelo saudável, ciclos curtos de manutenção. Explique em "justificativa_periodo".\n` +
+    `1. Escolha o período do ciclo (total de semanas, entre 4 e 8) conforme a NECESSIDADE real do cabelo: danos fortes, química recente, quebra ou transição pedem ciclos mais longos; cabelo saudável, ciclos curtos de manutenção. Explique em "justificativa_periodo" em NO MÁXIMO 2 frases curtas.\n` +
     `2. Cada semana deve ter EXATAMENTE ${vezes} etapa(s), uma por lavagem de tratamento. Alterne hidratação, nutrição e reconstrução conforme a necessidade (o equilíbrio é o ponto central: elasticidade que estica e não volta pede mais reconstrução; fio que quebra logo e ressecado pede hidratação e nutrição; evite excesso de reconstrução, que deixa o fio rígido). Pode usar limpeza profunda (ex.: 1 vez a cada 2 a 4 semanas) e cuidado do couro cabeludo quando fizer sentido.\n` +
     `3. Tipos permitidos em "tipo": HIDRATACAO, NUTRICAO, RECONSTRUCAO, LIMPEZA_PROFUNDA, COURO_CABELUDO, FINALIZACAO.\n` +
     `4. Em cada etapa, informe: "titulo" curto; "como_fazer" com o passo a passo prático (quantidade, tempo de pausa, enxágue); "preferir" com 3 a 5 componentes ou ativos que o produto deve conter (ex.: na hidratação, pantenol, ureia, glicerina, aloe vera, ácido hialurônico; na nutrição, óleos e manteigas como argan, karité, coco, murumuru, ceramidas; na reconstrução, aminoácidos, queratina hidrolisada, proteínas de arroz ou trigo, colágeno); "evitar" com 1 a 3 itens (ingredientes ou práticas) para o caso dela; "exemplos" com até 3 tipos de produto ou linhas de referência do mercado brasileiro adequadas ao orçamento (apenas sugestões; a cliente deve conferir o rótulo).\n` +
