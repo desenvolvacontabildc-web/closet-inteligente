@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
 import { submitHairQuestionnaire, toggleHairStep } from "@/server/hair-actions";
 import SubmitButton from "@/components/submit-button";
+import CuidesePaywall from "@/components/cuidese-paywall";
+import { cuideseAccess, extraPricing } from "@/server/extras";
 import {
   FIO, ESPESSURA, COMPRIMENTO, COURO, QUIMICA, TEMPO_QUIMICA, QUEIXAS, ELASTICIDADE, POROSIDADE, LAVAGEM, CALOR, SOL,
   OBJETIVOS, VEZES_SEMANA, ORCAMENTO, STEP_TYPES, type Opt, type Answers, type HairPlan,
@@ -64,16 +66,19 @@ const dm = (d: Date) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "
 
 export default async function Cronograma({ searchParams }: { searchParams: Promise<{ error?: string; novo?: string; f_a?: string }> }) {
   const sp = await searchParams;
-  const data = await withProfile(async (c) => {
+  const data = await withProfile(async (c, userId) => {
+    const access = await cuideseAccess(c, userId);
+    if (!access.access) return { access, price: (await extraPricing(c, "CUIDESE")).price_cents, cycles: [] as any[], counts: new Map<string, number>(), active: null as any, logs: [] as any[] };
     const cycles = (await c.query("SELECT id,answers,plan,weeks,status,started_at,ends_at,completed_at FROM hair_cycles ORDER BY created_at DESC LIMIT 6")).rows;
     const counts = new Map<string, number>(
       (await c.query("SELECT cycle_id, count(*)::int n FROM hair_cycle_logs GROUP BY cycle_id")).rows.map((r: any) => [r.cycle_id, r.n]),
     );
     const active = cycles.find((x: any) => x.status === "ACTIVE") || null;
     const logs: { step_id: string; done_at: Date }[] = active ? (await c.query("SELECT step_id, done_at FROM hair_cycle_logs WHERE cycle_id=$1", [active.id])).rows : [];
-    return { cycles, active, logs, counts };
+    return { access, price: 0, cycles, active, logs, counts };
   });
   if (!data) redirect("/");
+  if (!data.access.access) return <CuidesePaywall title="Cronograma Capilar" priceCents={data.price} until={data.access.until} />;
   const { cycles, active, logs, counts } = data;
 
   let typed: Partial<Answers> | null = null;

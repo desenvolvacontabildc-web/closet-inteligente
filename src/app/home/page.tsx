@@ -9,6 +9,7 @@ import { reviewCandidates } from "@/server/closet-review";
 import { snoozeClosetReview } from "@/server/closet-review-actions";
 import { hairReminder } from "@/server/hair-progress";
 import { skinReminder } from "@/server/skin-progress";
+import { hasCuidese } from "@/server/extras";
 import { toggleHairStep } from "@/server/hair-actions";
 import { STEP_TYPES } from "@/server/hair-options";
 export default async function Home({searchParams}:{searchParams:Promise<{error?:string,skip?:string}>}){
@@ -43,8 +44,9 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      FROM closet_items ci WHERE ci.status='ACTIVE' AND ci.id::text != ALL($1::text[])
      ORDER BY last_used_at ASC NULLS FIRST LIMIT 1`,[skipIds])).rows[0]||null;
    const review=await reviewCandidates(c,50);
-   const hair=await hairReminder(c);
-   const skin=await skinReminder(c);
+   const cuidese=await hasCuidese(c,id);
+   const hair=cuidese?await hairReminder(c):null;
+   const skin=cuidese?await skinReminder(c):null;
    return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review,hair,skin};
  });
  if(!profile)redirect("/");

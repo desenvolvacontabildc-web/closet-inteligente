@@ -178,3 +178,25 @@ export async function grantCredits(f:FormData){
   await flash(`${credits} crédito${credits===1?"":"s"} de imagem concedido${credits===1?"":"s"}.`);
   redirect(back);
 }
+
+export async function adminExtraPrices(){
+  const result=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_list_extra_prices($1)",[userId])).rows}
+    catch(e){console.error("adminExtraPrices falhou:",e);return null}
+  });
+  return result||[];
+}
+export async function setExtraPrice(f:FormData){
+  const product=String(f.get("product")||"");
+  const promoRaw=String(f.get("promo_price")||"").trim();
+  const months=Math.max(0,Math.min(24,Math.floor(Number(f.get("promo_months")||0))));
+  const promoCents=promoRaw===""?null:Math.round(reais(promoRaw)*100);
+  try{
+    await withProfile(async(c,userId)=>{
+      await c.query("SELECT admin_set_extra_price($1,$2,$3,$4,$5)",[userId,product,Math.round(reais(f.get("price"))*100),promoCents,months]);
+      return true;
+    });
+  }catch(e){console.error("setExtraPrice falhou:",e);bounce("/admin/precos","Não foi possível salvar o preço do extra.")}
+  await flash("Preço do extra salvo. Vale para novas compras.");
+  redirect("/admin/precos");
+}

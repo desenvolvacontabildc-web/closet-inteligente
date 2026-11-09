@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
 import { bumpAndCheckAiUsage } from "./limits";
+import { hasCuidese } from "./extras";
 import { bounce } from "./action-error";
 import { flash } from "./flash";
 import { parseAiJson } from "./ai-json";
@@ -107,7 +108,10 @@ export async function submitHairQuestionnaire(f: FormData) {
   if (!process.env.OPENAI_API_KEY) bounce(BACK, "A IA não está configurada no momento.", keep);
 
   // Fase 1: confere o limite de IA (sem manter conexão presa durante a chamada).
-  const budget = await withProfile(async (c, userId) => bumpAndCheckAiUsage(c, userId));
+  const budget = await withProfile(async (c, userId) => {
+    if (!(await hasCuidese(c, userId))) return { ok: false, message: "O Cuide-se é um extra do seu plano. Veja como liberar em Assinatura → Extras." };
+    return bumpAndCheckAiUsage(c, userId);
+  });
   if (!budget) redirect("/");
   if (!budget.ok) bounce(BACK, budget.message || "Limite de operações de IA atingido.", keep);
 
@@ -146,7 +150,8 @@ export async function toggleHairStep(f: FormData) {
   const cycleId = String(f.get("cycle_id") || ""), stepId = String(f.get("step_id") || "");
   const back = String(f.get("return_to") || "") === "/home" ? "/home" : BACK; // só volta para a Home ou para o cronograma
   if (!/^[0-9a-f-]{36}$/i.test(cycleId) || !/^s\d{1,2}-\d{1,2}$/.test(stepId)) bounce(back, "Etapa inválida.");
-  const r = await withProfile(async (c) => {
+  const r = await withProfile(async (c, userId) => {
+    if (!(await hasCuidese(c, userId))) return { state: "locked" as const };
     const cy = (await c.query("SELECT plan FROM hair_cycles WHERE id=$1 AND status='ACTIVE'", [cycleId])).rows[0];
     if (!cy) return { state: "gone" as const };
     const steps: HairStep[] = (cy.plan?.semanas || []).flatMap((w: HairWeek) => w.etapas || []);
@@ -165,6 +170,7 @@ export async function toggleHairStep(f: FormData) {
     return { state, title: step.titulo, all: doneCount >= steps.length };
   });
   if (!r) redirect("/");
+  if (r.state === "locked") bounce(back, "O Cuide-se é um extra do seu plano. Veja como liberar em Assinatura → Extras.");
   if (r.state === "gone") bounce(back, "Esse ciclo não está mais ativo.");
   if (r.state === "done") {
     await flash(r.all ? "Ciclo completo! Responda o novo questionário para gerar o próximo." : `Etapa registrada: ${r.title}.`);

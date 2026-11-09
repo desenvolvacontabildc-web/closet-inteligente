@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
 import { bumpAndCheckAiUsage } from "./limits";
+import { hasCuidese } from "./extras";
 import { bounce } from "./action-error";
 import { flash } from "./flash";
 import { parseAiJson } from "./ai-json";
@@ -117,7 +118,10 @@ export async function submitSkinQuestionnaire(f: FormData) {
   if (!answers.tempo) bounce(BACK, "Diga quanto tempo você tem para a rotina.", keep);
   if (!process.env.OPENAI_API_KEY) bounce(BACK, "A IA não está configurada no momento.", keep);
 
-  const budget = await withProfile(async (c, userId) => bumpAndCheckAiUsage(c, userId));
+  const budget = await withProfile(async (c, userId) => {
+    if (!(await hasCuidese(c, userId))) return { ok: false, message: "O Cuide-se é um extra do seu plano. Veja como liberar em Assinatura → Extras." };
+    return bumpAndCheckAiUsage(c, userId);
+  });
   if (!budget) redirect("/");
   if (!budget.ok) bounce(BACK, budget.message || "Limite de operações de IA atingido.", keep);
 
@@ -154,7 +158,8 @@ export async function setSkinStep(routineId: string, stepId: string, day: string
   if (!/^[0-9a-f-]{36}$/i.test(routineId) || !/^(am|pm)\d{1,2}$/.test(stepId) || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return { ok: false };
   const today = dayStr();
   if (day !== today && day !== addDays(today, -1)) return { ok: false };
-  const r = await withProfile(async (c) => {
+  const r = await withProfile(async (c, userId) => {
+    if (!(await hasCuidese(c, userId))) return false;
     const rt = (await c.query("SELECT plan FROM skin_routines WHERE id=$1 AND status='ACTIVE'", [routineId])).rows[0];
     if (!rt) return false;
     const plan = rt.plan as SkinPlan;

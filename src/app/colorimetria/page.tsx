@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
 import { generateColorimetria, saveColorStep, restartColorimetria } from "@/server/style-actions";
 import SubmitButton from "@/components/submit-button";
+import { startExtraPix } from "@/server/extras-actions";
 import {
   CABELO_OPCOES, TINGIDO_OPCOES, OLHOS_OPCOES, BRONZEAMENTO_OPCOES,
   PROFUNDIDADE_PELE_SWATCHES, BRANCO_SWATCHES, METAL_SWATCHES,
@@ -215,7 +216,9 @@ export default async function Colorimetria({ searchParams }: { searchParams: Pro
       <h1>Colorimetria pessoal</h1>
       <p>Um questionário visual rápido (e, se quiser, uma foto) pra descobrir as cores que mais favorecem você -- com cruzamento com o que você já tem no closet.</p>
       {error && <p role="alert" className="trial-banner">{error}</p>}
-      <div className="trial-banner"><p>Experiência avulsa, liberação única (não é recurso mensal): <strong>R$ 59,90</strong>, ou incluída ao assinar o plano <strong>Super Star</strong>. Fale com a administradora pra liberar.</p></div>
+      <div className="trial-banner"><p>Experiência avulsa, liberação única (não é recurso mensal): <strong>R$ 59,90</strong>, ou incluída ao assinar o plano <strong>Super Star</strong>.</p></div>
+      <form action={startExtraPix}><input type="hidden" name="product" value="COLORIMETRIA" /><SubmitButton pendingText="Gerando Pix...">Comprar a Colorimetria no Pix</SubmitButton></form>
+      <p className="look-meta">Pagamento único. A liberação é automática depois do Pix. <a href="/assinatura/extras#colorimetria">Ver detalhes</a></p>
     </main>;
   }
 

@@ -34,11 +34,15 @@ export async function POST(req: Request) {
       const args = [String(payment.id), String(payment.status), JSON.stringify(payment)];
       const applied = await client.query("SELECT * FROM apply_pix_result($1,$2,$3::jsonb)", args);
       // Não é cobrança de usuária -> pode ser a mensalidade de uma loja parceira.
-      if (!applied.rowCount) await client.query("SELECT * FROM apply_partner_pix_result($1,$2,$3::jsonb)", args);
+      if (!applied.rowCount) {
+        const partnerApplied = await client.query("SELECT * FROM apply_partner_pix_result($1,$2,$3::jsonb)", args);
+        // Também pode ser um extra comprado à parte (Colorimetria ou Cuide-se).
+        if (!partnerApplied.rowCount) await client.query("SELECT * FROM apply_extra_pix_result($1,$2,$3::jsonb)", args);
+      }
     } else if (type === "preapproval" || type === "subscription_preapproval") {
       const preapproval = await getPreapproval(dataId);
       const ref = String(preapproval.external_reference || "");
-      await client.query(ref.startsWith("partner:") ? "SELECT apply_partner_preapproval_result($1,$2,$3,$4::jsonb)" : "SELECT apply_preapproval_result($1,$2,$3,$4::jsonb)",
+      await client.query(ref.startsWith("partner:") ? "SELECT apply_partner_preapproval_result($1,$2,$3,$4::jsonb)" : ref.startsWith("extra:") ? "SELECT apply_extra_preapproval_result($1,$2,$3,$4::jsonb)" : "SELECT apply_preapproval_result($1,$2,$3,$4::jsonb)",
         [String(preapproval.id), String(preapproval.status), ref, JSON.stringify(preapproval)]);
     } else if (type === "subscription_authorized_payment") {
       // Cobrança de um ciclo da assinatura de cartão. Rebusca na API (nunca confia no corpo).
@@ -48,7 +52,21 @@ export async function POST(req: Request) {
       const status = cycleStatus === "approved" || cycleStatus === "processed" ? "approved" : cycleStatus === "rejected" ? "rejected" : "";
       if (preapprovalId && status) {
         const r = await client.query("SELECT * FROM apply_authorized_payment_result($1,$2,$3::jsonb)", [preapprovalId, status, JSON.stringify(ap)]);
-        if (!r.rowCount) await client.query("SELECT * FROM apply_partner_authorized_payment_result($1,$2,$3::jsonb)", [preapprovalId, status, JSON.stringify(ap)]);
+        if (!r.rowCount) {
+          const pr = await client.query("SELECT * FROM apply_partner_authorized_payment_result($1,$2,$3::jsonb)", [preapprovalId, status, JSON.stringify(ap)]);
+          if (!pr.rowCount) {
+            const xr = await client.query("SELECT * FROM apply_extra_authorized_payment_result($1,$2,$3::jsonb)", [preapprovalId, status, JSON.stringify(ap)]);
+            const xrow = xr.rows[0];
+            if (xrow?.promo_ended && xrow.base_price_cents) {
+              try { await updatePreapprovalAmount(preapprovalId, xrow.base_price_cents); }
+              catch (err) {
+                console.error("mercadopago: falha ao reajustar o Cuide-se ao preço cheio:", preapprovalId, err);
+                await client.query("SELECT report_billing_issue($1,$2,$3)", [xrow.user_id, "Reajustar Cuide-se ao preço cheio",
+                  `O desconto dos primeiros meses do Cuide-se acabou, mas o reajuste automático no Mercado Pago falhou (assinatura ${preapprovalId}). Ajuste o valor manualmente no painel do Mercado Pago.`]);
+              }
+            }
+          }
+        }
         const row = r.rows[0];
         if (row?.promo_ended && row.base_price_cents) {
           // Fim do desconto: volta o cartão ao preço cheio do plano. Se falhar, avisa a administradora

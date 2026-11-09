@@ -29,3 +29,17 @@ export async function reconcilePartnerPix(c: any, pending: { kind: string; statu
     return false;
   }
 }
+
+/** Mesma rede de segurança do webhook, para o Pix de um EXTRA (Colorimetria ou Cuide-se). */
+export async function reconcileExtraPix(c: any, pending: { kind: string; status: string; provider_payment_id?: string | null } | null): Promise<boolean> {
+  if (!pending || pending.kind !== "PIX" || pending.status !== "pending" || !pending.provider_payment_id) return false;
+  try {
+    const payment = await getPayment(pending.provider_payment_id);
+    if (!payment?.status || payment.status === "pending") return false;
+    await c.query("SELECT apply_extra_pix_result($1,$2,$3::jsonb)", [String(payment.id), String(payment.status), JSON.stringify(payment)]);
+    return true;
+  } catch (e) {
+    console.error("reconcileExtraPix falhou:", e);
+    return false;
+  }
+}

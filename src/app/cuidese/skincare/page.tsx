@@ -4,6 +4,8 @@ import { withProfile } from "@/server/profile-session";
 import { submitSkinQuestionnaire } from "@/server/skin-actions";
 import { skinStats } from "@/server/skin-progress";
 import SubmitButton from "@/components/submit-button";
+import CuidesePaywall from "@/components/cuidese-paywall";
+import { cuideseAccess, extraPricing } from "@/server/extras";
 import SkinChecklist, { type ChecklistStep } from "@/components/skin-checklist";
 import { Chips, Question } from "@/components/q-chips";
 import {
@@ -46,14 +48,17 @@ function Questionnaire({ d, again }: { d: Partial<SkinAnswers>; again: boolean }
 export default async function Skincare({ searchParams }: { searchParams: Promise<{ error?: string; novo?: string; dia?: string; f_a?: string }> }) {
   const sp = await searchParams;
   const today = dayStr();
-  const data = await withProfile(async (c) => {
+  const data = await withProfile(async (c, userId) => {
+    const access = await cuideseAccess(c, userId);
+    if (!access.access) return { access, price: (await extraPricing(c, "CUIDESE")).price_cents, routines: [] as any[], active: null as any, logs: [] as { day: string; step_id: string }[] };
     const routines = (await c.query("SELECT id,answers,plan,status,started_at,review_at,completed_at FROM skin_routines ORDER BY created_at DESC LIMIT 6")).rows;
     const active = routines.find((r: any) => r.status === "ACTIVE") || null;
     const logs: { day: string; step_id: string }[] = active
       ? (await c.query("SELECT day::text AS day, step_id FROM skin_logs WHERE routine_id=$1 AND day >= $2::date", [active.id, addDays(today, -30)])).rows : [];
-    return { routines, active, logs };
+    return { access, price: 0, routines, active, logs };
   });
   if (!data) redirect("/");
+  if (!data.access.access) return <CuidesePaywall title="Skincare" priceCents={data.price} until={data.access.until} />;
   const { routines, active, logs } = data;
 
   let typed: Partial<SkinAnswers> | null = null;
