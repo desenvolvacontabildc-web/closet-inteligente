@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
 import { generateColorimetria, saveColorStep, restartColorimetria } from "@/server/style-actions";
 import SubmitButton from "@/components/submit-button";
+import ColorRoulette from "@/components/color-roulette";
 import { startExtraPix } from "@/server/extras-actions";
 import {
   CABELO_OPCOES, TINGIDO_OPCOES, OLHOS_OPCOES, BRONZEAMENTO_OPCOES,
@@ -105,6 +106,11 @@ function ResultsView({ dossier, profile, closetItems, error }: any) {
   const closetMatches = itemTokenSets.filter(({ tokens }: any) => [...tokens].some((t) => favorableTokens.has(t))).map(({ it }: any) => it);
   const allTokensInCloset = new Set(itemTokenSets.flatMap(({ tokens }: any) => [...tokens]));
   const gaps = allFavorable.filter((c) => !colorTokens(c.name).some((t) => allTokensInCloset.has(t)));
+  const neutralHexes = new Set(asColorArray(melhores.neutros).map((c: any) => String(c.hex).toLowerCase()));
+  const paletteForRoulette = Array.from(new Map(allFavorable.map((c: any) => [String(c.hex).toLowerCase(), c])).values()).map((c: any) => ({
+    name: String(c.name || c.hex), hex: String(c.hex), neutral: neutralHexes.has(String(c.hex).toLowerCase()), tokens: colorTokens(c.name || ""),
+  }));
+  const piecesForRoulette = itemTokenSets.map(({ it, tokens }: any) => ({ id: it.id, name: it.name, category: it.category, photoId: it.photo_id || null, tokens: [...tokens] }));
 
   return <main className="shell narrow">
     <a href="/cuidese">← Cuide-se</a>
@@ -127,6 +133,11 @@ function ResultsView({ dossier, profile, closetItems, error }: any) {
     <ColorSection title="Cores de destaque" items={melhores.destaque} />
     <ColorSection title="Interessantes perto do rosto" items={melhores.proximas_rosto} />
     <ColorSection title="Metais" items={dossier.metais} />
+
+    {paletteForRoulette.length >= 4 && <>
+      <h2>Roleta de combinações</h2>
+      <ColorRoulette colors={paletteForRoulette} pieces={piecesForRoulette} />
+    </>}
 
     {asArray(dossier.combinacoes_recomendadas).length > 0 && <div className="color-section">
       <h3>Combinações recomendadas</h3>
@@ -166,17 +177,20 @@ function ResultsView({ dossier, profile, closetItems, error }: any) {
     </>}
 
     <h2>Sua colorimetria × seu closet</h2>
-    {closetMatches.length > 0 ? <>
-      <p className="look-meta">Peças que você já tem e que estão na sua paleta favorável:</p>
-      <div className="product-grid">
+    <details className="card closet-match">
+      <summary>
+        <span>{closetMatches.length} peça{closetMatches.length === 1 ? "" : "s"} do seu closet na sua paleta</span>
+        <small>Toque para abrir a lista</small>
+      </summary>
+      {closetMatches.length > 0 ? <div className="match-grid">
         {closetMatches.map((it: any) => (
-          <div key={it.id} className="card">
-            {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}?w=360`} loading="lazy" decoding="async" alt={it.name} /> : <span className="look-thumb-placeholder">✦</span>}
-            <h3>{it.name}</h3><p className="look-meta">{it.category}</p>
-          </div>
+          <a key={it.id} href={`/closet/${it.id}`} className="match-tile" title={it.name}>
+            {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}?w=240`} loading="lazy" decoding="async" alt={it.name} /> : <span className="look-thumb-placeholder">✦</span>}
+            {it.name}
+          </a>
         ))}
-      </div>
-    </> : <p className="look-meta">Nenhuma peça do closet bateu claramente com as cores da sua paleta pelo nome/cor cadastrados. Isso pode só significar que a cor não está bem descrita no cadastro.</p>}
+      </div> : <p className="look-meta match-note">Nenhuma peça do closet bateu claramente com as cores da sua paleta pelo nome/cor cadastrados. Isso pode só significar que a cor não está bem descrita no cadastro.</p>}
+    </details>
 
     {gaps.length > 0 && <div className="color-section">
       <h3>Possíveis lacunas</h3>
