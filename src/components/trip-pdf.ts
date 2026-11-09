@@ -166,8 +166,14 @@ export async function renderTripPdf(d: PdfData): Promise<Blob> {
 
   // looks em miniatura (visão geral)
   if (d.looks.length) {
-    const n = d.looks.length, cols = n <= 3 ? n : n <= 8 ? 4 : 5, gap = 14;
-    const tw = (CW - gap * (cols - 1)) / cols, th = tw * 1.32, rowH = th + 56;
+    const n = d.looks.length, gap = 14, avail = BOTTOM - (y + 100);
+    let cols = Math.min(n, 5), best = 0;
+    for (let c = Math.min(n, 3); c <= Math.min(n, 6); c++) {
+      const w0 = (CW - gap * (c - 1)) / c, rows0 = Math.ceil(n / c), h0 = Math.min(w0 * 1.32, avail / rows0 - 56);
+      if (h0 >= w0 * 0.9 && w0 * h0 > best) { best = w0 * h0; cols = c; }
+    }
+    const tw = (CW - gap * (cols - 1)) / cols, rowsAll = Math.ceil(n / cols);
+    const th = Math.max(tw * 0.9, Math.min(tw * 1.32, avail / rowsAll - 56)), rowH = th + 56;
     await ensure(100 + rowH);
     title("Os looks da viagem");
     for (let i = 0; i < n; i++) {
@@ -189,7 +195,7 @@ export async function renderTripPdf(d: PdfData): Promise<Blob> {
     await newPage();
     title("Look por look", "Cada compromisso, com as peças que você já tem.");
     for (const l of d.looks) {
-      const n = l.pieces.length, rowH = 104, blockH = Math.max(560, 200 + n * rowH);
+      const n = l.pieces.length, twoCol = n > 3, rowH = 92, nRows = twoCol ? Math.ceil(n / 2) : n, blockH = Math.max(560, 262 + nRows * rowH + 24);
       await ensure(blockH + 34);
       ctx.fillStyle = PANEL; rr(ctx, M, y, CW, blockH, 28); ctx.fill(); ctx.strokeStyle = LINE; ctx.lineWidth = 1.4; rr(ctx, M, y, CW, blockH, 28); ctx.stroke();
       const ix = M + 22, iy = y + 22, iw = 420, ih = blockH - 44;
@@ -209,14 +215,16 @@ export async function renderTripPdf(d: PdfData): Promise<Blob> {
       py += 38 + Math.min(2, wrap(ctx, l.label || l.tag, rw, 2).length) * 50 + 10;
       ctx.fillStyle = GOLD; ctx.fillRect(x0, py, 44, 2); py += 34;
       ctx.fillStyle = MUTED; ctx.font = `700 13px ${UI}`; spaced(ctx, 4); ctx.fillText("PEÇAS DO LOOK", x0, py); spaced(ctx, 0); py += 22;
+      const colW = twoCol ? (rw - 16) / 2 : rw, fsz = twoCol ? 20 : 24, lh = twoCol ? 25 : 30;
       l.pieces.forEach((p, k) => {
-        const ry = py + k * rowH, t = 88, pim = pieceImg(p);
-        ctx.fillStyle = SOFT; rr(ctx, x0, ry, t, t, 16); ctx.fill(); if (pim) cover(ctx, pim, x0, ry, t, t, 16);
-        ctx.fillStyle = INK; ctx.font = `600 24px ${UI}`;
-        const nl = wrap(ctx, p.name, rw - t - 24, 2);
-        const ty = ry + t / 2 - (nl.length - 1) * 15 + (p.cat ? -6 : 8);
-        nl.forEach((ln, i) => ctx.fillText(ln, x0 + t + 22, ty + i * 30));
-        if (p.cat) { ctx.fillStyle = MUTED; ctx.font = `500 18px ${UI}`; ctx.fillText(p.cat, x0 + t + 22, ty + nl.length * 30 - 2); }
+        const col = twoCol ? (k % 2) : 0, row = twoCol ? Math.floor(k / 2) : k;
+        const px = x0 + col * (colW + 16), ry = py + row * rowH, t = 76, pim = pieceImg(p);
+        ctx.fillStyle = SOFT; rr(ctx, px, ry, t, t, 14); ctx.fill(); if (pim) cover(ctx, pim, px, ry, t, t, 14);
+        ctx.fillStyle = INK; ctx.font = `600 ${fsz}px ${UI}`;
+        const nl = wrap(ctx, p.name, colW - t - 18, 2);
+        const ty = ry + t / 2 - (nl.length - 1) * (lh / 2) + (p.cat ? -8 : 7);
+        nl.forEach((ln, i) => ctx.fillText(ln, px + t + 16, ty + i * lh));
+        if (p.cat) { ctx.fillStyle = MUTED; ctx.font = `500 ${twoCol ? 15 : 18}px ${UI}`; ctx.fillText(ellipsize(ctx, p.cat, colW - t - 18), px + t + 16, ty + nl.length * lh - 4); }
       });
       y += blockH + 30;
     }
@@ -227,7 +235,7 @@ export async function renderTripPdf(d: PdfData): Promise<Blob> {
   if (groups.length) {
     await newPage();
     title("O que vai na mala", "Tudo o que entra na bagagem, por tipo.");
-    const perRow = 5, gap = 16, t = (CW - gap * (perRow - 1)) / perRow, rowH = t + 94;
+    const perRow = 6, gap = 14, t = (CW - gap * (perRow - 1)) / perRow, rowH = t + 88;
     for (const g of groups) {
       await ensure(70 + rowH);
       ctx.fillStyle = INK; ctx.font = `500 40px ${DISP}`; ctx.fillText(g.title, M, y + 34); ctx.fillStyle = GOLD; ctx.fillRect(M, y + 50, 40, 2);
@@ -237,8 +245,8 @@ export async function renderTripPdf(d: PdfData): Promise<Blob> {
         if (i % perRow === 0 && i > 0) { y += rowH; await ensure(rowH); }
         const p = g.items[i], x = M + (i % perRow) * (t + gap), pim = pieceImg(p);
         ctx.fillStyle = SOFT; rr(ctx, x, y, t, t, 18); ctx.fill(); if (pim) cover(ctx, pim, x, y, t, t, 18);
-        ctx.fillStyle = INK; ctx.font = `600 19px ${UI}`; ctx.textAlign = "center";
-        wrap(ctx, p.name, t, 2).forEach((ln, k) => ctx.fillText(ln, x + t / 2, y + t + 28 + k * 24)); ctx.textAlign = "left";
+        ctx.fillStyle = INK; ctx.font = `600 17px ${UI}`; ctx.textAlign = "center";
+        wrap(ctx, p.name, t, 2).forEach((ln, k) => ctx.fillText(ln, x + t / 2, y + t + 26 + k * 22)); ctx.textAlign = "left";
       }
       y += rowH + 22;
     }
