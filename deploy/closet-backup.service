@@ -1,0 +1,7 @@
+[Unit]
+Description=Backup diario do Closet Inteligente (banco e fotos)
+
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/bin/bash /opt/closet-inteligente/scripts/backup.sh
