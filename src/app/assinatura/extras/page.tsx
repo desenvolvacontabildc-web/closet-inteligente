@@ -83,10 +83,10 @@ export default async function Extras({ searchParams }: { searchParams: Promise<{
       <h2>Colorimetria pessoal</h2>
       <p>Descubra seu subtom e a paleta de cores que mais favorece você, cruzada com o que você já tem no closet. Pagamento único, sem mensalidade.</p>
       {hasCol ? <>
-        <p className="look-meta">Liberada na sua conta{colStatus.origin === "SUPER_STAR" ? " (incluída no plano Super Star)" : ""}.</p>
+        <p className="look-meta">Liberada na sua conta.</p>
         <p><Link href="/colorimetria">Abrir a Colorimetria</Link></p>
       </> : <>
-        <p className="look-meta"><strong>{brl(priceCol.price_cents)}</strong> uma única vez, via Pix. Já incluída ao assinar o plano Super Star.</p>
+        <p className="look-meta"><strong>{brl(priceCol.price_cents)}</strong> uma única vez, via Pix.</p>
         <form action={startExtraPix}>
           <input type="hidden" name="product" value="COLORIMETRIA" />
           <SubmitButton pendingText="Gerando Pix...">Comprar por {brl(priceCol.price_cents)} no Pix</SubmitButton>

@@ -103,7 +103,7 @@ export async function standardAllowance(c: PoolClient, userId: string): Promise<
   const admin = (await c.query("SELECT is_admin FROM app_users WHERE id=$1", [userId])).rows[0]?.is_admin;
   if (admin) return { ok: true, limit: null, used: 0 };
   const sub = (await c.query("SELECT status, plan FROM my_subscription($1)", [userId])).rows[0];
-  const plan = !sub || sub.status === "TRIAL" ? "FASHION" : sub.plan;
+  const plan = !sub || sub.status === "TRIAL" ? "ARRUMADA" : sub.plan;
   const limit = (await c.query("SELECT get_standard_limit($1) l", [plan])).rows[0]?.l as number | null;
   const used = Number((await c.query("SELECT count(*)::int n FROM closet_items WHERE standard_at >= date_trunc('month', now())")).rows[0]?.n || 0);
   return { ok: limit === null || used < limit, limit, used };

@@ -77,7 +77,7 @@ export default async function UsuariaDetalhe({ params, searchParams }: { params:
           <select name="plan" defaultValue={a.plan} disabled={self}>
             <option value="ARRUMADA">Arrumada</option>
             <option value="FASHION">Fashion (+ Closet Cápsula)</option>
-            <option value="SUPER_STAR">Super Star (+ Colorimetria)</option>
+            <option value="SUPER_STAR">Super Star</option>
           </select>
         </label>
         <label>Mensalidade (R$)<input name="fee" defaultValue={brlInput(a.monthly_fee_cents)} disabled={self} /></label>

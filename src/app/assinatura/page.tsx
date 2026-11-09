@@ -27,7 +27,7 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
     let pending = (await c.query("SELECT * FROM my_pending_charge($1)", [userId])).rows[0] || null;
     if (await reconcilePendingPix(c, pending)) pending = (await c.query("SELECT * FROM my_pending_charge($1)", [userId])).rows[0] || null;
     const sub = await mySubscription(c, userId);
-    const plans = await Promise.all(PLANS.map(async (p) => (await c.query("SELECT plan, base_price_cents, promo_price_cents, promo_months FROM get_plan_pricing($1)", [p])).rows[0]));
+    const plans = await Promise.all(PLANS.map(async (p) => ({ ...(await c.query("SELECT plan, base_price_cents, promo_price_cents, promo_months FROM get_plan_pricing($1)", [p])).rows[0], ...(await c.query("SELECT ai_ops_monthly_limit, image_gen_monthly_limit FROM get_plan_config($1)", [p])).rows[0], std: (await c.query("SELECT get_standard_limit($1) l", [p])).rows[0]?.l })));
     const usedCardPromo = (await c.query("SELECT 1 FROM payment_charges WHERE kind='CARD_PREAPPROVAL' AND status='approved' LIMIT 1")).rowCount! > 0;
     return { sub, plans, pending, usedCardPromo };
   }, { allowSuspended: true });
@@ -65,7 +65,7 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
 
     <div className="card">
       <p><strong>Status atual:</strong> {STATUS_LABEL[sub.status] || sub.status}{sub.status === "TRIAL" || sub.status === "TRIAL_EXPIRED" ? "" : ` · Plano ${PLAN_LABEL[sub.plan]}`}</p>
-      {sub.status === "TRIAL" && sub.trial_ends_at && <p className="look-meta">Teste gratuito até {new Date(sub.trial_ends_at).toLocaleDateString("pt-BR")}.</p>}
+      {sub.status === "TRIAL" && sub.trial_ends_at && <p className="look-meta">Teste gratuito até {new Date(sub.trial_ends_at).toLocaleDateString("pt-BR")}. Ele inclui os recursos do plano Arrumada ({plans[0].ai_ops_monthly_limit ?? "ilimitados"} pedidos de IA, {plans[0].image_gen_monthly_limit ?? "ilimitados"} looks em imagem e {plans[0].std ?? "ilimitadas"} fotos de catálogo) e o Cuide-se.</p>}
       {sub.provider === "MERCADOPAGO" && sub.current_period_end && sub.status !== "SUSPENDED" && <p className="look-meta">
         {sub.payment_method === "CARD" ? "Cartão recorrente · próxima cobrança automática por volta de " : "Pix · pago até "}{new Date(sub.current_period_end).toLocaleDateString("pt-BR")}.
       </p>}
@@ -95,6 +95,12 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
           {hasPromo
             ? <p className="look-meta">No <strong>cartão recorrente</strong>: <strong>{formatPrice(p.promo_price_cents)}/mês nos primeiros {p.promo_months} meses</strong>, depois {formatPrice(p.base_price_cents)}/mês.</p>
             : <p className="look-meta">No cartão recorrente: {formatPrice(p.base_price_cents)}/mês, cobrado automaticamente.</p>}
+          <ul className="look-meta plan-limits">
+            <li>{p.ai_ops_monthly_limit ?? "Ilimitados"} pedidos de IA por mês (looks, mala, análises); cada pedido de look traz 2 a 3 opções</li>
+            <li>{p.image_gen_monthly_limit ?? "Ilimitados"} looks em imagem por mês</li>
+            <li>{p.std ?? "Ilimitadas"} fotos de catálogo das peças por mês</li>
+            <li>{p.plan === "ARRUMADA" ? "Cuide-se como extra (veja em Extras)" : "Cuide-se incluído (Skincare e Cronograma Capilar) e Closet Cápsula"}</li>
+          </ul>
           <div className="action-row">
             <form action={startPixCheckout}>
               <input type="hidden" name="plan" value={p.plan} />
@@ -107,7 +113,7 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
           </div>
         </div>;
       })}
-      <p className="look-meta"><strong>Cuide-se</strong> (Skincare e Cronograma Capilar): incluído nos planos Fashion e Super Star e no teste gratuito; no Arrumada é um extra mensal. <strong>Colorimetria</strong>: incluída no Super Star ou compra única. <a href="/assinatura/extras">Ver extras</a></p>
+      <p className="look-meta"><strong>Cuide-se</strong> (Skincare e Cronograma Capilar): incluído nos planos Fashion e Super Star e no teste gratuito; no Arrumada é um extra mensal. <strong>Colorimetria</strong>: compra única, à parte dos planos. <a href="/assinatura/extras">Ver extras</a></p>
       <p className="look-meta">Pix: cobrança de 30 dias, renovada aqui mesmo a cada mês — a conta é suspensa se passar de {GRACE_DAYS} dias de atraso. Cartão: cobrança automática recorrente, sem precisar voltar aqui; cancele quando quiser.</p>
     </div>
     {locked && <form action={logout}><button className="link">Sair da conta</button></form>}
