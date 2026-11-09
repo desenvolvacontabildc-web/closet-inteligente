@@ -32,7 +32,7 @@ export default async function RevisaoCloset({ searchParams }: { searchParams: Pr
             {batch.map((p) => (
               <article className="review-card" key={p.id}>
                 <Link href={`/closet/${p.id}`} className="review-thumb" aria-label={`Abrir ${p.name}`}>
-                  {p.photo_id ? <img src={`/api/closet/photos/${p.photo_id}`} alt={p.name} loading="lazy" /> : <span className="cover-empty">✦</span>}
+                  {p.photo_id ? <img src={`/api/closet/photos/${p.photo_id}?w=480`} alt={p.name} loading="lazy" /> : <span className="cover-empty">✦</span>}
                 </Link>
                 <div className="review-body">
                   <h3>{p.name}</h3>

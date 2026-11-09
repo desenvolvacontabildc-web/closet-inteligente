@@ -618,3 +618,12 @@ input[type=file]::file-selector-button{background:var(--blush);color:var(--accen
 .hair-reminder h2{margin:6px 0 2px}
 .hair-reminder .action-row{align-items:center}
 .hair-reminder .action-row form{margin:0}
+
+/* Esqueleto de carregamento (loading.tsx) */
+.skeleton{background:linear-gradient(90deg,var(--soft) 25%,#fffdfc 50%,var(--soft) 75%);background-size:200% 100%;animation:sk-shimmer 1.3s ease-in-out infinite;border-radius:var(--radius-sm)}
+.sk-eyebrow{width:140px;height:12px;margin:8px 0 14px;border-radius:99px}
+.sk-title{width:62%;height:44px;margin:0 0 22px}
+.sk-card{height:170px;margin:0 0 16px;border-radius:var(--radius)}
+.sk-short{height:110px}
+@keyframes sk-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.skeleton{animation:none}}

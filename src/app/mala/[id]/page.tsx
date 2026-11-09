@@ -215,7 +215,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
       {closetItems.map((it: any) => (
         <label key={it.id}>
           <input type="checkbox" name="levar_ids" value={it.id} defaultChecked={(trip.levar_ids || []).includes(it.id)} />
-          {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" /> : <span className="ph">✦</span>}
+          {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}?w=360`} alt={it.name} loading="lazy" /> : <span className="ph">✦</span>}
           {it.name}
         </label>
       ))}
@@ -225,7 +225,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
       {closetItems.map((it: any) => (
         <label key={it.id}>
           <input type="checkbox" name="evitar_ids" value={it.id} defaultChecked={(trip.evitar_ids || []).includes(it.id)} />
-          {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" /> : <span className="ph">✦</span>}
+          {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}?w=360`} alt={it.name} loading="lazy" /> : <span className="ph">✦</span>}
           {it.name}
         </label>
       ))}
@@ -353,12 +353,12 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
               <div className="board-pieces">
                 {pieces.map((it: any) => (
                   <figure key={it.id}>
-                    {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" /> : <span className="board-ph">✦</span>}
+                    {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}?w=360`} alt={it.name} loading="lazy" /> : <span className="board-ph">✦</span>}
                     <figcaption>{it.name}</figcaption>
                   </figure>
                 ))}
               </div>
-              {l.has_illustration && <img className="board-illustration" src={`/api/looks/${l.id}/illustration`} alt={`Imagem do look ${l.name}`} loading="lazy" />}
+              {l.has_illustration && <img className="board-illustration" src={`/api/looks/${l.id}/illustration?w=640`} alt={`Imagem do look ${l.name}`} loading="lazy" />}
             </article>;
           })}
         </div>
@@ -419,7 +419,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
             <div className="product-grid">
               {its.map((it: any) => (
                 <div className="card secondary" key={it.id}>
-                  {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" /> : <span className="look-thumb-placeholder">✦</span>}
+                  {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}?w=360`} alt={it.name} loading="lazy" /> : <span className="look-thumb-placeholder">✦</span>}
                   <h3>{it.name}</h3>
                   <form action={removeTripItem}>
                     <input type="hidden" name="trip_id" value={id} /><input type="hidden" name="item_id" value={it.id} />

@@ -27,11 +27,11 @@ type Ctx = { returnPath: string; imgRemaining: number | null; defaultVisualStyle
 
 /** Imagem de capa do look: foto real > ilustração > colagem das fotos das peças > ícone. */
 function Cover({ l }: { l: LookRow }) {
-  if (l.has_photo) return <img src={`/api/looks/${l.id}/photo`} alt={`Foto do look ${l.name || ""}`} loading="lazy" />;
-  if (l.has_illustration) return <img src={`/api/looks/${l.id}/illustration`} alt={`Imagem do look ${l.name || ""}`} loading="lazy" />;
+  if (l.has_photo) return <img src={`/api/looks/${l.id}/photo?w=640`} alt={`Foto do look ${l.name || ""}`} loading="lazy" />;
+  if (l.has_illustration) return <img src={`/api/looks/${l.id}/illustration?w=640`} alt={`Imagem do look ${l.name || ""}`} loading="lazy" />;
   const withPhoto = (l.items || []).filter((it: any) => it.photo_id).slice(0, 4);
   if (withPhoto.length > 0) {
-    return <div className={`cover-collage n${withPhoto.length}`}>{withPhoto.map((it: any) => <img key={it.id} src={`/api/closet/photos/${it.photo_id}`} alt={it.name} loading="lazy" />)}</div>;
+    return <div className={`cover-collage n${withPhoto.length}`}>{withPhoto.map((it: any) => <img key={it.id} src={`/api/closet/photos/${it.photo_id}?w=480`} alt={it.name} loading="lazy" />)}</div>;
   }
   return <span className="cover-empty">✦</span>;
 }
@@ -62,7 +62,7 @@ function LookDetails({ l, ctx, mode }: { l: LookRow; ctx: Ctx; mode: "ready" | "
     {(l.items || []).length > 0 && <div className="outfit-collage">
       {(l.items || []).map((it: any) => (
         <div className="outfit-collage-item" key={it.id}>
-          {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}`} alt={it.name} /> : <span className="outfit-collage-placeholder">✦</span>}
+          {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}?w=480`} loading="lazy" decoding="async" alt={it.name} /> : <span className="outfit-collage-placeholder">✦</span>}
           <span>{it.name}</span>
         </div>
       ))}

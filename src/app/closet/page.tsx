@@ -86,7 +86,7 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
     </details>
     <div className="closet-grid">{items.map((i:any)=>(
       <Link className="closet-tile" href={`/closet/${i.id}`} key={i.id}>
-        <span className="thumb">{i.photo_id?<img src={`/api/closet/photos/${i.photo_id}`} alt={i.name}/>:"✦"}</span>
+        <span className="thumb">{i.photo_id?<img src={`/api/closet/photos/${i.photo_id}?w=480`} loading="lazy" decoding="async" alt={i.name}/>:"✦"}</span>
         <strong>{i.condition_notes&&"Atenção: "}{i.name}</strong>
         <span>{i.code} · {i.color||"cor a definir"}</span>
       </Link>

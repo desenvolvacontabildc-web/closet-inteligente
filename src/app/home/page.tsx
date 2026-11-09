@@ -79,7 +79,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        {todayLooks.length>0?<div className="grid two-col">
          {todayLooks.map((l:any)=>(
            <div className="look-card" key={l.id}>
-             {l.has_illustration?<img src={`/api/looks/${l.id}/illustration`} alt="Ilustração do look de hoje"/>
+             {l.has_illustration?<img src={`/api/looks/${l.id}/illustration?w=640`} alt="Ilustração do look de hoje"/>
                :<span className="look-thumb-placeholder">✦<small>Sem imagem ainda</small></span>}
              <h3>{l.name||"Opção de hoje"}</h3>
              <p className="look-meta">{l.occasion||"Dia comum"}</p>
@@ -103,8 +103,8 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          ))}
        </div>:dayLook?<div className="day-look">
          <div className="day-cover">
-           {dayLook.has_photo?<img src={`/api/looks/${dayLook.id}/photo`} alt={dayLook.name}/>
-             :dayLook.has_illustration?<img src={`/api/looks/${dayLook.id}/illustration`} alt={dayLook.name}/>:<span className="cover-empty">✦</span>}
+           {dayLook.has_photo?<img src={`/api/looks/${dayLook.id}/photo?w=640`} alt={dayLook.name}/>
+             :dayLook.has_illustration?<img src={`/api/looks/${dayLook.id}/illustration?w=640`} alt={dayLook.name}/>:<span className="cover-empty">✦</span>}
          </div>
          <div className="day-body">
          <div>
@@ -122,7 +122,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          </div>
          </div>
        </div>:dayPiece?<div className="day-look">
-         <div className="day-cover">{dayPiece.photo_id?<img src={`/api/closet/photos/${dayPiece.photo_id}`} alt={dayPiece.name}/>:<span className="cover-empty">✦</span>}</div>
+         <div className="day-cover">{dayPiece.photo_id?<img src={`/api/closet/photos/${dayPiece.photo_id}?w=640`} alt={dayPiece.name}/>:<span className="cover-empty">✦</span>}</div>
          <div className="day-body">
          <div>
            <span className="eyebrow">PEÇA DO DIA</span>
@@ -190,7 +190,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        <div className="home-review-thumbs">
          {review.slice(0,4).map((r:any)=>(
            <Link href={`/closet/${r.id}`} key={r.id} className="home-review-thumb" aria-label={r.name}>
-             {r.photo_id?<img src={`/api/closet/photos/${r.photo_id}`} alt={r.name} loading="lazy"/>:<span className="cover-empty">✦</span>}
+             {r.photo_id?<img src={`/api/closet/photos/${r.photo_id}?w=240`} alt={r.name} loading="lazy"/>:<span className="cover-empty">✦</span>}
            </Link>
          ))}
        </div>
