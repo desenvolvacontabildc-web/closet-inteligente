@@ -22,13 +22,20 @@ async function readObject(key: string): Promise<Buffer> {
 
 /** Fase 1 da ilustração: monta o prompt e junta as referências de foto, sem chamar a IA. */
 async function prepareIllustration(c: any, userId: string, itemIds: string[], description: string, style: "REALISTA" | "AVATAR" | "ILUSTRACAO"): Promise<
-  | { ok: true; promptBase: string; refs: { key: string; type: string }[]; hasIdentityRef: boolean }
+  | { ok: true; promptBase: string; refs: { key: string; type: string; px?: number }[]; hasIdentityRef: boolean }
   | { ok: false; result: "NO_AVATAR" }
 > {
   // Uma foto de referência por peça do look (até 4) -- com menos peças com foto real, a IA
   // precisa "adivinhar" as demais só pelo nome e acaba inventando cor/corte errado.
   const photos = (await c.query(
-    "SELECT DISTINCT ON (item_id) item_id, object_key, content_type FROM closet_item_photos WHERE item_id = ANY($1::uuid[]) ORDER BY item_id, created_at DESC LIMIT 4",
+    // Prefere a FOTO DE CATÁLOGO da peça (só a peça, fundo liso) à foto original, que muitas vezes mostra a pessoa com outras
+    // roupas e fazia a IA copiar a peça errada. Só vale se foi gerada depois da foto mais recente (senão está desatualizada).
+    `SELECT DISTINCT ON (p.item_id) p.item_id,
+       CASE WHEN ci.standard_object_key IS NOT NULL AND ci.standard_at >= p.created_at THEN ci.standard_object_key ELSE p.object_key END AS object_key,
+       CASE WHEN ci.standard_object_key IS NOT NULL AND ci.standard_at >= p.created_at THEN COALESCE(ci.standard_content_type, 'image/png') ELSE p.content_type END AS content_type,
+       (ci.standard_object_key IS NOT NULL AND ci.standard_at >= p.created_at) AS is_catalog
+     FROM closet_item_photos p JOIN closet_items ci ON ci.id = p.item_id
+     WHERE p.item_id = ANY($1::uuid[]) ORDER BY p.item_id, p.created_at DESC LIMIT 4`,
     [itemIds],
   )).rows;
   let avatarKey: string | null = null;
@@ -87,21 +94,22 @@ async function prepareIllustration(c: any, userId: string, itemIds: string[], de
       `Ilustração editorial de moda, estilo croqui/silhueta estilizada, figura genérica de moda, sem rosto detalhado e sem identidade real de nenhuma pessoa. ` +
       `Vestindo esta combinação: ${description}. ${semInvencao} Fundo neutro claro, traço elegante, sem texto na imagem.`;
   }
-  const refs: { key: string; type: string }[] = [];
+  const refs: { key: string; type: string; px?: number }[] = [];
   if (avatarKey) refs.push({ key: avatarKey, type: "image/png" });
   if (likenessRef) refs.push(likenessRef);
-  for (const p of photos) refs.push({ key: p.object_key, type: p.content_type });
+  // Foto de catálogo é quadrada e limpa: 384 px bastam (mesmo custo de entrada que a foto original reduzida).
+  for (const p of photos) refs.push({ key: p.object_key, type: p.content_type, px: p.is_catalog ? 384 : undefined });
   return { ok: true, promptBase, refs, hasIdentityRef: !!(avatarKey || likenessRef) };
 }
 
 /** Fase 2 da ilustração: lê as fotos de referência do S3 (não é o banco) e chama a IA. */
-async function callIllustrationAI(refs: { key: string; type: string }[], promptBase: string, hasIdentityRef: boolean): Promise<{ ok: true; buf: Buffer } | { ok: false }> {
+async function callIllustrationAI(refs: { key: string; type: string; px?: number }[], promptBase: string, hasIdentityRef: boolean): Promise<{ ok: true; buf: Buffer } | { ok: false }> {
   const openai = new OpenAI({ timeout: 120000 });
   let img;
   try {
     if (refs.length > 0) {
       // Fotos reduzidas (768 px; 1024 px para o rosto da usuária): corta quase pela metade o custo de entrada da imagem.
-      const files = await Promise.all(refs.map(async (r, i) => { const s = await shrinkRef(await readObject(r.key), i === 0 && hasIdentityRef ? 1024 : 768, r.type); return toFile(s.buf, `ref-${i}.${s.ext}`, { type: s.type }); }));
+      const files = await Promise.all(refs.map(async (r, i) => { const s = await shrinkRef(await readObject(r.key), i === 0 && hasIdentityRef ? 1024 : (r.px ?? 768), r.type); return toFile(s.buf, `ref-${i}.${s.ext}`, { type: s.type }); }));
       img = await openai.images.edit({ model: "gpt-image-2.5-sunburst", image: files, size: "1024x1024", quality: "medium", prompt: `${hasIdentityRef ? "" : "Use estas fotos reais das peças como referência de cor, textura e caimento. "}${promptBase}` });
     } else {
       img = await openai.images.generate({ model: "gpt-image-2.5-flare", size: "1024x1024", quality: "medium", prompt: promptBase });
