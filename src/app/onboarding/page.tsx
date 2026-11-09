@@ -6,7 +6,7 @@ export default async function Onboarding({searchParams}:{searchParams:Promise<{e
         <div className="swatches">
           {Object.entries(ACCENT_PALETTE).map(([label,hex])=>(
             <label key={label} className="swatch">
-              <input type="radio" name="accent" value={label} defaultChecked={label==="Caramelo"}/>
+              <input type="radio" name="accent" value={label} defaultChecked={label==="Borgonha rosé"}/>
               <span style={{background:hex}}/>
               {label}
             </label>
