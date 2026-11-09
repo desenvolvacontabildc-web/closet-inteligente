@@ -4,6 +4,7 @@ import { withProfile } from "@/server/profile-session";
 import { submitSkinQuestionnaire } from "@/server/skin-actions";
 import { skinStats } from "@/server/skin-progress";
 import SubmitButton from "@/components/submit-button";
+import { DraftForm, ClearDraft } from "@/components/draft-form";
 import CuidesePaywall from "@/components/cuidese-paywall";
 import { cuideseAccess, extraPricing } from "@/server/extras";
 import SkinChecklist, { type ChecklistStep } from "@/components/skin-checklist";
@@ -18,7 +19,7 @@ const dm = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}`;
 const SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 function Questionnaire({ d, again }: { d: Partial<SkinAnswers>; again: boolean }) {
-  return <form action={submitSkinQuestionnaire} className="form">
+  return <DraftForm storageKey="draft:skincare" action={submitSkinQuestionnaire} className="form">
     <Question title="Como é a sua pele?"><Chips name="pele" options={PELE} value={d.pele} /></Question>
     <Question title="Como ela reage a produtos?"><Chips name="sensibilidade" options={SENSIBILIDADE} value={d.sensibilidade} /></Question>
     <Question title="Tom de pele"><Chips name="tom" options={TOM} value={d.tom} /></Question>
@@ -42,7 +43,7 @@ function Questionnaire({ d, again }: { d: Partial<SkinAnswers>; again: boolean }
       </label>
     </Question>
     <SubmitButton pendingText="Montando a sua rotina...">{again ? "Gerar novo diagnóstico e rotina" : "Gerar minha rotina"}</SubmitButton>
-  </form>;
+  </DraftForm>;
 }
 
 export default async function Skincare({ searchParams }: { searchParams: Promise<{ error?: string; novo?: string; dia?: string; f_a?: string }> }) {
@@ -113,6 +114,7 @@ export default async function Skincare({ searchParams }: { searchParams: Promise
     {head}
     {sp.error && <p role="alert" className="trial-banner">{sp.error}</p>}
 
+    <ClearDraft storageKey="draft:skincare" />
     {reviewDue && <section className="card hair-finish">
       <h2>Hora de reavaliar a pele</h2>
       <p>Já se passaram as {plan.revisar_em_semanas} semanas previstas para esta rotina. Um novo questionário gera um novo diagnóstico e ajusta os produtos.</p>

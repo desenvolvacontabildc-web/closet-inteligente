@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
 import { submitHairQuestionnaire, toggleHairStep } from "@/server/hair-actions";
 import SubmitButton from "@/components/submit-button";
+import { DraftForm, ClearDraft } from "@/components/draft-form";
 import CuidesePaywall from "@/components/cuidese-paywall";
 import { cuideseAccess, extraPricing } from "@/server/extras";
 import {
@@ -29,7 +30,7 @@ function Question({ title, hint, children }: { title: string; hint?: string; chi
 }
 
 function Questionnaire({ d, again }: { d: Partial<Answers>; again: boolean }) {
-  return <form action={submitHairQuestionnaire} className="form">
+  return <DraftForm storageKey="draft:cronograma" action={submitHairQuestionnaire} className="form">
     <Question title="Como é o seu cabelo?"><Chips name="fio" options={FIO} value={d.fio} /></Question>
     <Question title="Espessura dos fios"><Chips name="espessura" options={ESPESSURA} value={d.espessura} /></Question>
     <Question title="Comprimento"><Chips name="comprimento" options={COMPRIMENTO} value={d.comprimento} /></Question>
@@ -59,7 +60,7 @@ function Questionnaire({ d, again }: { d: Partial<Answers>; again: boolean }) {
       </label>
     </Question>
     <SubmitButton pendingText="Montando o seu cronograma...">{again ? "Gerar novo diagnóstico e ciclo" : "Gerar meu cronograma"}</SubmitButton>
-  </form>;
+  </DraftForm>;
 }
 
 const dm = (d: Date) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
@@ -119,6 +120,7 @@ export default async function Cronograma({ searchParams }: { searchParams: Promi
     {head}
     {sp.error && <p role="alert" className="trial-banner">{sp.error}</p>}
 
+    <ClearDraft storageKey="draft:cronograma" />
     {finished && <section className="card hair-finish">
       <h2>Ciclo {doneCount >= total ? "completo" : "encerrado"}</h2>
       <p>{doneCount >= total ? "Você fez todas as etapas." : `O período previsto terminou em ${dm(ends)}, com ${doneCount} de ${total} etapas feitas.`} Hora de reavaliar o cabelo: um novo questionário gera um novo diagnóstico e um novo ciclo.</p>

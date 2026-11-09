@@ -59,6 +59,7 @@ export default function FlashToast() {
         if (redirectErr) show({ text: redirectErr, kind: "error" }, 7000);
         else if (flashMsg) show({ text: flashMsg.m, kind: flashMsg.k === "info" ? "info" : "ok" }, 5000);
         else if (res.ok) show({ text: "Concluído ✓", kind: "ok" }, 3000);
+        else if (res.status === 404) show({ text: "O app foi atualizado enquanto esta tela estava aberta. Recarregue a página e tente de novo.", kind: "error" }, 10000);
         else show({ text: "Não foi possível concluir. Tente de novo.", kind: "error" }, 7000);
       }, () => {
         inflight.current--;

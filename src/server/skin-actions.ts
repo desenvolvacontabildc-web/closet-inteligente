@@ -127,7 +127,7 @@ export async function submitSkinQuestionnaire(f: FormData) {
 
   let plan: SkinPlan | null = null;
   try {
-    const out = await new OpenAI({ timeout: 90000 }).responses.create({
+    const out = await new OpenAI({ timeout: 120000 }).responses.create({
       model: process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
       input: [{ role: "user", content: [{ type: "input_text", text: buildPrompt(answers) }] }],
     });
