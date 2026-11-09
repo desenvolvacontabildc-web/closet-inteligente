@@ -1,5 +1,6 @@
 import "server-only";
 import OpenAI, { toFile } from "openai";
+import { shrinkRef } from "./ref-image";
 import { randomUUID } from "node:crypto";
 import { Client } from "minio";
 import type { PoolClient } from "pg";
@@ -56,7 +57,8 @@ export async function standardizeItem(ctx: Ctx, itemId: string): Promise<{ ok: b
     if (!src) return { ok: false, reason: "peça sem foto" };
 
     const original = await readObject(src.ph.object_key);
-    const file = await toFile(original, "peca.png", { type: src.ph.content_type || "image/png" });
+    const ref = await shrinkRef(original, 1024, src.ph.content_type || "image/png");
+    const file = await toFile(ref.buf, `peca.${ref.ext}`, { type: ref.type });
     const img = await new OpenAI({ timeout: 150000 }).images.edit({ model: "gpt-image-2.5-sunburst", image: [file], size: "1024x1024", quality: "medium", prompt: promptFor(src.it) });
     const b64 = img.data?.[0]?.b64_json;
     if (!b64) throw new Error("a IA não devolveu imagem");
@@ -66,7 +68,7 @@ export async function standardizeItem(ctx: Ctx, itemId: string): Promise<{ ok: b
     await store.putObject(BUCKET(), key, buf, buf.length, { "Content-Type": "image/png" });
     await withUserTx(ctx, async (c) => {
       await c.query("UPDATE closet_items SET standard_object_key=$2, standard_content_type='image/png', standard_status='DONE', standard_at=now() WHERE id=$1", [itemId, key]);
-      await c.query("SELECT log_image_generation($1,$2)", [ctx.userId, ctx.tenantId]);
+      await c.query("SELECT log_image_generation($1,$2,'CATALOG')", [ctx.userId, ctx.tenantId]);
     });
     return { ok: true };
   } catch (e) {
@@ -105,7 +107,7 @@ export async function standardAllowance(c: PoolClient, userId: string): Promise<
   const sub = (await c.query("SELECT status, plan FROM my_subscription($1)", [userId])).rows[0];
   const plan = !sub || sub.status === "TRIAL" ? "ARRUMADA" : sub.plan;
   const limit = (await c.query("SELECT get_standard_limit($1) l", [plan])).rows[0]?.l as number | null;
-  const used = Number((await c.query("SELECT count(*)::int n FROM closet_items WHERE standard_at >= date_trunc('month', now())")).rows[0]?.n || 0);
+  const used = Number((await c.query("SELECT count_my_catalog_this_month($1) n", [userId])).rows[0]?.n || 0);
   return { ok: limit === null || used < limit, limit, used };
 }
 

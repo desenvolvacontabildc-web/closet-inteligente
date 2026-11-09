@@ -1,5 +1,6 @@
 "use server";
 import OpenAI, { toFile } from "openai";
+import { shrinkRef } from "./ref-image";
 import { randomUUID } from "node:crypto";
 import { Client } from "minio";
 import { redirect } from "next/navigation";
@@ -99,7 +100,8 @@ async function callIllustrationAI(refs: { key: string; type: string }[], promptB
   let img;
   try {
     if (refs.length > 0) {
-      const files = await Promise.all(refs.map(async (r, i) => toFile(await readObject(r.key), `ref-${i}.png`, { type: r.type })));
+      // Fotos reduzidas (768 px; 1024 px para o rosto da usuária): corta quase pela metade o custo de entrada da imagem.
+      const files = await Promise.all(refs.map(async (r, i) => { const s = await shrinkRef(await readObject(r.key), i === 0 && hasIdentityRef ? 1024 : 768, r.type); return toFile(s.buf, `ref-${i}.${s.ext}`, { type: s.type }); }));
       img = await openai.images.edit({ model: "gpt-image-2.5-sunburst", image: files, size: "1024x1024", quality: "medium", prompt: `${hasIdentityRef ? "" : "Use estas fotos reais das peças como referência de cor, textura e caimento. "}${promptBase}` });
     } else {
       img = await openai.images.generate({ model: "gpt-image-2.5-flare", size: "1024x1024", quality: "medium", prompt: promptBase });

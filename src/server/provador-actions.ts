@@ -1,5 +1,6 @@
 "use server";
 import OpenAI, { toFile } from "openai";
+import { shrinkRef } from "./ref-image";
 import { randomUUID } from "node:crypto";
 import { Client } from "minio";
 import { redirect } from "next/navigation";
@@ -77,7 +78,7 @@ export async function generateProvadorLook(f: FormData) {
     const refs: { key: string; type: string }[] = [];
     if (prep.likeness) refs.push(prep.likeness);
     for (const i of prep.items) refs.push({ key: i.object_key, type: i.content_type || "image/jpeg" });
-    const files = await Promise.all(refs.map(async (r, i) => toFile(await readObject(r.key), `ref-${i}.png`, { type: r.type })));
+    const files = await Promise.all(refs.map(async (r, i) => { const s = await shrinkRef(await readObject(r.key), i === 0 && prep.likeness ? 1024 : 768, r.type); return toFile(s.buf, `ref-${i}.${s.ext}`, { type: s.type }); }));
     const img = await new OpenAI({ timeout: 120000 }).images.edit({ model: "gpt-image-2.5-sunburst", image: files, size: "1024x1024", quality: "medium", prompt: `${prep.likeness ? "" : "Use estas fotos reais das peças da loja como referência de cor, textura e caimento. "}${prompt}` });
     const b64 = img.data?.[0]?.b64_json;
     if (b64) buf = Buffer.from(b64, "base64");
