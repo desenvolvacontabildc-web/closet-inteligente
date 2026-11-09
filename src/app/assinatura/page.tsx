@@ -113,7 +113,7 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
           </div>
         </div>;
       })}
-      <p className="look-meta"><strong>Cuide-se</strong> (Skincare e Cronograma Capilar): incluído nos planos Fashion e Super Star e no teste gratuito; no Arrumada é um extra mensal. <strong>Colorimetria</strong>: compra única, à parte dos planos. <a href="/assinatura/extras">Ver extras</a></p>
+      <p className="look-meta"><strong>Cuide-se</strong> (Skincare e Cronograma Capilar): incluído nos planos Fashion e Super Star e no teste gratuito; no Arrumada é um extra mensal. <strong>Colorimetria</strong>: compra única, à parte dos planos. Precisa de mais imagens? Compre <strong>créditos de imagem</strong> a partir de R$ 5,00 em Extras. <a href="/assinatura/extras">Ver extras</a></p>
       <p className="look-meta">Pix: cobrança de 30 dias, renovada aqui mesmo a cada mês — a conta é suspensa se passar de {GRACE_DAYS} dias de atraso. Cartão: cobrança automática recorrente, sem precisar voltar aqui; cancele quando quiser.</p>
     </div>
     {locked && <form action={logout}><button className="link">Sair da conta</button></form>}

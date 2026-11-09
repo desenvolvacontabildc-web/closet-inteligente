@@ -87,3 +87,37 @@ export async function startCuideseCard() {
   if (!saved) redirect("/");
   redirect(preapproval.initPoint);
 }
+
+/** Pacote de créditos de imagem (Pix). Preço e quantidade vêm do banco; os créditos entram quando o Pix é confirmado. */
+export async function startCreditsPix(f: FormData) {
+  const packId = String(f.get("pack") || "");
+  const ctx = await withProfile(async (c, userId) => {
+    const pack = (await c.query("SELECT * FROM list_credit_packs() WHERE id=$1", [packId])).rows[0];
+    if (!pack) return { ok: false as const, message: "Esse pacote não está disponível." };
+    const email = (await c.query("SELECT email FROM app_users WHERE id=$1", [userId])).rows[0]?.email as string;
+    return { ok: true as const, userId, email, pack: pack as { id: string; label: string; price_cents: number; credits: number } };
+  });
+  if (!ctx) redirect("/");
+  if (!ctx.ok) bounce(BACK, ctx.message);
+  let charge;
+  try {
+    charge = await createPixPayment({
+      amountCents: ctx.pack.price_cents,
+      description: `Closet Inteligente - ${ctx.pack.credits} créditos de imagem`,
+      payerEmail: ctx.email,
+      externalReference: `extra:${ctx.userId}`,
+      idempotencyKey: randomUUID(),
+    });
+  } catch (e) {
+    console.error("startCreditsPix falhou:", e);
+    bounce(BACK, "Não foi possível gerar a cobrança Pix agora. Tente de novo em instantes.");
+  }
+  const saved = await withProfile(async (c, userId) => {
+    await c.query("SELECT extra_create_credit_charge($1,$2,$3,$4,$5,$6,$7)",
+      [userId, ctx.pack.id, ctx.pack.price_cents, charge.id, charge.qrCode, charge.qrCodeBase64, charge.expiresAt]);
+    return true;
+  });
+  if (!saved) redirect("/");
+  await flash("Pix gerado. Escaneie o QR code ou copie o código para pagar.");
+  redirect(`${BACK}?produto=creditos#creditos`);
+}

@@ -3,7 +3,7 @@ import type { PoolClient } from "pg";
 import { mySubscription, type Plan } from "./limits";
 
 export type Extra = "COLORIMETRIA" | "CUIDESE";
-export const EXTRA_NAME: Record<Extra, string> = { COLORIMETRIA: "Colorimetria pessoal", CUIDESE: "Cuide-se (Skincare e Cronograma Capilar)" };
+export const EXTRA_NAME: Record<Extra | "CREDITOS", string> = { COLORIMETRIA: "Colorimetria pessoal", CUIDESE: "Cuide-se (Skincare e Cronograma Capilar)", CREDITOS: "Créditos de imagem" };
 
 export type CuideseAccess = {
   access: boolean;

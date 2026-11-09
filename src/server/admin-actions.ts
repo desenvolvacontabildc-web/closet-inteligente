@@ -200,3 +200,26 @@ export async function setExtraPrice(f:FormData){
   await flash("Preço do extra salvo. Vale para novas compras.");
   redirect("/admin/precos");
 }
+
+export async function adminCreditPacks(){
+  const result=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_list_credit_packs($1)",[userId])).rows}
+    catch(e){console.error("adminCreditPacks falhou:",e);return null}
+  });
+  return result||[];
+}
+export async function setCreditPack(f:FormData){
+  let id=String(f.get("id")||"").toUpperCase().replace(/[^A-Z0-9_]/g,"").slice(0,24);
+  if(!id)id="PK"+Date.now().toString(36).toUpperCase();
+  const label=String(f.get("label")||"").trim().slice(0,40)||id;
+  const priceCents=Math.round(reais(f.get("price"))*100);
+  const credits=Math.floor(Number(f.get("credits")||0));
+  const sort=Math.floor(Number(f.get("sort")||0))||0;
+  const active=f.get("active")==="on";
+  if(!(priceCents>0)||!(credits>0))bounce("/admin/precos","Informe um preço e uma quantidade de créditos maiores que zero.");
+  try{
+    await withProfile(async(c,userId)=>{await c.query("SELECT admin_upsert_credit_pack($1,$2,$3,$4,$5,$6,$7)",[userId,id,label,priceCents,credits,sort,active]);return true});
+  }catch(e){console.error("setCreditPack falhou:",e);bounce("/admin/precos","Não foi possível salvar o pacote.")}
+  await flash("Pacote de créditos salvo.");
+  redirect("/admin/precos");
+}

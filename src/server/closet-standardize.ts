@@ -69,6 +69,9 @@ export async function standardizeItem(ctx: Ctx, itemId: string): Promise<{ ok: b
     await withUserTx(ctx, async (c) => {
       await c.query("UPDATE closet_items SET standard_object_key=$2, standard_content_type='image/png', standard_status='DONE', standard_at=now() WHERE id=$1", [itemId, key]);
       await c.query("SELECT log_image_generation($1,$2,'CATALOG')", [ctx.userId, ctx.tenantId]);
+      // Passou da cota do plano (a geração acima já conta): quem pagou essa foi um crédito de imagem.
+      const q = await catalogQuota(c, ctx.userId);
+      if (q.limit !== null && q.used > q.limit) await c.query("UPDATE profiles SET bonus_image_credits = bonus_image_credits - 1 WHERE user_id=$1 AND bonus_image_credits > 0", [ctx.userId]);
     });
     return { ok: true };
   } catch (e) {
@@ -99,16 +102,27 @@ export async function runStandardizeBatch(ctx: Ctx, limit?: number): Promise<voi
 
 export function isStandardizing(userId: string): boolean { return running.has(userId); }
 
-/** Quantas fotos de catálogo a usuária ainda pode gerar neste mês (administradora: sem limite; teste gratuito usa o
- * limite do plano Fashion). */
-export async function standardAllowance(c: PoolClient, userId: string): Promise<{ ok: boolean; limit: number | null; used: number }> {
+/** Cota mensal de fotos de catálogo do plano (administradora: sem limite; teste gratuito usa o limite do plano Arrumada). */
+async function catalogQuota(c: PoolClient, userId: string): Promise<{ limit: number | null; used: number }> {
   const admin = (await c.query("SELECT is_admin FROM app_users WHERE id=$1", [userId])).rows[0]?.is_admin;
-  if (admin) return { ok: true, limit: null, used: 0 };
+  if (admin) return { limit: null, used: 0 };
   const sub = (await c.query("SELECT status, plan FROM my_subscription($1)", [userId])).rows[0];
   const plan = !sub || sub.status === "TRIAL" ? "ARRUMADA" : sub.plan;
   const limit = (await c.query("SELECT get_standard_limit($1) l", [plan])).rows[0]?.l as number | null;
   const used = Number((await c.query("SELECT count_my_catalog_this_month($1) n", [userId])).rows[0]?.n || 0);
-  return { ok: limit === null || used < limit, limit, used };
+  return { limit, used };
+}
+
+/** Pode gerar uma foto de catálogo agora? Dentro da cota do plano, sim. Passou da cota: só se `allowCredits` (botão manual)
+ * e a usuária tiver créditos de imagem comprados/ganhos. A geração automática ao cadastrar peça NUNCA gasta créditos. */
+export async function standardAllowance(c: PoolClient, userId: string, allowCredits = true): Promise<{ ok: boolean; limit: number | null; used: number; source: "PLAN" | "BONUS" }> {
+  const q = await catalogQuota(c, userId);
+  if (q.limit === null || q.used < q.limit) return { ok: true, ...q, source: "PLAN" };
+  if (allowCredits) {
+    const bonus = Number((await c.query("SELECT bonus_image_credits FROM profiles WHERE user_id=$1", [userId])).rows[0]?.bonus_image_credits || 0);
+    if (bonus > 0) return { ok: true, ...q, source: "BONUS" };
+  }
+  return { ok: false, ...q, source: "PLAN" };
 }
 
 /** Disparada ao cadastrar uma peça com foto (ou trocar a foto): gera a foto de catálogo em segundo plano, sem
@@ -117,7 +131,7 @@ export function scheduleStandardize(ctx: Ctx, itemId: string): void {
   if (!process.env.OPENAI_API_KEY) return;
   void (async () => {
     try {
-      const allowed = await withUserTx(ctx, (c) => standardAllowance(c, ctx.userId));
+      const allowed = await withUserTx(ctx, (c) => standardAllowance(c, ctx.userId, false));
       if (!allowed.ok) { console.log("scheduleStandardize: cota mensal de fotos de catálogo esgotada para", ctx.userId); return; }
       await standardizeItem(ctx, itemId);
     } catch (e) { console.error("scheduleStandardize falhou:", e); }

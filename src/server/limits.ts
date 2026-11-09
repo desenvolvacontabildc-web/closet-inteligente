@@ -99,8 +99,8 @@ export async function checkImageAllowance(c: PoolClient, userId: string): Promis
   if (used < cfg.image_gen_monthly_limit) return { ok: true, source: "PLAN" };
   const bonus = await bonusImageCredits(c, userId);
   if (bonus > 0) return { ok: true, source: "BONUS" };
-  if (sub.status === "TRIAL") return { ok: false, message: `O teste gratuito inclui ${cfg.image_gen_monthly_limit} gerações de imagem e elas já foram usadas. Escolha um plano em Perfil → Assinatura para gerar mais.` };
-  return { ok: false, message: `Seu plano ${PLAN_LABEL[plan]} permite ${cfg.image_gen_monthly_limit} gerações de imagem por mês. Esse limite já foi atingido — veja os planos em Perfil → Assinatura para ter mais.` };
+  if (sub.status === "TRIAL") return { ok: false, message: `O teste gratuito inclui ${cfg.image_gen_monthly_limit} gerações de imagem e elas já foram usadas. Compre créditos em Assinatura → Extras ou escolha um plano para gerar mais.` };
+  return { ok: false, message: `Seu plano ${PLAN_LABEL[plan]} permite ${cfg.image_gen_monthly_limit} gerações de imagem por mês. Esse limite já foi atingido — compre créditos em Assinatura → Extras ou veja os planos para ter mais.` };
 }
 
 /** Chamar só depois que a geração de imagem funcionou de verdade -- o contador do plano já se
