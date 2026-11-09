@@ -13,7 +13,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       <p>Não é só um closet: é um estilo que evolui com você -- looks pensados pro seu dia, sugestões que melhoram com o uso, e recompensas por continuar ativa (créditos de bônus no cadastro, em marcos de uso e quando você indica uma amiga).</p>
     </section>
     <div className="cards">
-      <form action={register} className="card">
+      <form action={register} className="card" id="criar-conta">
         <h2>Criar conta</h2>
         {registerError && <p role="alert">{registerError}</p>}
         <label>Seu nome<input name="name" required /></label>
