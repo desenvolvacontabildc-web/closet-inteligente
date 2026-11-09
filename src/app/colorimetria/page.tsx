@@ -107,7 +107,7 @@ function ResultsView({ dossier, profile, closetItems, error }: any) {
   const allTokensInCloset = new Set(itemTokenSets.flatMap(({ tokens }: any) => [...tokens]));
   const gaps = allFavorable.filter((c) => !colorTokens(c.name).some((t) => allTokensInCloset.has(t)));
   const neutralHexes = new Set(asColorArray(melhores.neutros).map((c: any) => String(c.hex).toLowerCase()));
-  const paletteForRoulette = Array.from(new Map(allFavorable.map((c: any) => [String(c.hex).toLowerCase(), c])).values()).map((c: any) => ({
+  const paletteForRoulette = Array.from(new Map(allFavorable.filter((c: any) => /^#[0-9a-f]{6}$/i.test(String(c.hex).trim())).map((c: any) => [String(c.hex).trim().toLowerCase(), c])).values()).map((c: any) => ({
     name: String(c.name || c.hex), hex: String(c.hex), neutral: neutralHexes.has(String(c.hex).toLowerCase()), tokens: colorTokens(c.name || ""),
   }));
   const piecesForRoulette = itemTokenSets.map(({ it, tokens }: any) => ({ id: it.id, name: it.name, category: it.category, photoId: it.photo_id || null, tokens: [...tokens] }));
