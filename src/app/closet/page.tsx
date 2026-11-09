@@ -49,7 +49,7 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
           <form action={startStandardize}><input type="hidden" name="limit" value="3"/><SubmitButton disabled={standardizing} pendingText="Iniciando...">Testar com 3 peças</SubmitButton></form>
           <form action={startStandardize}><SubmitButton disabled={standardizing||std.done>=std.total} pendingText="Iniciando...">{`Padronizar as ${Math.max(0,std.total-std.done)} restantes`}</SubmitButton></form>
         </div>
-        <p className="look-meta">Cada peça usa 1 geração de imagem (custo estimado de R$ 0,30 cada).</p>
+        <p className="look-meta">Cada peça usa 1 geração de imagem (custo estimado de R$ 0,17 cada).</p>
       </div>
     </details>}
     <div className="section-head"><h2>Peças cadastradas</h2><span className="look-meta">{items.length} {items.length===1?"peça":"peças"}{(category||color||status)?" com este filtro":""}</span></div>

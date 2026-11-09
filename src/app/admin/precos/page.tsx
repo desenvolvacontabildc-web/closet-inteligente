@@ -29,7 +29,7 @@ export default async function Precos({ searchParams }: { searchParams: Promise<{
     ))}
     <section className="card">
       <h2>Fotos de catálogo (automáticas)</h2>
-      <p className="look-meta">Cada peça com foto ganha, ao ser cadastrada, uma foto de catálogo gerada por IA (custo estimado de R$ 0,30 cada). Defina quantas cada plano gera por mês; passou do limite, a peça segue com a foto original. Vazio = ilimitado. O teste gratuito usa o limite do Fashion.</p>
+      <p className="look-meta">Cada peça com foto ganha, ao ser cadastrada, uma foto de catálogo gerada por IA (custo estimado de R$ 0,17 cada). Defina quantas cada plano gera por mês; passou do limite, a peça segue com a foto original. Vazio = ilimitado. O teste gratuito usa o limite do Fashion.</p>
       {plans.map((p: any) => (
         <form key={p.plan} action={setStandardLimit} className="form">
           <input type="hidden" name="plan" value={p.plan} />
