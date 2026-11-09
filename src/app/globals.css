@@ -627,3 +627,28 @@ input[type=file]::file-selector-button{background:var(--blush);color:var(--accen
 .sk-short{height:110px}
 @keyframes sk-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @media (prefers-reduced-motion:reduce){.skeleton{animation:none}}
+
+/* Skincare */
+.skin-today-head{margin:18px 0 4px}
+.skin-today-head p{margin:0}
+.skin-card.current{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent),var(--shadow)}
+.skin-count{margin:0 0 4px}
+.skin-step{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--line)}
+.skin-step:first-of-type{border-top:0}
+.skin-body{flex:1;min-width:0}
+.skin-title{margin:2px 0 2px;font-weight:600;line-height:1.35}
+.skin-step.done .skin-title{text-decoration:line-through;opacity:.5}
+button.skin-check{flex:none;width:34px !important;height:34px;min-height:34px !important;padding:0 !important;margin:2px 0 0 !important;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;background:#fffefd !important;color:transparent;
+  border:2px solid var(--line-strong);box-shadow:none !important;transition:background .15s,border-color .15s,color .15s,transform .1s}
+button.skin-check:hover:not(:disabled){border-color:var(--accent);transform:none}
+button.skin-check:active{transform:scale(.92)}
+button.skin-check[aria-pressed="true"]{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 74%,#e8809f),var(--accent)) !important;border-color:var(--accent);color:#fff}
+.skin-error{color:#9b2c22}
+.skin-week{display:flex;gap:10px;margin:10px 0 6px;flex-wrap:wrap}
+.skin-dot-col{display:flex;flex-direction:column;align-items:center;gap:4px}
+.skin-dot-col small{font-size:11px;color:var(--muted)}
+.skin-dot{width:30px;height:30px;border-radius:50%;border:2px solid var(--line-strong);background:#fffefd}
+.skin-dot.full{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 74%,#e8809f),var(--accent));border-color:var(--accent)}
+.skin-dot.part{background:linear-gradient(90deg,var(--accent) 50%,#fffefd 50%);border-color:var(--accent)}
+.skin-dot.off{opacity:.35;border-style:dashed}

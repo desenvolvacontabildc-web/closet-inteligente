@@ -48,7 +48,7 @@ export default function FlashToast() {
       const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
       const isAction = (init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase() === "POST" && headers.has("next-action");
       const promise = originalFetch.call(window, input as any, init);
-      if (!isAction) return promise;
+      if (!isAction || (window as unknown as { __quietActions?: number }).__quietActions) return promise;
       inflight.current++;
       show({ text: "Processando…", kind: "busy" });
       promise.then((res) => {

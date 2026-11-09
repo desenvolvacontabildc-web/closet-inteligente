@@ -8,6 +8,7 @@ import SubmitButton from "@/components/submit-button";
 import { reviewCandidates } from "@/server/closet-review";
 import { snoozeClosetReview } from "@/server/closet-review-actions";
 import { hairReminder } from "@/server/hair-progress";
+import { skinReminder } from "@/server/skin-progress";
 import { toggleHairStep } from "@/server/hair-actions";
 import { STEP_TYPES } from "@/server/hair-options";
 export default async function Home({searchParams}:{searchParams:Promise<{error?:string,skip?:string}>}){
@@ -43,11 +44,12 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      ORDER BY last_used_at ASC NULLS FIRST LIMIT 1`,[skipIds])).rows[0]||null;
    const review=await reviewCandidates(c,50);
    const hair=await hairReminder(c);
-   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review,hair};
+   const skin=await skinReminder(c);
+   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review,hair,skin};
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until,hair}=profile;
+ const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until,hair,skin}=profile;
  const showReview=review.length>0&&(!closet_review_snooze_until||new Date(closet_review_snooze_until)<new Date());
  const weather=await fetchCurrentWeather(city||"");
  const firstName=((display_name||"").trim().split(/\s+/)[0]||"").toLowerCase().replace(/^./,(ch:string)=>ch.toUpperCase());
@@ -176,6 +178,19 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          <h2>Ciclo concluído</h2>
          <p className="look-meta">{hair.done} de {hair.total} etapas feitas. Hora de reavaliar o cabelo: um novo questionário gera o próximo diagnóstico e ciclo.</p>
          <div className="action-row"><Link href="/cuidese/cronograma?novo=1"><strong>Fazer o novo questionário</strong></Link></div>
+       </>}
+     </div>}
+     {skin&&(skin.steps||skin.review)&&<div className="card hair-reminder">
+       <span className="eyebrow">SKINCARE{skin.steps?` · ${skin.steps.period==="AM"?"MANHÃ":"NOITE"}`:""}</span>
+       {skin.steps?<>
+         <h2>{skin.steps.period==="AM"?"Rotina da manhã":"Rotina da noite"}: {skin.steps.done} de {skin.steps.total}</h2>
+         <p className="look-meta">Próxima etapa: {skin.steps.next.titulo}</p>
+         <div className="hair-progress" aria-hidden="true"><i style={{width:`${Math.round((skin.steps.done/skin.steps.total)*100)}%`}}/></div>
+         <div className="action-row"><Link href="/cuidese/skincare"><strong>Abrir minha rotina</strong></Link></div>
+       </>:<>
+         <h2>Hora de reavaliar a pele</h2>
+         <p className="look-meta">O prazo da sua rotina chegou ao fim. Um novo questionário ajusta o diagnóstico e os produtos.</p>
+         <div className="action-row"><Link href="/cuidese/skincare?novo=1"><strong>Fazer o novo questionário</strong></Link></div>
        </>}
      </div>}
      <div className="quick-actions">
