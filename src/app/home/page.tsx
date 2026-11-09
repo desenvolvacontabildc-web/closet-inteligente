@@ -7,6 +7,9 @@ import { fetchCurrentWeather } from "@/server/weather";
 import SubmitButton from "@/components/submit-button";
 import { reviewCandidates } from "@/server/closet-review";
 import { snoozeClosetReview } from "@/server/closet-review-actions";
+import { hairReminder } from "@/server/hair-progress";
+import { toggleHairStep } from "@/server/hair-actions";
+import { STEP_TYPES } from "@/server/hair-options";
 export default async function Home({searchParams}:{searchParams:Promise<{error?:string,skip?:string}>}){
  const {error,skip}=await searchParams;
  const skipIds=(skip||"").split(",").filter(Boolean);
@@ -39,11 +42,12 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      FROM closet_items ci WHERE ci.status='ACTIVE' AND ci.id::text != ALL($1::text[])
      ORDER BY last_used_at ASC NULLS FIRST LIMIT 1`,[skipIds])).rows[0]||null;
    const review=await reviewCandidates(c,50);
-   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review};
+   const hair=await hairReminder(c);
+   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review,hair};
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until}=profile;
+ const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until,hair}=profile;
  const showReview=review.length>0&&(!closet_review_snooze_until||new Date(closet_review_snooze_until)<new Date());
  const weather=await fetchCurrentWeather(city||"");
  const firstName=((display_name||"").trim().split(/\s+/)[0]||"").toLowerCase().replace(/^./,(ch:string)=>ch.toUpperCase());
@@ -147,6 +151,33 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          </form>
        </details>
      </div>
+     {hair&&<div className="card hair-reminder">
+       <span className="eyebrow">CRONOGRAMA CAPILAR{hair.state!=="FINISHED"?` · SEMANA ${hair.week} DE ${hair.weeks}`:""}</span>
+       {hair.state==="DUE"&&<>
+         <h2>{hair.late?"Etapa pendente: ":"Sua etapa da semana: "}{STEP_TYPES[hair.step.tipo]||hair.step.tipo}</h2>
+         <p className="look-meta">{hair.step.titulo}{hair.late?` (da semana ${hair.step.week})`:""}</p>
+         {hair.step.preferir.length>0&&<p className="look-meta">Prefira produtos com {hair.step.preferir.slice(0,3).join(", ")}.</p>}
+         <div className="hair-progress" aria-hidden="true"><i style={{width:`${Math.round((hair.done/hair.total)*100)}%`}}/></div>
+         <div className="action-row">
+           <form action={toggleHairStep}>
+             <input type="hidden" name="cycle_id" value={hair.cycleId}/><input type="hidden" name="step_id" value={hair.step.id}/><input type="hidden" name="return_to" value="/home"/>
+             <SubmitButton pendingText="Salvando...">Marcar como feita</SubmitButton>
+           </form>
+           <Link href={`/cuidese/cronograma#semana-${hair.step.week}`}>Como fazer</Link>
+         </div>
+       </>}
+       {hair.state==="ONTRACK"&&<>
+         <h2>Você está em dia</h2>
+         <p className="look-meta">As etapas desta semana já foram feitas. A próxima semana do cronograma começa em {hair.nextStart.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}.</p>
+         <div className="hair-progress" aria-hidden="true"><i style={{width:`${Math.round((hair.done/hair.total)*100)}%`}}/></div>
+         <div className="action-row"><Link href="/cuidese/cronograma">Ver o cronograma</Link></div>
+       </>}
+       {hair.state==="FINISHED"&&<>
+         <h2>Ciclo concluído</h2>
+         <p className="look-meta">{hair.done} de {hair.total} etapas feitas. Hora de reavaliar o cabelo: um novo questionário gera o próximo diagnóstico e ciclo.</p>
+         <div className="action-row"><Link href="/cuidese/cronograma?novo=1"><strong>Fazer o novo questionário</strong></Link></div>
+       </>}
+     </div>}
      <div className="quick-actions">
        <Link href="/looks"><span aria-hidden="true">✦</span>Criar look</Link>
        <Link href="/looks/analisar"><span aria-hidden="true">✦</span>Analisar meu look</Link>

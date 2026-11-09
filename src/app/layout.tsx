@@ -10,7 +10,7 @@ const displayFont = Cormorant_Garamond({ subsets: ["latin"], weight: ["500", "60
 const uiFont = Manrope({ subsets: ["latin"], variable: "--font-manrope", display: "swap" });
 
 export const metadata: Metadata = { title: "Closet Inteligente" };
-export const viewport: Viewport = { themeColor: "#f7f2ec" };
+export const viewport: Viewport = { themeColor: "#fbf3f1" };
 
 const GRACE_DAYS = 5;
 let lastBillingMaintenance = 0; // roda no máximo a cada 10 min por processo (o bloqueio em si é calculado no banco, sem depender disto)

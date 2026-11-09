@@ -144,7 +144,8 @@ export async function submitHairQuestionnaire(f: FormData) {
 /** Marca (ou desmarca) uma etapa do ciclo ativo como feita. */
 export async function toggleHairStep(f: FormData) {
   const cycleId = String(f.get("cycle_id") || ""), stepId = String(f.get("step_id") || "");
-  if (!/^[0-9a-f-]{36}$/i.test(cycleId) || !/^s\d{1,2}-\d{1,2}$/.test(stepId)) bounce(BACK, "Etapa inválida.");
+  const back = String(f.get("return_to") || "") === "/home" ? "/home" : BACK; // só volta para a Home ou para o cronograma
+  if (!/^[0-9a-f-]{36}$/i.test(cycleId) || !/^s\d{1,2}-\d{1,2}$/.test(stepId)) bounce(back, "Etapa inválida.");
   const r = await withProfile(async (c) => {
     const cy = (await c.query("SELECT plan FROM hair_cycles WHERE id=$1 AND status='ACTIVE'", [cycleId])).rows[0];
     if (!cy) return { state: "gone" as const };
@@ -164,11 +165,11 @@ export async function toggleHairStep(f: FormData) {
     return { state, title: step.titulo, all: doneCount >= steps.length };
   });
   if (!r) redirect("/");
-  if (r.state === "gone") bounce(BACK, "Esse ciclo não está mais ativo.");
+  if (r.state === "gone") bounce(back, "Esse ciclo não está mais ativo.");
   if (r.state === "done") {
     await flash(r.all ? "Ciclo completo! Responda o novo questionário para gerar o próximo." : `Etapa registrada: ${r.title}.`);
   } else {
     await flash("Registro desfeito.", "info");
   }
-  redirect(BACK);
+  redirect(back);
 }

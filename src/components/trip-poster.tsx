@@ -19,8 +19,8 @@ const STYLE_OPTIONS = [
 ];
 
 // paleta do pôster = a mesma do app (marfim, espresso e dourado envelhecido)
-const BG = "#f7f2ec", INK = "#241d1f", WINE = "#241d1f", MUTED = "#74685f", PANEL = "#fffdfa", PANEL_LINE = "#e8dfd3", PILL = "#241d1f";
-const SOFT = "#f2eadf", GOLD = "#b08d57", GOLD_INK = "#86693c";
+const BG = "#fbf3f1", INK = "#2b1c25", WINE = "#8e3a57", MUTED = "#7f6b73", PANEL = "#fffdfc", PANEL_LINE = "#f0dfdd", PILL = "#8e3a57";
+const SOFT = "#f7e9e7", GOLD = "#c4a07a", GOLD_INK = "#876744";
 // fontes do app (Cormorant Garamond + Manrope), lidas das variáveis do site na hora de desenhar
 let DISP = "Georgia, serif", UI = "system-ui, sans-serif";
 

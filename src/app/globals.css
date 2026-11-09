@@ -520,3 +520,101 @@ button.ghost{background:transparent;color:var(--accent);border:1px solid var(--a
 .hair-how p{margin:8px 0;font-size:14px;line-height:1.55}
 .hair-finish{border:1px solid var(--accent)}
 .button-link{display:inline-block;margin-top:8px;padding:12px 22px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;text-decoration:none}
+
+/* =====================================================================
+   TEMA v4 -- ROSÉ & BORGONHA
+   Blush e marfim rosado, borgonha rosé como cor de destaque, champanhe
+   nos detalhes e ameixa profunda no texto. Feminino, moderno e elegante.
+   Vem por último para valer sobre as regras anteriores.
+   ===================================================================== */
+:root{
+  --accent:#8e3a57;--gold:#c4a07a;--gold-ink:#876744;
+  --bg:#fbf3f1;--surface:#fffdfc;--surface-2:#fdf5f3;--soft:#f7e9e7;--bg-soft:#f7e9e7;--blush:#f3dcdc;
+  --ink:#2b1c25;--ink-2:#55434c;--muted:#7f6b73;--faint:#c0adb3;
+  --line:#f0dfdd;--line-strong:#e3cbc9;
+  --radius:26px;--radius-sm:16px;
+  --shadow:0 1px 1px rgba(110,40,70,.04),0 18px 40px -24px rgba(125,45,85,.36);
+  --shadow-lg:0 26px 64px -28px rgba(110,35,70,.48);
+}
+body{
+  background:
+    radial-gradient(900px 440px at 12% -90px,rgba(243,201,208,.62) 0%,rgba(243,201,208,0) 70%),
+    radial-gradient(820px 400px at 104% -50px,rgba(231,203,170,.38) 0%,rgba(231,203,170,0) 70%),
+    var(--bg);
+  background-attachment:fixed;
+}
+::selection{background:color-mix(in srgb,var(--accent) 24%,transparent)}
+
+/* tipografia: título com mais presença e linha-detalhe em degradê rosé e champanhe */
+h1{font-weight:500;letter-spacing:-.02em}
+.eyebrow{color:var(--accent)}
+.eyebrow::before{background:linear-gradient(90deg,var(--accent),var(--gold));width:30px}
+.card h2,.form h2,.empty h2{color:var(--ink)}
+.look-meta{color:var(--muted)}
+.hero-rule{background:linear-gradient(90deg,var(--accent),var(--gold));height:2px;border-radius:2px}
+
+/* superfícies */
+.card,.form,.look-card,.trend-teaser{
+  background:linear-gradient(180deg,#fffefd 0%,var(--surface) 100%);
+  border:1px solid var(--line);box-shadow:var(--shadow)}
+.empty,.empty-note,.trial-banner{background:linear-gradient(180deg,var(--soft),#f9ece9);border:1px solid var(--line-strong)}
+.alert-card{background:#fcefee;border-color:#eec9cb}
+.eval-card strong,.board-day,.pill-note,.chip-note{color:var(--accent)}
+.pill-note,.chip-note{background:var(--soft)}
+
+/* botões: brilho rosé com sombra tingida */
+button{
+  background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 74%,#e8809f) 0%,var(--accent) 62%,color-mix(in srgb,var(--accent) 86%,#2b1c25) 100%);
+  box-shadow:0 14px 24px -14px color-mix(in srgb,var(--accent) 90%,#000),inset 0 1px 0 rgba(255,255,255,.28)}
+button:hover:not(:disabled){box-shadow:0 18px 28px -14px color-mix(in srgb,var(--accent) 95%,#000),inset 0 1px 0 rgba(255,255,255,.28)}
+.secondary button{background:linear-gradient(135deg,#4a2f3c,var(--ink));box-shadow:0 14px 24px -14px rgba(43,28,37,.75)}
+.action-row a,.action-row button,button.reject,.danger-btn{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong)}
+.action-row a:hover,.action-row button:hover:not(:disabled),button.reject:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.action-row a.active,.action-row button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.link,.danger-link{background:none;box-shadow:none}
+button.ghost{background:transparent;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 55%,transparent);box-shadow:none}
+.button-link{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 74%,#e8809f),var(--accent));box-shadow:0 14px 24px -14px color-mix(in srgb,var(--accent) 90%,#000)}
+
+/* formulários e chips */
+.card input,.form input,.form textarea,.form select,.card select,.filter-form select{background:#fffefd;border-color:var(--line-strong)}
+.card input:focus,.form input:focus,.form textarea:focus,.form select:focus,.card select:focus{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 16%,transparent)}
+.chip span{background:#fffefd;border-color:var(--line-strong);color:var(--ink-2)}
+.chip span:hover{border-color:var(--accent);color:var(--accent)}
+.chip input:checked+span{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 80%,#e8809f),var(--accent));color:#fff;border-color:var(--accent);box-shadow:0 8px 16px -10px color-mix(in srgb,var(--accent) 90%,#000)}
+input[type=file]{background:var(--surface-2);border-color:var(--line-strong)}
+input[type=file]::file-selector-button{background:var(--blush);color:var(--accent)}
+
+/* navegação: dock rosada, ícone ativo em borgonha com aro champanhe */
+.bottom-nav{background:rgba(255,250,249,.86);border-color:var(--line);box-shadow:0 26px 64px -26px rgba(110,35,70,.5)}
+.bottom-nav a{color:#b4a0a8}
+.bottom-nav a.active{color:var(--accent)}
+.bottom-nav a.active .nav-icon{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 76%,#e8809f),var(--accent));color:#fff;box-shadow:0 0 0 2px var(--surface),0 0 0 3px var(--gold),0 10px 18px -8px color-mix(in srgb,var(--accent) 90%,#000)}
+.nav-badge{background:var(--accent)}
+.billing-banner{background:linear-gradient(90deg,#3d2231,#2b1c25);color:#f6dfc4;border-bottom-color:var(--gold)}
+.toast{background:#2b1c25}
+.toast-info{background:#7a5a3c}
+
+/* Home */
+.avatar{box-shadow:0 0 0 3px var(--surface),0 0 0 5px var(--gold)}
+.avatar-placeholder{background:var(--blush);color:var(--accent)}
+.quick-actions a{background:linear-gradient(180deg,#fffefd,var(--surface-2));border:1px solid var(--line)}
+.quick-actions a span{color:var(--accent)}
+.quick-actions a:hover{border-color:var(--accent);box-shadow:0 14px 28px -20px color-mix(in srgb,var(--accent) 80%,#000)}
+.day-body strong{color:var(--ink)}
+.home-review{background:linear-gradient(180deg,var(--surface),var(--soft))}
+.tabs a.active{color:var(--accent);border-bottom-color:var(--accent)}
+.cover-empty,.look-thumb-placeholder,.avatar-placeholder,.outfit-collage-placeholder,.ph{color:var(--accent)}
+.ready-tile,.closet-tile .thumb{box-shadow:0 14px 28px -22px rgba(125,45,85,.5)}
+.brand-mark{border-color:var(--accent);color:var(--accent);background:var(--blush)}
+.strategy-card:has(input:checked){border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
+
+/* Cronograma capilar e lembrete da Home */
+.hair-profile div{background:var(--soft)}
+.hair-progress{background:var(--blush)}
+.hair-progress>i{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 70%,#e8809f),var(--accent))}
+.hair-finish{border-color:var(--accent);background:linear-gradient(180deg,#fffefd,var(--soft))}
+.hair-reminder{position:relative;overflow:hidden;background:linear-gradient(135deg,#fffefd 0%,var(--soft) 100%)}
+.hair-reminder::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(180deg,var(--accent),var(--gold))}
+.hair-reminder h2{margin:6px 0 2px}
+.hair-reminder .action-row{align-items:center}
+.hair-reminder .action-row form{margin:0}

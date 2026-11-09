@@ -6,8 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Uma consultora pessoal que conhece você e conhece o seu closet.",
     start_url: "/home",
     display: "standalone",
-    background_color: "#f7f2ec",
-    theme_color: "#8d6240",
+    background_color: "#fbf3f1",
+    theme_color: "#8e3a57",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
