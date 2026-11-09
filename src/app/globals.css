@@ -895,3 +895,57 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .pres-cards2{grid-template-columns:1fr 1fr;max-width:640px}
 @media (max-width:560px){.pres-cards2{grid-template-columns:1fr}}
 .pres-card{text-align:left}
+
+/* ===== Mala concluida: capa, dia a dia, checklist e exportacao ===== */
+.trip-result{max-width:1000px}
+.trip-hero{background:radial-gradient(520px 260px at 100% 0,var(--blush),transparent 70%),var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:26px 24px;box-shadow:var(--shadow);margin-top:10px;display:grid;gap:12px}
+.trip-hero-eyebrow{letter-spacing:.22em;text-transform:uppercase;font-size:11px;font-weight:800;color:var(--gold-ink)}
+.trip-hero h1{font-family:var(--font-display);font-weight:600;font-size:clamp(38px,8vw,62px);line-height:1;margin:0;color:var(--ink)}
+.trip-chips{display:flex;flex-wrap:wrap;gap:8px}
+.trip-chips span{padding:6px 14px;border-radius:999px;border:1px solid var(--gold);color:var(--ink);font-size:13px;font-weight:700;background:rgba(255,253,252,.7)}
+.trip-clima{margin:0;padding:10px 14px;border-radius:14px;background:var(--soft);font-size:14px;color:var(--ink-2)}
+.trip-clima strong{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-ink);margin-bottom:2px}
+.trip-hero .trip-reasoning{margin:0;max-width:none;font-family:var(--font-display);font-style:italic;font-size:20px;line-height:1.4;color:var(--ink);border-left:3px solid var(--gold);padding-left:14px}
+.trip-alerts{background:#fffaf0;border:1px solid #efd9b0;border-radius:14px;padding:10px 14px;font-size:13px;color:var(--ink-2)}
+.trip-alerts strong{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-ink)}
+.trip-alerts p{margin:4px 0 0}
+.trip-hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+.trip-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 20px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;font-size:14px;text-decoration:none;box-shadow:var(--shadow)}
+.trip-btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line-strong);box-shadow:none}
+.trip-days{display:grid;gap:16px;margin-top:12px}
+.trip-day{display:grid;grid-template-columns:minmax(0,300px) 1fr;gap:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);break-inside:avoid}
+.trip-day-img{position:relative;background:var(--soft);min-height:300px}
+.trip-day-img>img{width:100%;height:100%;object-fit:cover;display:block;position:absolute;inset:0}
+.trip-day-stack{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:2px}
+.trip-day-stack img,.trip-day-stack .board-ph{width:100%;height:100%;object-fit:cover;border-radius:0}
+.trip-day-pill{position:absolute;left:12px;top:12px;background:var(--accent);color:#fff;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:5px 13px;border-radius:999px;box-shadow:var(--shadow)}
+.trip-day-body{padding:18px 20px;display:flex;flex-direction:column;gap:6px}
+.trip-day-tag{align-self:flex-start;font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--gold-ink);border:1px solid var(--gold);border-radius:999px;padding:3px 11px}
+.trip-day-body h3{font-family:var(--font-display);font-size:28px;line-height:1.1;margin:2px 0 6px;font-weight:600}
+.trip-day-pieces{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px 14px}
+.trip-day-pieces li{display:flex;align-items:center;gap:10px}
+.trip-day-pieces img,.trip-day-pieces .board-ph{flex:none;width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--soft);border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+.trip-day-pieces span{display:flex;flex-direction:column;line-height:1.25;font-size:13px}
+.trip-day-pieces small{color:var(--muted);font-size:11px}
+@media (max-width:720px){
+  .trip-day{grid-template-columns:1fr}
+  .trip-day-img{min-height:0;aspect-ratio:4/3}
+  .trip-day-body h3{font-size:24px}
+}
+.trip-check-bar{height:6px;border-radius:99px;background:var(--line-strong);overflow:hidden;margin:8px 0 12px}
+.trip-check-bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.trip-check{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.trip-check-item{margin:0}
+.trip-check-item button{width:100%;display:flex;align-items:center;gap:10px;margin:0;padding:10px 12px;min-height:46px;border-radius:14px;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);font-weight:600;text-align:left}
+.trip-check-box{flex:none;width:22px;height:22px;border-radius:7px;border:2px solid var(--line-strong);position:relative;background:var(--surface)}
+.trip-check-item.done button{color:var(--muted);text-decoration:line-through}
+.trip-check-item.done .trip-check-box{background:var(--accent);border-color:var(--accent)}
+.trip-check-item.done .trip-check-box::after{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.export-trip h2{margin-bottom:2px}
+.export-opt{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;padding:14px 16px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm)}
+.export-opt h3{margin:0 0 2px;font-size:17px}
+.export-opt p{margin:0}
+.export-opt button{margin:0;flex:none}
+.export-panel .action-row a{display:inline-flex;align-items:center;min-height:38px}
+@media (max-width:560px){.export-opt{flex-direction:column;align-items:stretch}.export-opt button{width:100%}}
+@media print{.trip-hero,.trip-day{box-shadow:none}.trip-hero-actions{display:none}}

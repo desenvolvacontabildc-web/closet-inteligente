@@ -10,7 +10,6 @@ import { generateLookIllustration } from "@/server/look-actions";
 import { aiUsageRemaining, imageGenerationsRemaining } from "@/server/limits";
 import SubmitButton from "@/components/submit-button";
 import ConfirmButton from "@/components/confirm-button";
-import PrintButton from "@/components/print-button";
 import TripPoster from "@/components/trip-poster";
 
 const TOTAL_STEPS = 9;
@@ -304,66 +303,113 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
     };
     const diasLivres = trip.dias ? Math.max(0, trip.dias - new Set(looks.map((l: any) => l.trip_day)).size) : 0;
 
+    const clima = trip.clima?.previsao_disponivel ? trip.clima : null;
+    const datasTxt = trip.data_ida ? `${new Date(trip.data_ida).toLocaleDateString("pt-BR")}${trip.data_volta ? ` a ${new Date(trip.data_volta).toLocaleDateString("pt-BR")}` : ""}` : "";
+    const lookLabel = (l: any) => periodOf(l).replace(/^Dia\s*\d+\s*[·\-–:]?\s*/i, "") || l.occasion || "Look";
+    const sortedPieces = (l: any) => [...(l.items || [])].sort((a: any, b: any) => slot(a.category) - slot(b.category));
+    const checklistArr = [...CHECKLIST_TEMPLATE.filter((label) => label in checklist), ...Object.keys(checklist).filter((label) => !CHECKLIST_TEMPLATE.includes(label))].map((label) => ({ label, done: !!checklist[label] }));
+    const checkDone = checklistArr.filter((c) => c.done).length;
+    const groupsPdf = (() => {
+      const g: Record<string, { name: string; photo: string | null; cat?: string }[]> = { clothes: [], swim: [], shoes: [], bags: [], accessories: [] };
+      for (const it of selectedItems) g[pieceGroup(it)].push({ name: it.name, photo: it.photo_id ? `/api/closet/photos/${it.photo_id}` : null, cat: it.category });
+      return g;
+    })();
+    const slug = String(trip.destino || "viagem").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
     return <main className="shell trip-result">
       <div className="top no-print"><span className="eyebrow">MINHA MALA</span><Link href="/mala">Voltar</Link></div>
-      <h1>{trip.destino}</h1>
-      <p className="look-meta">{trip.dias ? `${trip.dias} dia${trip.dias === 1 ? "" : "s"}` : ""}{trip.data_ida ? ` · ${new Date(trip.data_ida).toLocaleDateString("pt-BR")}${trip.data_volta ? ` a ${new Date(trip.data_volta).toLocaleDateString("pt-BR")}` : ""}` : ""} · {OBJETIVO_LABEL[trip.objetivo] || "viagem"} · {selectedItems.length} peça{selectedItems.length === 1 ? "" : "s"} · {looks.length} look{looks.length === 1 ? "" : "s"}</p>
-      {trip.reasoning && <p className="trip-reasoning">{trip.reasoning}</p>}
-      {(trip.alerts || []).length > 0 && <div className="card alert-soft">
-        <h2>Atenção</h2>
-        {trip.alerts.map((a: string, i: number) => <p key={i} className="look-meta">{a}</p>)}
-      </div>}
 
-      <TripPoster
-        destination={trip.destino}
-        days={trip.dias || null}
-        objective={trip.objetivo === "TRABALHO" ? "TRABALHO" : trip.objetivo === "MISTO" ? "TRABALHO | LAZER" : trip.objetivo === "PASSEIO" ? "LAZER" : ""}
-        fileName={`mala-${String(trip.destino || "viagem").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.png`}
-        imagesRemaining={imgRemaining}
-        defaultStyle={defaultStyle}
-        looks={sortedLooks.map((l: any) => ({
-          id: l.id, day: l.trip_day, tag: lookTag(l),
-          label: periodOf(l).replace(/^Dia\s*\d+\s*[·\-–:]?\s*/i, "") || l.occasion,
-          imageUrl: l.has_illustration ? `/api/looks/${l.id}/illustration` : null,
-          pieces: [...(l.items || [])].sort((a: any, b: any) => slot(a.category) - slot(b.category)).map((it: any) => ({ name: it.name, photo: it.photo_id ? `/api/closet/photos/${it.photo_id}` : null })),
-        }))}
-        groups={(() => {
-          const g: Record<string, { name: string; photo: string | null }[]> = { swim: [], shoes: [], bags: [], accessories: [], clothes: [] };
-          for (const it of selectedItems) g[pieceGroup(it)].push({ name: it.name, photo: it.photo_id ? `/api/closet/photos/${it.photo_id}` : null });
-          return g as any;
-        })()}
-        checklist={[...CHECKLIST_TEMPLATE.filter((label) => label in (trip.checklist || {})), ...Object.keys(trip.checklist || {}).filter((label) => !CHECKLIST_TEMPLATE.includes(label))].map((label) => ({ label, done: !!(trip.checklist || {})[label] }))}
-      />
-      <div className="action-row no-print">
-        <PrintButton>Imprimir / salvar PDF</PrintButton>
-        <Link href={`/mala/${id}?step=1`}>Editar respostas</Link>
-        <a href="#ajustes">Ajustar looks e peças</a>
-      </div>
+      <header className="trip-hero">
+        <span className="trip-hero-eyebrow">Minha mala de viagem</span>
+        <h1>{trip.destino}</h1>
+        <div className="trip-chips">
+          {trip.dias ? <span>{trip.dias} dia{trip.dias === 1 ? "" : "s"}</span> : null}
+          {datasTxt ? <span>{datasTxt}</span> : null}
+          <span>{OBJETIVO_LABEL[trip.objetivo] || "Viagem"}</span>
+          <span>{looks.length} look{looks.length === 1 ? "" : "s"}</span>
+          <span>{selectedItems.length} peça{selectedItems.length === 1 ? "" : "s"}</span>
+        </div>
+        {clima && <p className="trip-clima"><strong>Clima previsto</strong> {clima.local}: {clima.temp_min}°C a {clima.temp_max}°C, chance de chuva {clima.chance_chuva}%.</p>}
+        {trip.reasoning && <p className="trip-reasoning">{trip.reasoning}</p>}
+        {(trip.alerts || []).length > 0 && <div className="trip-alerts">
+          <strong>Atenção</strong>
+          {trip.alerts.map((a: string, i: number) => <p key={i}>{a}</p>)}
+        </div>}
+        <div className="trip-hero-actions no-print">
+          <a className="trip-btn" href="#exportar">Gerar PDF para compartilhar</a>
+          <a className="trip-btn ghost" href="#ajustes">Ajustar looks e peças</a>
+          <Link className="trip-btn ghost" href={`/mala/${id}?step=1`}>Editar respostas</Link>
+        </div>
+      </header>
 
       <section>
-        <div className="section-head"><h2>Visão geral da mala</h2><span className="look-meta">Todos os looks lado a lado, com as peças reais do seu closet</span></div>
-        <div className="trip-board">
+        <div className="section-head"><h2>Dia a dia</h2><span className="look-meta">Um look para cada compromisso, com as suas peças</span></div>
+        <div className="trip-days">
           {sortedLooks.map((l: any) => {
-            const pieces = [...(l.items || [])].sort((a: any, b: any) => slot(a.category) - slot(b.category));
-            return <article className="board-look" key={l.id}>
-              <header>
-                <span className="board-day">Dia {l.trip_day}</span>
-                <strong>{periodOf(l).replace(/^Dia\s*\d+\s*[·\-–:]?\s*/i, "") || l.occasion}</strong>
-              </header>
-              <div className="board-pieces">
-                {pieces.map((it: any) => (
-                  <figure key={it.id}>
-                    {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}?w=360`} alt={it.name} loading="lazy" /> : <span className="board-ph">✦</span>}
-                    <figcaption>{it.name}</figcaption>
-                  </figure>
-                ))}
+            const pieces = sortedPieces(l);
+            return <article className="trip-day" key={l.id}>
+              <div className="trip-day-img">
+                {l.has_illustration
+                  ? <img src={`/api/looks/${l.id}/illustration?w=640`} alt={`Look do dia ${l.trip_day}`} loading="lazy" />
+                  : <div className="trip-day-stack">{pieces.slice(0, 4).map((it: any) => it.photo_id ? <img key={it.id} src={`/api/closet/photos/${it.photo_id}?w=360`} alt={it.name} loading="lazy" /> : <span key={it.id} className="board-ph">✦</span>)}</div>}
+                <span className="trip-day-pill">Dia {l.trip_day}</span>
               </div>
-              {l.has_illustration && <img className="board-illustration" src={`/api/looks/${l.id}/illustration?w=640`} alt={`Imagem do look ${l.name}`} loading="lazy" />}
+              <div className="trip-day-body">
+                <span className="trip-day-tag">{lookTag(l)}</span>
+                <h3>{lookLabel(l)}</h3>
+                <ul className="trip-day-pieces">
+                  {pieces.map((it: any) => <li key={it.id}>
+                    {it.photo_id ? <img src={`/api/closet/photos/${it.photo_id}?w=200`} alt="" loading="lazy" /> : <span className="board-ph">✦</span>}
+                    <span><strong>{it.name}</strong><small>{it.category}</small></span>
+                  </li>)}
+                </ul>
+              </div>
             </article>;
           })}
         </div>
         {diasLivres > 0 && <p className="look-meta">{diasLivres} dia{diasLivres === 1 ? "" : "s"} da viagem sem look definido: use as peças da mala conforme o clima e o passeio.</p>}
       </section>
+
+      <section className="card" id="checklist">
+        <div className="section-head"><h2>Checklist da mala</h2><span className="look-meta">{checkDone} de {checklistArr.length} itens</span></div>
+        <div className="trip-check-bar"><i style={{ width: `${checklistArr.length ? (checkDone / checklistArr.length) * 100 : 0}%` }} /></div>
+        <div className="trip-check">
+          {checklistArr.map(({ label, done }) => (
+            <form action={toggleChecklistItem} key={label} className={`trip-check-item${done ? " done" : ""}`}>
+              <input type="hidden" name="trip_id" value={id} /><input type="hidden" name="label" value={label} />
+              <button type="submit" aria-pressed={done}><span className="trip-check-box" aria-hidden="true" />{label}</button>
+            </form>
+          ))}
+        </div>
+      </section>
+
+      <TripPoster
+        destination={trip.destino}
+        days={trip.dias || null}
+        objective={trip.objetivo === "TRABALHO" ? "TRABALHO" : trip.objetivo === "MISTO" ? "TRABALHO | LAZER" : trip.objetivo === "PASSEIO" ? "LAZER" : ""}
+        fileName={`mala-${slug}.png`}
+        pdfName={`mala-${slug}.pdf`}
+        imagesRemaining={imgRemaining}
+        defaultStyle={defaultStyle}
+        looks={sortedLooks.map((l: any) => ({
+          id: l.id, day: l.trip_day, tag: lookTag(l), label: lookLabel(l),
+          imageUrl: l.has_illustration ? `/api/looks/${l.id}/illustration` : null,
+          pieces: sortedPieces(l).map((it: any) => ({ name: it.name, photo: it.photo_id ? `/api/closet/photos/${it.photo_id}` : null })),
+        }))}
+        groups={groupsPdf as any}
+        checklist={checklistArr}
+        pdf={{
+          destination: trip.destino, days: trip.dias || null, dates: datasTxt, objective: OBJETIVO_LABEL[trip.objetivo] || "Viagem",
+          clima: clima ? `${clima.local}: mínima ${clima.temp_min}°C, máxima ${clima.temp_max}°C, chance de chuva ${clima.chance_chuva}%.` : null,
+          reasoning: trip.reasoning || "", alerts: trip.alerts || [],
+          looks: sortedLooks.map((l: any) => ({
+            day: l.trip_day, tag: lookTag(l), label: lookLabel(l), imageUrl: l.has_illustration ? `/api/looks/${l.id}/illustration` : null,
+            pieces: sortedPieces(l).map((it: any) => ({ name: it.name, cat: it.category, photo: it.photo_id ? `/api/closet/photos/${it.photo_id}` : null })),
+          })),
+          groups: [{ title: "Roupas", items: groupsPdf.clothes }, { title: "Biquínis e saída", items: groupsPdf.swim }, { title: "Sapatos", items: groupsPdf.shoes }, { title: "Bolsas", items: groupsPdf.bags }, { title: "Acessórios", items: groupsPdf.accessories }],
+          checklist: checklistArr,
+        }}
+      />
 
       <section id="ajustes" className="no-print">
         <div className="section-head"><h2>Ajustar looks</h2><span className="look-meta">Trocar uma peça, pedir outra versão do look ou descartá-lo</span></div>
@@ -410,6 +456,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
         })}
       </section>
 
+
       <section className="card no-print">
         <h2>Peças da mala</h2>
         <p className="look-meta">O que realmente vai na bagagem ({selectedItems.length}).</p>
@@ -451,16 +498,6 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
           ))}
         </ul>
       </details>}
-
-      <section className="card" id="checklist">
-        <h2>Checklist da mala</h2>
-        {Object.keys(checklist).map((label) => (
-          <form action={toggleChecklistItem} key={label} className="checkbox">
-            <input type="hidden" name="trip_id" value={id} /><input type="hidden" name="label" value={label} />
-            <button type="submit" className="link">{checklist[label] ? "☑" : "☐"} {label}</button>
-          </form>
-        ))}
-      </section>
 
       <form action={generateTripPlan} className="no-print">
         <input type="hidden" name="trip_id" value={id} />

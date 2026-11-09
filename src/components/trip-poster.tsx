@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { generateLookImageQuiet } from "@/server/look-actions";
+import { renderTripPdf, type PdfData } from "@/components/trip-pdf";
 
 type Piece = { name: string; photo: string | null };
 type PosterLook = { id: string; day: number; tag: string; label: string; imageUrl: string | null; pieces: Piece[] };
@@ -10,6 +11,7 @@ type Props = {
   destination: string; days: number | null; objective: string; fileName: string;
   looks: PosterLook[]; groups: Groups; checklist: { label: string; done: boolean }[];
   imagesRemaining: number | null; defaultStyle: string;
+  pdf: PdfData; pdfName: string;
 };
 
 const STYLE_OPTIONS = [
@@ -50,7 +52,7 @@ function spaced(ctx: CanvasRenderingContext2D, px: number) { (ctx as any).letter
 
 /** Exporta a mala como um pôster (looks vestidos lado a lado, peças de cada look, sapatos, bolsas, acessórios,
  * roupas e checklist) direto no navegador, e permite gerar antes a imagem dos looks que ainda não têm. */
-export default function TripPoster({ destination, days, objective, fileName, looks, groups, checklist, imagesRemaining, defaultStyle }: Props) {
+export default function TripPoster({ destination, days, objective, fileName, looks, groups, checklist, imagesRemaining, defaultStyle, pdf, pdfName }: Props) {
   const router = useRouter();
   const [style, setStyle] = useState(STYLE_OPTIONS.some((o) => o.value === defaultStyle) ? defaultStyle : "REALISTA");
   const [busy, setBusy] = useState(false);
@@ -60,6 +62,27 @@ export default function TripPoster({ destination, days, objective, fileName, loo
   const [blob, setBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  async function makePdf() {
+    setPdfBusy(true); setPdfError(null);
+    try {
+      const blob = await renderTripPdf(pdf);
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+      setPdfBlob(blob); setPdfUrl(URL.createObjectURL(blob));
+    } catch (e) {
+      console.error("pdf da mala falhou:", e);
+      setPdfError("Não consegui montar o PDF agora. Atualize a página e tente de novo.");
+    } finally { setPdfBusy(false); }
+  }
+  function downloadPdf() { if (!pdfUrl) return; const a = document.createElement("a"); a.href = pdfUrl; a.download = pdfName; document.body.appendChild(a); a.click(); a.remove(); }
+  async function sharePdf() {
+    if (!pdfBlob) return; const file = new File([pdfBlob], pdfName, { type: "application/pdf" });
+    try { if ((navigator as any).canShare?.({ files: [file] })) await (navigator as any).share({ files: [file], title: `Minha mala · ${destination}` }); else downloadPdf(); } catch { /* cancelado */ }
+  }
 
   const missing = looks.filter((l) => !l.imageUrl);
 
@@ -227,8 +250,8 @@ export default function TripPoster({ destination, days, objective, fileName, loo
   const withImage = looks.length - missing.length;
   return (
     <section className="card export-trip no-print" id="exportar">
-      <h2>Exportar mala como imagem</h2>
-      <p className="look-meta">Gera um pôster com todos os looks lado a lado, as peças de cada um, sapatos, bolsas, acessórios e o checklist. {withImage} de {looks.length} look{looks.length === 1 ? "" : "s"} já têm imagem; os outros usam as fotos das peças.</p>
+      <h2>Compartilhar sua mala</h2>
+      <p className="look-meta">{withImage} de {looks.length} look{looks.length === 1 ? "" : "s"} já têm imagem; os outros usam as fotos das peças. Gere as imagens que faltam para o resultado ficar mais bonito.</p>
 
       {missing.length > 0 && <div className="export-gen">
         <label>Estilo das imagens dos looks
@@ -243,7 +266,24 @@ export default function TripPoster({ destination, days, objective, fileName, loo
         {genError && <p role="alert" className="look-meta" style={{ color: "#b3261e" }}>{genError}</p>}
       </div>}
 
-      <button type="button" onClick={makePoster} disabled={busy || !!genProgress || looks.length === 0}>{busy ? "Montando a imagem..." : "Montar imagem da mala"}</button>
+      <div className="export-opt">
+        <div><h3>Roteiro em PDF</h3><p className="look-meta">Capa com resumo e clima, um cartão por look com as peças, o que vai na mala e o checklist. Páginas A4, prontas para enviar.</p></div>
+        <button type="button" onClick={makePdf} disabled={pdfBusy || !!genProgress || looks.length === 0}>{pdfBusy ? "Montando o PDF..." : pdfUrl ? "Gerar de novo" : "Gerar PDF"}</button>
+      </div>
+      {pdfError && <p role="alert" className="look-meta" style={{ color: "#b3261e" }}>{pdfError}</p>}
+      {pdfUrl && <div className="export-panel">
+        <p><strong>PDF pronto.</strong> <span className="look-meta">{pdfBlob ? `${(pdfBlob.size / 1048576).toFixed(1).replace(".", ",")} MB` : ""}</span></p>
+        <div className="action-row">
+          <button type="button" onClick={sharePdf}>Compartilhar PDF</button>
+          <button type="button" className="reject" onClick={downloadPdf}>Baixar PDF</button>
+          <a href={pdfUrl} target="_blank" rel="noreferrer">Abrir</a>
+        </div>
+      </div>}
+
+      <div className="export-opt">
+        <div><h3>Pôster em imagem</h3><p className="look-meta">Uma única imagem com todos os looks lado a lado, boa para stories e status.</p></div>
+        <button type="button" className="reject" onClick={makePoster} disabled={busy || !!genProgress || looks.length === 0}>{busy ? "Montando a imagem..." : "Montar pôster"}</button>
+      </div>
       {error && <p role="alert" className="look-meta" style={{ color: "#b3261e" }}>{error}</p>}
       {preview && <div className="export-panel" ref={panelRef}>
         <img src={preview} alt={`Pôster da mala ${destination}`} className="export-preview" />
