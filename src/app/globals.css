@@ -956,3 +956,6 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .offer-tag{display:inline-block;padding:3px 12px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
 .offer-card h2{margin:8px 0 4px}
 .offer-row summary small{color:var(--muted);font-weight:500}
+
+.danger-link{color:#b3261e}
+.cancel-sub{margin-top:6px}

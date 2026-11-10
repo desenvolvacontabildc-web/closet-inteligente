@@ -133,3 +133,8 @@ export async function updatePreapprovalAmount(id: string, amountCents: number): 
     body: JSON.stringify({ auto_recurring: { transaction_amount: Math.round(amountCents) / 100, currency_id: "BRL" } }),
   });
 }
+
+/** Cancela a assinatura recorrente de cartão no Mercado Pago (nenhuma cobrança nova é feita depois disso). */
+export async function cancelPreapproval(id: string): Promise<void> {
+  await mpFetch(`/preapproval/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ status: "cancelled" }) });
+}

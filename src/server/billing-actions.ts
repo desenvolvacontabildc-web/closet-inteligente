@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
 import { bounce } from "./action-error";
 import { flash } from "./flash";
-import { createPixPayment, createPreapproval } from "./mercadopago";
+import { createPixPayment, createPreapproval, cancelPreapproval } from "./mercadopago";
 
 const PLANS = ["ARRUMADA", "FASHION", "SUPER_STAR"] as const;
 type PlanId = typeof PLANS[number];
@@ -127,4 +127,19 @@ export async function startOfferPix() {
   }, { allowSuspended: true });
   await flash("Pix gerado. Escaneie o QR code ou copie o código para pagar.");
   redirect("/assinatura?charge=pix");
+}
+
+/** Cancela a assinatura no cartão: o Mercado Pago deixa de cobrar e a conta segue com acesso até o fim do período já pago. */
+export async function cancelSubscription() {
+  const info = await withProfile(async (c, userId) => (await c.query("SELECT * FROM my_card_subscription($1)", [userId])).rows[0] || null, { allowSuspended: true });
+  if (!info) bounce("/assinatura", "Não há assinatura no cartão para cancelar.");
+  try {
+    await cancelPreapproval(String(info.preapproval_id));
+  } catch (e) {
+    console.error("cancelSubscription falhou:", e);
+    bounce("/assinatura", "Não foi possível cancelar agora. Tente de novo em instantes ou fale com a gente pelo WhatsApp.");
+  }
+  await withProfile(async (c, userId) => { await c.query("SELECT mark_subscription_canceled($1)", [userId]); return true; }, { allowSuspended: true });
+  await flash("Assinatura cancelada. Você continua com acesso até o fim do período já pago e não haverá novas cobranças.");
+  redirect("/assinatura");
 }

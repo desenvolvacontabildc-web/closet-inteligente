@@ -2,7 +2,8 @@ import { SUPPORT_URL, SUPPORT_PHONE } from "@/components/support";
 import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
 import { mySubscription, PLAN_LABEL, type Plan } from "@/server/limits";
-import { startPixCheckout, startCardCheckout, startOfferPix } from "@/server/billing-actions";
+import { startPixCheckout, startCardCheckout, startOfferPix, cancelSubscription } from "@/server/billing-actions";
+import ConfirmButton from "@/components/confirm-button";
 import { logout } from "@/server/auth-actions";
 import { reconcilePendingPix } from "@/server/billing-sync";
 import SubmitButton from "@/components/submit-button";
@@ -48,7 +49,11 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
     <h1>Sua assinatura</h1>
     {error && <p role="alert" className="trial-banner">{error}</p>}
 
-    {sub.status === "SUSPENDED" && <div className="card alert-card" role="alert">
+    {sub.status === "SUSPENDED" && sub.cancel_at_period_end && <div className="card alert-card" role="alert">
+      <h2>Sua assinatura foi cancelada</h2>
+      <p>O período que você pagou terminou, então o acesso ao app foi pausado. Seus looks e peças continuam guardados: para voltar, é só escolher um plano abaixo.</p>
+    </div>}
+    {sub.status === "SUSPENDED" && !sub.cancel_at_period_end && <div className="card alert-card" role="alert">
       <h2>Sua conta está suspensa</h2>
       <p>O pagamento passou de {GRACE_DAYS} dias de atraso, então o acesso ao app foi pausado. Seus looks e peças continuam guardados — é só regularizar abaixo (Pix ou cartão) que o acesso volta na hora.</p>
     </div>}
@@ -69,8 +74,12 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
       <p><strong>Status atual:</strong> {STATUS_LABEL[sub.status] || sub.status}{sub.status === "TRIAL" || sub.status === "TRIAL_EXPIRED" ? "" : ` · Plano ${PLAN_LABEL[sub.plan]}`}</p>
       {sub.status === "TRIAL" && sub.trial_ends_at && <p className="look-meta">Teste gratuito até {new Date(sub.trial_ends_at).toLocaleDateString("pt-BR")}. Ele inclui os recursos do plano Arrumada ({plans[0].ai_ops_monthly_limit ?? "ilimitados"} pedidos de IA, {plans[0].image_gen_monthly_limit ?? "ilimitados"} looks em imagem e {plans[0].std ?? "ilimitadas"} fotos de catálogo) e o Cuide-se.</p>}
       {sub.provider === "MERCADOPAGO" && sub.current_period_end && sub.status !== "SUSPENDED" && <p className="look-meta">
-        {sub.payment_method === "CARD" ? "Cartão recorrente · próxima cobrança automática por volta de " : "Pix · pago até "}{new Date(sub.current_period_end).toLocaleDateString("pt-BR")}.
+        {sub.cancel_at_period_end ? "Assinatura cancelada · acesso até " : sub.payment_method === "CARD" ? "Cartão recorrente · próxima cobrança automática por volta de " : "Pix · pago até "}{new Date(sub.current_period_end).toLocaleDateString("pt-BR")}.
       </p>}
+      {sub.cancel_at_period_end && sub.status !== "SUSPENDED" && <p className="look-meta">Não haverá novas cobranças. Para continuar depois dessa data, escolha um plano abaixo.</p>}
+      {sub.payment_method === "CARD" && !sub.cancel_at_period_end && (sub.status === "ACTIVE" || sub.status === "PAST_DUE") && <form action={cancelSubscription} className="cancel-sub">
+        <ConfirmButton className="link danger-link" pendingText="Cancelando..." message={`Cancelar a assinatura no cartão? Você continua com acesso até ${new Date(sub.current_period_end as Date).toLocaleDateString("pt-BR")} e não haverá novas cobranças.`}>Cancelar assinatura</ConfirmButton>
+      </form>}
     </div>
 
     {showPixQr && pending && <div className="card alert-card" style={{ borderColor: "#a9714c", background: "#fdf6ee" }}>
