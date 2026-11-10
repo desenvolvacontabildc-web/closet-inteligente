@@ -266,7 +266,7 @@ function buildSlides(data: PresData, CTA: string): S[] {
       <h2 className="pres-h">Feito para você <span className="pres-accent">se sentir à vontade</span></h2>
       <div className="pres-cards pres-cards2">
         <div className="pres-card"><b>7 dias grátis</b><span>Teste tudo, sem cartão de crédito.</span></div>
-        <div className="pres-card"><b>Bônus de imagens</b><span>Ganhe créditos de imagem ao completar 1 mês, 3 meses, 6 meses e 1 ano de uso.</span></div>
+        <div className="pres-card"><b>Bônus de imagens</b><span>Ganhe créditos de imagem ao completar 1 mês, 3 meses, 6 meses e 1 ano de uso. Indique 10 amigas assinantes e ganhe a Colorimetria.</span></div>
         <div className="pres-card"><b>Seus dados são seus</b><span>Peças e fotos ficam só na sua conta. A foto da colorimetria não fica salva depois da análise.</span></div>
         <div className="pres-card"><b>No seu celular</b><span>Instale na tela inicial e use como um aplicativo.</span></div>
       </div>

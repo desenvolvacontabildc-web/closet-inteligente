@@ -15,6 +15,7 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
     const p = (await c.query("SELECT display_name, avatar_object_key, avatar_illustration_object_key, default_visual_style, city, bonus_image_credits FROM profiles WHERE user_id=$1", [userId])).rows[0];
     const u = (await c.query("SELECT email, is_admin, referral_code FROM app_users WHERE id=$1", [userId])).rows[0];
     const indicacoes = (await c.query("SELECT count(*)::int n FROM app_users WHERE referred_by=$1", [userId])).rows[0].n;
+    const pagantes = (await c.query("SELECT count(*)::int n FROM credit_grants WHERE user_id=$1 AND left(reason,9)='REFERRAL_'", [userId])).rows[0].n;
     const sub = await mySubscription(c, userId);
     const partnerId = (await c.query("SELECT my_partner_id($1) id", [userId])).rows[0]?.id as string | null;
     const storeName = partnerId ? ((await c.query("SELECT * FROM partner_me($1)", [partnerId])).rows[0]?.store_name as string) : "";
@@ -22,12 +23,12 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
       hasStore: !!partnerId, storeName,
       displayName: p?.display_name || "", hasAvatar: !!p?.avatar_object_key,
       hasStyleAvatar: !!p?.avatar_illustration_object_key, defaultVisualStyle: p?.default_visual_style || "ILUSTRACAO",
-      city: p?.city || "", bonusCredits: p?.bonus_image_credits || 0, referralCode: u.referral_code, indicacoes,
+      city: p?.city || "", bonusCredits: p?.bonus_image_credits || 0, referralCode: u.referral_code, indicacoes, pagantes,
       email: u.email, isAdmin: u.is_admin, sub,
     };
   });
   if (!data) redirect("/");
-  const { hasStore, storeName, displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, bonusCredits, referralCode, indicacoes, email, isAdmin, sub } = data;
+  const { hasStore, storeName, displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, bonusCredits, referralCode, indicacoes, pagantes, email, isAdmin, sub } = data;
   const referralLink = `${process.env.APP_URL || ""}/?ref=${referralCode}`;
 
   return <main className="shell narrow">
@@ -102,7 +103,7 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
     </div>
     <div className="card">
       <h2>Indique uma amiga</h2>
-      <p className="look-meta">Quando ela virar assinante, você ganha 10 créditos bônus de geração de imagem. {indicacoes>0?`Já trouxe ${indicacoes} amiga${indicacoes===1?"":"s"} pro Closet.`:""}</p>
+      <p className="look-meta">Quando ela virar assinante, você ganha 10 créditos bônus de geração de imagem. <strong>Com 10 amigas assinantes, você ganha a Colorimetria de presente</strong> ({Math.min(pagantes, 10)} de 10). {indicacoes>0?`Já trouxe ${indicacoes} amiga${indicacoes===1?"":"s"} pro Closet.`:""}</p>
       <p className="look-meta">Seu link: <strong>{referralLink}</strong></p>
     </div>
     <nav className="nav-links">

@@ -17,6 +17,7 @@ export default async function Beneficios({ searchParams }: { searchParams: Promi
         <li><strong>Cadastro:</strong> créditos bônus de geração de imagem ao concluir o perfil.</li>
         <li><strong>Marcos de uso:</strong> créditos extras com 1, 3, 6 e 12 meses de conta (5 / 10 / 15 / 30).</li>
         <li><strong>Indicação:</strong> 10 créditos para quem indicou, quando a amiga indicada vira assinante pagante.</li>
+        <li><strong>Indicação (10 amigas):</strong> quem indica 10 amigas que viram assinantes ganha a Colorimetria de presente, liberada automaticamente.</li>
         <li><strong>Colorimetria:</strong> vendida à parte (compra única, em Assinatura → Extras); você pode liberar como cortesia abaixo.</li>
       </ul>
     </section>
