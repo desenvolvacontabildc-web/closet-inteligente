@@ -949,3 +949,4 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .export-panel .action-row a{display:inline-flex;align-items:center;min-height:38px}
 @media (max-width:560px){.export-opt{flex-direction:column;align-items:stretch}.export-opt button{width:100%}}
 @media print{.trip-hero,.trip-day{box-shadow:none}.trip-hero-actions{display:none}}
+.export-rec{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:99px;background:var(--soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;vertical-align:middle;border:1px solid var(--line-strong)}

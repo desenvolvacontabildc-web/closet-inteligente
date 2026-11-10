@@ -267,22 +267,8 @@ export default function TripPoster({ destination, days, objective, fileName, loo
       </div>}
 
       <div className="export-opt">
-        <div><h3>Roteiro em PDF</h3><p className="look-meta">Capa com resumo e clima, um cartão por look com as peças, o que vai na mala e o checklist. Páginas A4, prontas para enviar.</p></div>
-        <button type="button" onClick={makePdf} disabled={pdfBusy || !!genProgress || looks.length === 0}>{pdfBusy ? "Montando o PDF..." : pdfUrl ? "Gerar de novo" : "Gerar PDF"}</button>
-      </div>
-      {pdfError && <p role="alert" className="look-meta" style={{ color: "#b3261e" }}>{pdfError}</p>}
-      {pdfUrl && <div className="export-panel">
-        <p><strong>PDF pronto.</strong> <span className="look-meta">{pdfBlob ? `${(pdfBlob.size / 1048576).toFixed(1).replace(".", ",")} MB` : ""}</span></p>
-        <div className="action-row">
-          <button type="button" onClick={sharePdf}>Compartilhar PDF</button>
-          <button type="button" className="reject" onClick={downloadPdf}>Baixar PDF</button>
-          <a href={pdfUrl} target="_blank" rel="noreferrer">Abrir</a>
-        </div>
-      </div>}
-
-      <div className="export-opt">
-        <div><h3>Pôster em imagem</h3><p className="look-meta">Uma única imagem com todos os looks lado a lado, boa para stories e status.</p></div>
-        <button type="button" className="reject" onClick={makePoster} disabled={busy || !!genProgress || looks.length === 0}>{busy ? "Montando a imagem..." : "Montar pôster"}</button>
+        <div><h3>Pôster para postar <span className="export-rec">recomendado</span></h3><p className="look-meta">Uma única imagem com todos os looks lado a lado, as peças, sapatos, bolsas, acessórios e o checklist. Pronta para o feed, stories e status.</p></div>
+        <button type="button" onClick={makePoster} disabled={busy || !!genProgress || looks.length === 0}>{busy ? "Montando a imagem..." : "Montar pôster"}</button>
       </div>
       {error && <p role="alert" className="look-meta" style={{ color: "#b3261e" }}>{error}</p>}
       {preview && <div className="export-panel" ref={panelRef}>
@@ -291,6 +277,20 @@ export default function TripPoster({ destination, days, objective, fileName, loo
           <button type="button" onClick={download}>Baixar imagem</button>
           <button type="button" className="reject" onClick={share}>Compartilhar</button>
           <button type="button" className="link" onClick={() => { URL.revokeObjectURL(preview); setPreview(null); setBlob(null); }}>Fechar</button>
+        </div>
+      </div>}
+
+      <div className="export-opt">
+        <div><h3>Roteiro detalhado em PDF</h3><p className="look-meta">Capa com resumo e clima, um cartão por look com as peças, o que vai na mala e o checklist. Páginas A4, boas para guardar ou enviar a alguém.</p></div>
+        <button type="button" className="reject" onClick={makePdf} disabled={pdfBusy || !!genProgress || looks.length === 0}>{pdfBusy ? "Montando o PDF..." : pdfUrl ? "Gerar de novo" : "Gerar PDF"}</button>
+      </div>
+      {pdfError && <p role="alert" className="look-meta" style={{ color: "#b3261e" }}>{pdfError}</p>}
+      {pdfUrl && <div className="export-panel">
+        <p><strong>PDF pronto.</strong> <span className="look-meta">{pdfBlob ? `${(pdfBlob.size / 1048576).toFixed(1).replace(".", ",")} MB` : ""}</span></p>
+        <div className="action-row">
+          <button type="button" onClick={sharePdf}>Compartilhar PDF</button>
+          <button type="button" className="reject" onClick={downloadPdf}>Baixar PDF</button>
+          <a href={pdfUrl} target="_blank" rel="noreferrer">Abrir</a>
         </div>
       </div>}
     </section>

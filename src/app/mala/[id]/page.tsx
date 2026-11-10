@@ -336,7 +336,7 @@ export default async function TripWizard({ params, searchParams }: { params: Pro
           {trip.alerts.map((a: string, i: number) => <p key={i}>{a}</p>)}
         </div>}
         <div className="trip-hero-actions no-print">
-          <a className="trip-btn" href="#exportar">Gerar PDF para compartilhar</a>
+          <a className="trip-btn" href="#exportar">Montar pôster para postar</a>
           <a className="trip-btn ghost" href="#ajustes">Ajustar looks e peças</a>
           <Link className="trip-btn ghost" href={`/mala/${id}?step=1`}>Editar respostas</Link>
         </div>
