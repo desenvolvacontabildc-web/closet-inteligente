@@ -24,6 +24,9 @@ export async function register(f:FormData){
   try{
     await x.query("BEGIN");
     const id=(await x.query("SELECT user_id FROM register_account($1,$2,$3,$4,$5)",[email,ph,name,terms,referralCode])).rows[0].user_id;
+    // Código de teste (oferta de R$ 1,99 por 7 dias no Pix): se for inválido, desfaz o cadastro e avisa.
+    const offerCode=String(f.get("offer_code")||"").trim().toLowerCase();
+    if(offerCode){const msg=(await x.query("SELECT claim_offer($1,$2) m",[id,offerCode])).rows[0].m;if(msg)bounce("/",msg)}
     await issue(x,id);
     await x.query("COMMIT");
     redirect("/onboarding");

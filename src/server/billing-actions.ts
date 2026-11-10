@@ -93,3 +93,38 @@ export async function startCardCheckout(f: FormData) {
   if (!saved) redirect("/assinatura");
   redirect(preapproval.initPoint);
 }
+
+/** Oferta de teste (código de cadastro): cobra o preço da oferta no Pix e libera só os dias da oferta (o webhook faz isso
+ * pelo `offer_code`/`grant_days` gravados na cobrança). */
+export async function startOfferPix() {
+  const ctx = await withProfile(async (c, userId) => {
+    const o = (await c.query("SELECT * FROM my_offer($1)", [userId])).rows[0];
+    if (!o) return { ok: false as const, message: "Você não tem uma oferta de teste disponível." };
+    const email = (await c.query("SELECT email FROM app_users WHERE id=$1", [userId])).rows[0]?.email;
+    return { ok: true as const, userId, email, o };
+  }, { allowSuspended: true });
+  if (!ctx) redirect("/assinatura");
+  if (!ctx.ok) bounce("/assinatura", ctx.message);
+
+  let charge;
+  try {
+    charge = await createPixPayment({
+      amountCents: ctx.o.price_cents,
+      description: `Closet Inteligente - teste de ${ctx.o.days} dias (${ctx.o.plan})`,
+      payerEmail: ctx.email,
+      externalReference: ctx.userId,
+      idempotencyKey: randomUUID(),
+    });
+  } catch (e) {
+    console.error("startOfferPix falhou:", e);
+    bounce("/assinatura", "Não foi possível gerar a cobrança Pix agora. Tente de novo em instantes.");
+  }
+  await withProfile(async (c, userId) => {
+    await c.query("SELECT create_payment_charge($1,'PIX',$2,$3,$4,$5,$6,$7)",
+      [userId, ctx.o.plan, ctx.o.price_cents, charge.id, charge.qrCode, charge.qrCodeBase64, charge.expiresAt]);
+    await c.query("SELECT tag_charge_offer($1,$2,$3,$4)", [userId, charge.id, ctx.o.code, ctx.o.days]);
+    return true;
+  }, { allowSuspended: true });
+  await flash("Pix gerado. Escaneie o QR code ou copie o código para pagar.");
+  redirect("/assinatura?charge=pix");
+}

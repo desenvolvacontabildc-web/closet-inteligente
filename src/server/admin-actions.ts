@@ -223,3 +223,55 @@ export async function setCreditPack(f:FormData){
   await flash("Pacote de créditos salvo.");
   redirect("/admin/precos");
 }
+
+/* ---------- ofertas de teste (código de cadastro: preço e dias fixos no Pix) ---------- */
+export async function adminListOffers(){
+  const result=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_list_offers($1)",[userId])).rows}
+    catch(e){console.error("adminListOffers falhou:",e);return null}
+  });
+  return result||[];
+}
+export async function adminListRedemptions(){
+  const result=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_list_redemptions($1)",[userId])).rows}
+    catch(e){console.error("adminListRedemptions falhou:",e);return null}
+  });
+  return result||[];
+}
+export async function saveOffer(f:FormData){
+  const code=String(f.get("code")||"").trim().toLowerCase();
+  const label=String(f.get("label")||"").trim().slice(0,60);
+  const plan=String(f.get("plan")||"ARRUMADA");
+  const priceCents=Math.round(reais(f.get("price"))*100);
+  const days=Math.floor(Number(f.get("days")||7));
+  const maxRaw=String(f.get("max_uses")||"").trim();
+  const max=maxRaw===""?null:Math.floor(Number(maxRaw));
+  const expRaw=String(f.get("expires")||"").trim();
+  const expires=/^\d{4}-\d{2}-\d{2}$/.test(expRaw)?`${expRaw}T23:59:59-03:00`:null;
+  const active=f.get("active")==="on";
+  if(!/^[a-z0-9_-]{3,32}$/.test(code))bounce("/admin/ofertas","O código deve ter de 3 a 32 letras minúsculas, números, - ou _.");
+  if(!["ARRUMADA","FASHION","SUPER_STAR"].includes(plan))bounce("/admin/ofertas","Plano inválido.");
+  if(!(priceCents>=100&&priceCents<=100000))bounce("/admin/ofertas","O preço deve ficar entre R$ 1,00 e R$ 1.000,00.");
+  if(!(days>=1&&days<=90))bounce("/admin/ofertas","A duração deve ficar entre 1 e 90 dias.");
+  if(max!==null&&!(max>=1))bounce("/admin/ofertas","O limite de usos deve ser 1 ou mais (ou deixe em branco).");
+  try{
+    await withProfile(async(c,userId)=>{
+      await c.query("SELECT admin_save_offer($1,$2,$3,$4,$5,$6,$7,$8,$9)",[userId,code,label,plan,priceCents,days,max,expires,active]);
+      return true;
+    });
+  }catch(e){console.error("saveOffer falhou:",e);bounce("/admin/ofertas","Não foi possível salvar a oferta.")}
+  await flash("Oferta salva.");
+  redirect("/admin/ofertas");
+}
+export async function assignOffer(f:FormData){
+  const target=String(f.get("user_id")||"");
+  const code=String(f.get("code")||"").trim().toLowerCase();
+  let msg="";
+  try{
+    msg=(await withProfile(async(c,userId)=>(await c.query("SELECT admin_assign_offer($1,$2,$3) m",[userId,target,code])).rows[0].m))||"";
+  }catch(e){console.error("assignOffer falhou:",e);bounce("/admin/ofertas","Não foi possível aplicar a oferta.")}
+  if(msg)bounce("/admin/ofertas",msg);
+  await flash("Oferta aplicada. Ela aparece na tela de Assinatura da usuária.");
+  redirect("/admin/ofertas");
+}

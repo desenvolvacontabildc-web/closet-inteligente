@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/admin/usuarias", label: "Usuárias" },
   { href: "/admin/precos", label: "Preços" },
   { href: "/admin/descontos", label: "Descontos" },
+  { href: "/admin/ofertas", label: "Ofertas de teste" },
   { href: "/admin/beneficios", label: "Benefícios" },
   { href: "/admin/parceiras", label: "Parcerias" },
   { href: "/admin/tendencias", label: "Tendências" },

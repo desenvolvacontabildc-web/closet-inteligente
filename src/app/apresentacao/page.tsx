@@ -38,6 +38,8 @@ async function load(): Promise<PresData> {
   }
 }
 
-export default async function Page() {
-  return <Apresentacao data={await load()} />;
+export default async function Page({ searchParams }: { searchParams: Promise<{ cupom?: string }> }) {
+  const { cupom } = await searchParams;
+  const ok = /^[A-Za-z0-9_-]{3,32}$/.test(cupom || "") ? cupom!.toLowerCase() : undefined;
+  return <Apresentacao data={await load()} cupom={ok} />;
 }

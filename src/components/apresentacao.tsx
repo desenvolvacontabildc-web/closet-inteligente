@@ -6,7 +6,7 @@ export type PresData = { plans: PresPlan[]; cuidese: number | null; colorimetria
 
 const brl = (c: number) => `R$ ${(c / 100).toFixed(2).replace(".", ",")}`;
 const IMG = (n: string) => `/apresentacao/${n}.jpg`;
-const CTA = "/#criar-conta";
+const ctaFor = (cupom?: string) => (cupom ? `/?cupom=${encodeURIComponent(cupom)}#criar-conta` : "/#criar-conta");
 
 /* ---------- blocos visuais ---------- */
 function Tile({ n, i = 0 }: { n: string; i?: number }) {
@@ -123,7 +123,7 @@ function Skin() {
 
 /* ---------- slides ---------- */
 type S = { ch: string; node: ReactNode };
-function buildSlides(data: PresData): S[] {
+function buildSlides(data: PresData, CTA: string): S[] {
   return [
     { ch: "Início", node: <div className="pres-inner" key="0">
       <span className="pres-eyebrow">Apresentação</span>
@@ -298,8 +298,9 @@ function buildSlides(data: PresData): S[] {
 
 const AUTO_MS = 8000;
 
-export default function Apresentacao({ data }: { data: PresData }) {
-  const slides = buildSlides(data);
+export default function Apresentacao({ data, cupom }: { data: PresData; cupom?: string }) {
+  const CTA = ctaFor(cupom);
+  const slides = buildSlides(data, CTA);
   const last = slides.length - 1;
   const [i, setI] = useState(0);
   const [play, setPlay] = useState(false);

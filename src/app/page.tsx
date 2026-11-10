@@ -1,7 +1,8 @@
 import { register, login } from "@/server/auth-actions";
 const LOGIN_ERRORS = ["credentials", "blocked", "trial_expired"];
-export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string; ref?: string }> }) {
-  const { error, ref } = await searchParams;
+export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string; ref?: string; cupom?: string }> }) {
+  const { error, ref, cupom } = await searchParams;
+  const cupomOk = /^[A-Za-z0-9_-]{3,32}$/.test(cupom || "") ? cupom!.toLowerCase() : "";
   const registerError = error && !LOGIN_ERRORS.includes(error) ? error : null;
   return <main className="shell landing">
     <header className="brand-bar"><span className="brand-mark" aria-hidden="true">CI</span><span className="brand-name">Closet Inteligente</span></header>
@@ -20,6 +21,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
         <label>E-mail<input name="email" type="email" required /></label>
         <label>Senha<input name="password" type="password" minLength={6} required /></label>
         <label>Código de indicação (opcional)<input name="referral_code" defaultValue={ref || ""} placeholder="Se uma amiga te indicou, cole aqui" /></label>
+        <label>Código de teste (opcional)<input name="offer_code" defaultValue={cupomOk} placeholder="Se recebeu um código da equipe, cole aqui" autoCapitalize="none" autoCorrect="off" /></label>
         <label className="checkbox"><input type="checkbox" name="terms" required /> Li e aceito os <a href="/termos" target="_blank">Termos de Uso</a> e a <a href="/privacidade" target="_blank">Política de Privacidade</a>.</label>
         <button>Criar meu Closet</button>
       </form>

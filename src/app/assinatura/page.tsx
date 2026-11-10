@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
 import { mySubscription, PLAN_LABEL, type Plan } from "@/server/limits";
-import { startPixCheckout, startCardCheckout } from "@/server/billing-actions";
+import { startPixCheckout, startCardCheckout, startOfferPix } from "@/server/billing-actions";
 import { logout } from "@/server/auth-actions";
 import { reconcilePendingPix } from "@/server/billing-sync";
 import SubmitButton from "@/components/submit-button";
@@ -29,10 +29,11 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
     const sub = await mySubscription(c, userId);
     const plans = await Promise.all(PLANS.map(async (p) => ({ ...(await c.query("SELECT plan, base_price_cents, promo_price_cents, promo_months FROM get_plan_pricing($1)", [p])).rows[0], ...(await c.query("SELECT ai_ops_monthly_limit, image_gen_monthly_limit FROM get_plan_config($1)", [p])).rows[0], std: (await c.query("SELECT get_standard_limit($1) l", [p])).rows[0]?.l })));
     const usedCardPromo = (await c.query("SELECT 1 FROM payment_charges WHERE kind='CARD_PREAPPROVAL' AND status='approved' LIMIT 1")).rowCount! > 0;
-    return { sub, plans, pending, usedCardPromo };
+    const offer = (await c.query("SELECT * FROM my_offer($1)", [userId])).rows[0] || null;
+    return { sub, plans, pending, usedCardPromo, offer };
   }, { allowSuspended: true });
   if (!data) redirect("/");
-  const { sub, plans, pending, usedCardPromo } = data;
+  const { sub, plans, pending, usedCardPromo, offer } = data;
 
   const showPixQr = pending?.kind === "PIX" && pending.status === "pending" && (!pending.pix_expires_at || new Date(pending.pix_expires_at) > new Date());
   const showCardPending = charge === "card" && pending?.kind === "CARD_PREAPPROVAL" && pending.status === "pending";
@@ -78,6 +79,13 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
       {pending.pix_qr_code && <textarea readOnly defaultValue={pending.pix_qr_code} rows={3} style={{ width: "100%", fontSize: 12 }} />}
       <p className="look-meta">Depois de pagar, a confirmação é automática -- pode levar até um minuto para refletir aqui. Para trocar de plano ou gerar um novo código, use os botões abaixo.</p>
       <a href="/assinatura"><button className="link">Já paguei — atualizar esta página</button></a>
+    </div>}
+
+    {offer && !showPixQr && <div className="card offer-card">
+      <span className="offer-tag">Oferta de teste</span>
+      <h2>{offer.label || "Teste de pagamento"}: {formatPrice(offer.price_cents)} por {offer.days} dias</h2>
+      <p>Pague {formatPrice(offer.price_cents)} no Pix e use o plano {PLAN_LABEL[offer.plan as Plan]} por {offer.days} dias. É um pagamento de verdade, para você testar como funciona. Depois, é só escolher o plano abaixo.</p>
+      <form action={startOfferPix}><SubmitButton pendingText="Gerando Pix...">Pagar {formatPrice(offer.price_cents)} no Pix</SubmitButton></form>
     </div>}
 
     {showCardPending && <div className="card alert-card" style={{ borderColor: "#a9714c", background: "#fdf6ee" }}>
