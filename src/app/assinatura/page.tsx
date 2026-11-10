@@ -1,3 +1,4 @@
+import { SUPPORT_URL, SUPPORT_PHONE } from "@/components/support";
 import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
 import { mySubscription, PLAN_LABEL, type Plan } from "@/server/limits";
@@ -124,6 +125,7 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
       <p className="look-meta"><strong>Cuide-se</strong> (Skincare e Cronograma Capilar): incluído nos planos Fashion e Super Star e no teste gratuito; no Arrumada é um extra mensal. <strong>Colorimetria</strong>: compra única, à parte dos planos. Precisa de mais imagens? Compre <strong>créditos de imagem</strong> a partir de R$ 5,00 em Extras. <a href="/assinatura/extras">Ver extras</a></p>
       <p className="look-meta">Pix: cobrança de 30 dias, renovada aqui mesmo a cada mês — a conta é suspensa se passar de {GRACE_DAYS} dias de atraso. Cartão: cobrança automática recorrente, sem precisar voltar aqui; cancele quando quiser.</p>
     </div>
+    <p className="look-meta">Dúvidas sobre pagamento ou acesso? Fale com a gente no WhatsApp: <a href={SUPPORT_URL} target="_blank" rel="noreferrer">{SUPPORT_PHONE}</a>.</p>
     {locked && <form action={logout}><button className="link">Sair da conta</button></form>}
   </main>;
 }

@@ -1,3 +1,4 @@
+import { SUPPORT_URL, SUPPORT_PHONE } from "@/components/support";
 import { register, login } from "@/server/auth-actions";
 const LOGIN_ERRORS = ["credentials", "blocked", "trial_expired"];
 export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string; ref?: string; cupom?: string }> }) {
@@ -34,6 +35,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
         <button>Entrar</button>
       </form>
     </div>
-    <footer className="landing-foot"><span>© Closet Inteligente</span><a href="/termos">Termos de Uso</a><a href="/privacidade">Privacidade</a></footer>
+    <footer className="landing-foot"><span>© Closet Inteligente</span><a href="/termos">Termos de Uso</a><a href="/privacidade">Privacidade</a><a href={SUPPORT_URL} target="_blank" rel="noreferrer">Suporte</a></footer>
   </main>;
 }

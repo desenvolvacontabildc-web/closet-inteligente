@@ -1,3 +1,4 @@
+import { SUPPORT_URL, SUPPORT_PHONE } from "@/components/support";
 export default function Privacidade(){return <main className="shell narrow">
 <a href="/">← Voltar</a>
 <h1>Política de Privacidade</h1>
@@ -44,5 +45,5 @@ export default function Privacidade(){return <main className="shell narrow">
 <p>Como o aplicativo está em fase de teste, esta política pode ser atualizada. Alterações relevantes serão avisadas diretamente às usuárias.</p>
 
 <h2>10. Contato</h2>
-<p>Para exercer seus direitos ou tirar dúvidas sobre seus dados, fale diretamente com a administradora pelo canal que ela combinou com você.</p>
+<p>Para exercer seus direitos ou tirar dúvidas sobre seus dados, fale com a administradora pelo WhatsApp <a href={SUPPORT_URL} target="_blank" rel="noreferrer">WhatsApp {SUPPORT_PHONE}</a>.</p>
 </main>}

@@ -1,3 +1,4 @@
+import { SUPPORT_URL, SUPPORT_PHONE } from "@/components/support";
 export default function Termos(){return <main className="shell narrow">
 <a href="/">← Voltar</a>
 <h1>Termos de Uso</h1>
@@ -32,5 +33,5 @@ export default function Termos(){return <main className="shell narrow">
 <p>O serviço é fornecido "como está", em fase de teste. Não garantimos que as recomendações da IA estejam livres de erro, nem que o serviço estará sempre disponível, embora sejam mantidas cópias de segurança diárias.</p>
 
 <h2>8. Contato</h2>
-<p>Dúvidas, solicitações de exclusão de dados ou cancelamento: fale diretamente com a administradora pelo canal que ela combinou com você.</p>
+<p>Dúvidas, solicitações de exclusão de dados ou cancelamento: fale com a administradora pelo WhatsApp <a href={SUPPORT_URL} target="_blank" rel="noreferrer">WhatsApp {SUPPORT_PHONE}</a>.</p>
 </main>}

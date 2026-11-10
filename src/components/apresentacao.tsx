@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { SUPPORT_URL } from "@/components/support";
 
 export type PresPlan = { plan: string; name: string; price: number; promo: number | null; promoMonths: number; ai: number | null; img: number | null; std: number | null };
 export type PresData = { plans: PresPlan[]; cuidese: number | null; colorimetria: number | null; packMin: number | null } | null;
@@ -291,6 +292,7 @@ function buildSlides(data: PresData, CTA: string): S[] {
       <p className="pres-sub">Crie a sua conta em um minuto e teste tudo por 7 dias, sem cartão.</p>
       <a className="pres-cta" href={CTA}>Criar minha conta grátis</a>
       <a className="pres-link" href="/">Já tenho conta. Entrar</a>
+      <a className="pres-link" href={SUPPORT_URL} target="_blank" rel="noreferrer">Dúvidas? Fale no WhatsApp</a>
       <p className="pres-note">As imagens desta apresentação são exemplos gerados pelo app a partir de peças reais.</p>
     </div> },
   ];

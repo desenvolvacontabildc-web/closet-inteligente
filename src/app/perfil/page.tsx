@@ -1,3 +1,4 @@
+import { SUPPORT_URL, SUPPORT_PHONE } from "@/components/support";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { withProfile } from "@/server/profile-session";
@@ -111,6 +112,8 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
       <Link href="/tendencias">Radar de Tendências</Link>
       {isAdmin && <Link href="/admin">Gerenciamento do app</Link>}
     </nav>
+    <div className="card"><h2>Precisa de ajuda?</h2><p className="look-meta">Dúvida, problema ou sugestão? Fale com a gente pelo WhatsApp.</p><a className="trip-btn" href={SUPPORT_URL} target="_blank" rel="noreferrer">Falar no WhatsApp {SUPPORT_PHONE}</a></div>
+
     <form action={logout}><button className="link">Sair da conta</button></form>
   </main>;
 }
