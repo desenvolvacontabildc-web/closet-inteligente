@@ -7,7 +7,7 @@ export type PresData = { plans: PresPlan[]; cuidese: number | null; colorimetria
 
 const brl = (c: number) => `R$ ${(c / 100).toFixed(2).replace(".", ",")}`;
 const IMG = (n: string) => `/apresentacao/${n}.jpg`;
-const ctaFor = (cupom?: string) => (cupom ? `/?cupom=${encodeURIComponent(cupom)}#criar-conta` : "/#criar-conta");
+export type PresCta = { href: string; label: string; short: string; sub: string; external: boolean };
 
 /* ---------- blocos visuais ---------- */
 function Tile({ n, i = 0 }: { n: string; i?: number }) {
@@ -124,7 +124,7 @@ function Skin() {
 
 /* ---------- slides ---------- */
 type S = { ch: string; node: ReactNode };
-function buildSlides(data: PresData, CTA: string): S[] {
+function buildSlides(data: PresData, CTA: PresCta): S[] {
   return [
     { ch: "Início", node: <div className="pres-inner" key="0">
       <span className="pres-eyebrow">Apresentação</span>
@@ -289,8 +289,8 @@ function buildSlides(data: PresData, CTA: string): S[] {
     </div> },
     { ch: "Planos", node: <div className="pres-inner" key="20">
       <h2 className="pres-h pres-h-xl">Pronta para conhecer o <span className="pres-accent">seu closet?</span></h2>
-      <p className="pres-sub">Crie a sua conta em um minuto e teste tudo por 7 dias, sem cartão.</p>
-      <a className="pres-cta" href={CTA}>Criar minha conta grátis</a>
+      <p className="pres-sub">{CTA.sub}</p>
+      <a className="pres-cta" href={CTA.href} {...(CTA.external ? { target: "_blank", rel: "noreferrer" } : {})}>{CTA.label}</a>
       <a className="pres-link" href="/">Já tenho conta. Entrar</a>
       <a className="pres-link" href={SUPPORT_URL} target="_blank" rel="noreferrer">Dúvidas? Fale no WhatsApp</a>
       <p className="pres-note">As imagens desta apresentação são exemplos gerados pelo app a partir de peças reais.</p>
@@ -300,8 +300,8 @@ function buildSlides(data: PresData, CTA: string): S[] {
 
 const AUTO_MS = 8000;
 
-export default function Apresentacao({ data, cupom }: { data: PresData; cupom?: string }) {
-  const CTA = ctaFor(cupom);
+export default function Apresentacao({ data, cta }: { data: PresData; cta: PresCta }) {
+  const CTA = cta;
   const slides = buildSlides(data, CTA);
   const last = slides.length - 1;
   const [i, setI] = useState(0);
@@ -334,7 +334,7 @@ export default function Apresentacao({ data, cupom }: { data: PresData; cupom?: 
         <span className="pres-ch">{slides[i].ch}</span>
         <span className="pres-count">{i + 1} / {slides.length}</span>
         <button type="button" className="pres-play" onClick={() => { setPlay((p) => !p); if (i >= last) setI(0); }}>{play ? "Pausar" : "Tocar"}</button>
-        <a className="pres-skip" href={CTA}>Criar minha conta</a>
+        <a className="pres-skip" href={CTA.href} {...(CTA.external ? { target: "_blank", rel: "noreferrer" } : {})}>{CTA.short}</a>
       </div>
     </div>
     <div className="pres-stage">
@@ -342,7 +342,7 @@ export default function Apresentacao({ data, cupom }: { data: PresData; cupom?: 
     </div>
     <div className="pres-nav">
       <button type="button" className="ghost" onClick={() => go(i - 1)} disabled={i === 0}>Voltar</button>
-      {i < last ? <button type="button" onClick={() => go(i + 1)}>Próximo</button> : <a className="pres-next-cta" href={CTA}>Criar conta</a>}
+      {i < last ? <button type="button" onClick={() => go(i + 1)}>Próximo</button> : <a className="pres-next-cta" href={CTA.href} {...(CTA.external ? { target: "_blank", rel: "noreferrer" } : {})}>{CTA.short}</a>}
     </div>
   </div>;
 }

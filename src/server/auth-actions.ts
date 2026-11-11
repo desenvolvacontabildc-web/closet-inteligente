@@ -19,6 +19,9 @@ export async function register(f:FormData){
   if(!/^\S+@\S+\.\S+$/.test(email)||!name)bounce("/","Informe nome e e-mail válidos.");
   if(!terms)bounce("/","É necessário aceitar os Termos de Uso e a Política de Privacidade.");
   if(password.length<6)bounce("/","A senha deve ter pelo menos 6 caracteres.");
+  // Cadastro por convite: sem um código válido não cria conta (o código é conferido de verdade mais abaixo).
+  const inviteOnly=(await getPool().query("SELECT get_signup_mode() m")).rows[0]?.m==="INVITE";
+  if(inviteOnly&&!String(f.get("offer_code")||"").trim())bounce("/","O cadastro está aberto só por convite no momento. Se você foi selecionada, use o código que recebeu. Se não, entre na lista de espera pelo WhatsApp (81) 98768-6722.");
   const ph=await makeHash(password);
   const c=getPool();const x=await c.connect();
   try{

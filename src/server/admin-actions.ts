@@ -275,3 +275,20 @@ export async function assignOffer(f:FormData){
   await flash("Oferta aplicada. Ela aparece na tela de Assinatura da usuária.");
   redirect("/admin/ofertas");
 }
+
+/* ---------- modo de cadastro (por convite ou aberto) ---------- */
+export async function adminSignupMode(){
+  const result=await withProfile(async(c)=>{
+    try{return (await c.query("SELECT get_signup_mode() m")).rows[0]?.m as string}
+    catch(e){console.error("adminSignupMode falhou:",e);return null}
+  });
+  return result||"INVITE";
+}
+export async function setSignupMode(f:FormData){
+  const mode=String(f.get("mode")||"")==="OPEN"?"OPEN":"INVITE";
+  try{
+    await withProfile(async(c,userId)=>{await c.query("SELECT admin_set_signup_mode($1,$2)",[userId,mode]);return true});
+  }catch(e){console.error("setSignupMode falhou:",e);bounce("/admin/ofertas","Não foi possível alterar o modo de cadastro.")}
+  await flash(mode==="OPEN"?"Cadastro aberto para todas.":"Cadastro só por convite.");
+  redirect("/admin/ofertas");
+}

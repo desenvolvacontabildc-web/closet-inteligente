@@ -1,4 +1,4 @@
-import { adminListOffers, adminListRedemptions, adminListAccounts, saveOffer, assignOffer } from "@/server/admin-actions";
+import { adminListOffers, adminListRedemptions, adminListAccounts, saveOffer, assignOffer, adminSignupMode, setSignupMode } from "@/server/admin-actions";
 import SubmitButton from "@/components/submit-button";
 import { PLAN_LABEL, brl, brlInput } from "../labels";
 
@@ -30,6 +30,7 @@ export default async function Ofertas({ searchParams }: { searchParams: Promise<
   const { accounts } = await adminListAccounts();
   if (!accounts) return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/home">← Voltar</a></main>;
   const offers = await adminListOffers();
+  const signupMode = await adminSignupMode();
   const redemptions = await adminListRedemptions();
   const clients = accounts.filter((a: any) => !a.is_admin);
 
@@ -37,6 +38,17 @@ export default async function Ofertas({ searchParams }: { searchParams: Promise<
     <h1>Ofertas de teste</h1>
     <p className="look-meta">Crie um código para as testadoras. Quem se cadastrar com ele (ou receber a oferta de você) vê, na tela de Assinatura, o botão para pagar o preço da oferta no Pix e usar o plano pelos dias definidos. O pagamento é real (passa pelo Mercado Pago), só que barato, e é liberado automaticamente.</p>
     {error && <p role="alert" className="trial-banner">{error}</p>}
+
+    <section className="card">
+      <h2>Cadastro de novas contas: {signupMode === "OPEN" ? "aberto para todas" : "só por convite"}</h2>
+      <p className="look-meta">{signupMode === "OPEN"
+        ? "Qualquer pessoa pode criar conta e ganha os 7 dias grátis do teste. O link da bio leva ao cadastro."
+        : "Só cria conta quem tiver um código de convite válido (como o das ofertas abaixo). Quem chega pelo link da bio sem código vê o botão da lista de espera no WhatsApp."}</p>
+      <form action={setSignupMode}>
+        <input type="hidden" name="mode" value={signupMode === "OPEN" ? "INVITE" : "OPEN"} />
+        <SubmitButton pendingText="Alterando...">{signupMode === "OPEN" ? "Voltar para só por convite" : "Abrir o cadastro para todas"}</SubmitButton>
+      </form>
+    </section>
 
     <section className="card">
       <h2>Ofertas criadas</h2>

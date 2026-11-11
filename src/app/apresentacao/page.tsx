@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getPool } from "@/server/db";
-import Apresentacao, { type PresData } from "@/components/apresentacao";
+import Apresentacao, { type PresData, type PresCta } from "@/components/apresentacao";
+import { WAITLIST_URL } from "@/components/support";
 
 const TITLE = "Closet Inteligente: veja como funciona";
 const DESC = "Looks com as suas peças, mala de viagem, cores, skincare e cabelo, tudo em um app. Teste grátis por 7 dias, sem cartão.";
@@ -40,6 +41,18 @@ async function load(): Promise<PresData> {
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ cupom?: string }> }) {
   const { cupom } = await searchParams;
-  const ok = /^[A-Za-z0-9_-]{3,32}$/.test(cupom || "") ? cupom!.toLowerCase() : undefined;
-  return <Apresentacao data={await load()} cupom={ok} />;
+  const code = /^[A-Za-z0-9_-]{3,32}$/.test(cupom || "") ? cupom!.toLowerCase() : "";
+  let valid = false, inviteOnly = true;
+  try {
+    const pool = getPool();
+    inviteOnly = (await pool.query("SELECT get_signup_mode() m")).rows[0]?.m === "INVITE";
+    if (code) valid = ((await pool.query("SELECT check_offer($1) m", [code])).rows[0]?.m || "x") === "";
+  } catch (e) { console.error("apresentacao: falha ao conferir o modo de cadastro:", e); }
+  // Com código válido: cadastro com o código. Sem código: lista de espera (modo por convite) ou cadastro aberto.
+  const cta: PresCta = valid
+    ? { href: `/?cupom=${encodeURIComponent(code)}#criar-conta`, label: "Criar minha conta grátis", short: "Criar minha conta", sub: "Crie a sua conta em um minuto e comece o seu teste.", external: false }
+    : inviteOnly
+      ? { href: WAITLIST_URL, label: "Entrar na lista de espera", short: "Lista de espera", sub: "As vagas do teste esgotaram. Entre na lista de espera e seja avisada quando abrirem novas vagas.", external: true }
+      : { href: "/#criar-conta", label: "Criar minha conta grátis", short: "Criar minha conta", sub: "Crie a sua conta em um minuto e teste tudo por 7 dias, sem cartão.", external: false };
+  return <Apresentacao data={await load()} cta={cta} />;
 }
