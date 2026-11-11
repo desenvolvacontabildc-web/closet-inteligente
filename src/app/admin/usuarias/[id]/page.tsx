@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { adminListAccounts, adminUserOverview, adminListAudit, setSubscription, resetPassword, recordPayment, grantModule, grantCredits } from "@/server/admin-actions";
+import { adminListAccounts, adminUserOverview, adminListAudit, setSubscription, resetPassword, recordPayment, grantModule, grantCredits, adminListArchived, archiveAccount } from "@/server/admin-actions";
 import SubmitButton from "@/components/submit-button";
 import { STATUS_LABEL, PLAN_LABEL, brl, brlInput } from "../../labels";
 
@@ -18,6 +18,7 @@ export default async function UsuariaDetalhe({ params, searchParams }: { params:
   const { actorId, accounts } = await adminListAccounts();
   if (!accounts) return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/home">← Voltar</a></main>;
   const a = accounts.find((x: any) => x.user_id === id);
+  const isArchived = (await adminListArchived()).includes(id);
   if (!a) return <main className="shell narrow"><h1>Usuária não encontrada</h1><Link href="/admin/usuarias">← Usuárias</Link></main>;
 
   const [overview, audit] = await Promise.all([adminUserOverview(id), adminListAudit(id)]);
@@ -129,6 +130,15 @@ export default async function UsuariaDetalhe({ params, searchParams }: { params:
       <p className="look-meta">{a.last_login_at ? `Último acesso em ${new Date(a.last_login_at).toLocaleString("pt-BR")}` : "Nunca fez login"} · {a.closet_count} peça(s) no closet · {a.looks_count} look(s)</p>
       {!self && <form action={resetPassword}><input type="hidden" name="user_id" value={a.user_id} /><SubmitButton pendingText="Resetando...">Resetar senha</SubmitButton></form>}
     </section>
+
+    {!self && !a.is_admin && (a.sub_status === "CANCELED" || isArchived) && <section className="card">
+      <h2>{isArchived ? "Conta arquivada" : "Conta cancelada"}</h2>
+      <p className="look-meta">{isArchived ? "Esta conta não aparece nas listas. O histórico de pagamentos e os dados continuam guardados." : "Contas canceladas podem ser arquivadas: elas saem das listas do painel, sem perder o histórico de pagamentos."}</p>
+      <form action={archiveAccount}>
+        <input type="hidden" name="user_id" value={a.user_id} /><input type="hidden" name="archive" value={isArchived ? "0" : "1"} />
+        <SubmitButton pendingText="Salvando...">{isArchived ? "Restaurar conta" : "Arquivar (tirar da lista)"}</SubmitButton>
+      </form>
+    </section>}
 
     <section className="card">
       <h2>Histórico</h2>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { adminListAccounts } from "@/server/admin-actions";
+import { adminListAccounts, adminListArchived } from "@/server/admin-actions";
 import { STATUS_LABEL, PLAN_LABEL } from "../labels";
 
 const FILTERS = [
@@ -8,6 +8,7 @@ const FILTERS = [
   { key: "teste", label: "Em teste" },
   { key: "ativas", label: "Ativas" },
   { key: "suspensas", label: "Suspensas/bloqueadas" },
+  { key: "arquivadas", label: "Arquivadas" },
 ];
 const matches = (a: any, f: string) =>
   f === "atencao" ? ["PAST_DUE", "SUSPENDED", "TRIAL_EXPIRED"].includes(a.sub_status)
@@ -15,6 +16,7 @@ const matches = (a: any, f: string) =>
   : f === "ativas" ? a.sub_status === "ACTIVE"
   : f === "suspensas" ? ["SUSPENDED", "BLOCKED", "CANCELED"].includes(a.sub_status)
   : true;
+const inFilter = (a: any, f: string, archived: Set<string>) => (f === "arquivadas" ? archived.has(a.user_id) : !archived.has(a.user_id) && matches(a, f));
 
 export default async function Usuarias({ searchParams }: { searchParams: Promise<{ f?: string; q?: string }> }) {
   const { f: fRaw, q: qRaw } = await searchParams;
@@ -23,8 +25,9 @@ export default async function Usuarias({ searchParams }: { searchParams: Promise
   const { accounts } = await adminListAccounts();
   if (!accounts) return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/home">← Voltar</a></main>;
 
-  const list = accounts.filter((a: any) => matches(a, f) && (!q || `${a.display_name || ""} ${a.email}`.toLowerCase().includes(q)));
-  const count = (key: string) => accounts.filter((a: any) => matches(a, key)).length;
+  const archived = new Set<string>(await adminListArchived());
+  const list = accounts.filter((a: any) => inFilter(a, f, archived) && (!q || `${a.display_name || ""} ${a.email}`.toLowerCase().includes(q)));
+  const count = (key: string) => accounts.filter((a: any) => inFilter(a, key, archived)).length;
 
   return <main className="shell narrow">
     <h1>Usuárias</h1>

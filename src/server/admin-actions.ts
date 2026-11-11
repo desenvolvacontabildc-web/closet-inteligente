@@ -292,3 +292,23 @@ export async function setSignupMode(f:FormData){
   await flash(mode==="OPEN"?"Cadastro aberto para todas.":"Cadastro só por convite.");
   redirect("/admin/ofertas");
 }
+
+/* ---------- arquivar contas canceladas (somem das listas, sem perder o historico) ---------- */
+export async function adminListArchived(){
+  const result=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_list_archived($1)",[userId])).rows.map((r:any)=>String(r.admin_list_archived))}
+    catch(e){console.error("adminListArchived falhou:",e);return null}
+  });
+  return result||[];
+}
+export async function archiveAccount(f:FormData){
+  const target=String(f.get("user_id")||"");
+  const archive=String(f.get("archive")||"")==="1";
+  let msg="";
+  try{
+    msg=(await withProfile(async(c,userId)=>(await c.query("SELECT admin_archive_account($1,$2,$3) m",[userId,target,archive])).rows[0].m))||"";
+  }catch(e){console.error("archiveAccount falhou:",e);bounce(`/admin/usuarias/${encodeURIComponent(target)}`,"Não foi possível alterar a conta.")}
+  if(msg)bounce(`/admin/usuarias/${encodeURIComponent(target)}`,msg);
+  await flash(archive?"Conta arquivada: ela saiu das listas.":"Conta restaurada.");
+  redirect(archive?"/admin/usuarias":`/admin/usuarias/${encodeURIComponent(target)}`);
+}
