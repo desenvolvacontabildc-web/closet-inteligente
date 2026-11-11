@@ -46,7 +46,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
   try {
     const pool = getPool();
     inviteOnly = (await pool.query("SELECT get_signup_mode() m")).rows[0]?.m === "INVITE";
-    if (code) valid = ((await pool.query("SELECT check_offer($1) m", [code])).rows[0]?.m || "x") === "";
+    if (code) valid = ((await pool.query("SELECT check_offer($1) m", [code])).rows[0]?.m ?? "x") === ""; // '' = código válido
   } catch (e) { console.error("apresentacao: falha ao conferir o modo de cadastro:", e); }
   // Com código válido: cadastro com o código. Sem código: lista de espera (modo por convite) ou cadastro aberto.
   const cta: PresCta = valid
