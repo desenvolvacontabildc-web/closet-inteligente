@@ -119,8 +119,36 @@ function LookDetails({ l, ctx, mode }: { l: LookRow; ctx: Ctx; mode: "ready" | "
   </div>;
 }
 
-export default async function Looks({ searchParams }: { searchParams: Promise<{ error?: string; filtro?: string; peca?: string }> }) {
-  const { error, filtro: filtroRaw, peca: pecaRaw } = await searchParams;
+/** Cartão de decisão de um look (foto, peças, imagem, Gostei / Não é pra mim e detalhes). `isNew` destaca o recém-gerado. */
+function DecideCard({ l, ctx, isNew }: { l: LookRow; ctx: Ctx; isNew?: boolean }) {
+  const decided = l.status === "APPROVED" || l.status === "WORN";
+  return <article className={`decide-card${isNew ? " is-new" : ""}`} id={isNew ? `look-${l.id}` : undefined}>
+    <div className="decide-cover"><Cover l={l} /></div>
+    <div className="decide-body">
+      {isNew && <span className="new-badge">NOVO</span>}
+      <h3>{l.name || "Look sem nome"}</h3>
+      <p className="look-meta">{l.occasion || "Ocasião não informada"}{decided ? ` · ${STATUS_LABEL[l.status] || l.status}` : ""}</p>
+      <p className="look-pieces">{(l.items || []).map((it: any) => it.name).join(" + ") || "Sem peças"}</p>
+      <GenerateImageCta l={l} ctx={ctx} />
+      {!decided && <div className="decide-actions">
+        <form action={submitLookFeedback}>
+          <input type="hidden" name="look_id" value={l.id} /><input type="hidden" name="kind" value="LIKE" /><input type="hidden" name="return_path" value={ctx.returnPath} />
+          <button className="approve">♡ Gostei</button>
+        </form>
+        <form action={submitLookFeedback}>
+          <input type="hidden" name="look_id" value={l.id} /><input type="hidden" name="kind" value="DISLIKE" /><input type="hidden" name="return_path" value={ctx.returnPath} />
+          <button className="reject">Não é pra mim</button>
+        </form>
+      </div>}
+      <details className="more"><summary>Ver detalhes e mais opções</summary><LookDetails l={l} ctx={ctx} mode={decided ? "ready" : "pending"} /></details>
+    </div>
+  </article>;
+}
+
+export default async function Looks({ searchParams }: { searchParams: Promise<{ error?: string; filtro?: string; peca?: string; novos?: string; visto?: string }> }) {
+  const { error, filtro: filtroRaw, peca: pecaRaw, novos: novosRaw, visto: vistoRaw } = await searchParams;
+  const UUID_RE = /^[0-9a-f-]{36}$/i;
+  const novoIds = new Set<string>([...(novosRaw || "").split(",").filter((x) => UUID_RE.test(x)).slice(0, 10), ...(UUID_RE.test(vistoRaw || "") ? [vistoRaw!] : [])]);
   const peca = /^[0-9a-f-]{36}$/i.test(pecaRaw || "") ? pecaRaw! : "";
   const filtro = ["usados", "descartados"].includes(filtroRaw || "") ? filtroRaw! : "todos";
   const data = await withProfile(async (c, userId) => {
@@ -141,9 +169,11 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
   if (!data) redirect("/");
   const { items, looks, aiRemaining, imgRemaining, defaultVisualStyle, wardrobeGap } = data;
 
-  const ready = looks.filter((l: LookRow) => l.status === "APPROVED" || l.status === "WORN");
+  const highlighted = looks.filter((l: LookRow) => novoIds.has(l.id) && l.status !== "REJECTED");
+  const hiSet = new Set(highlighted.map((l: LookRow) => l.id));
+  const ready = looks.filter((l: LookRow) => (l.status === "APPROVED" || l.status === "WORN") && !hiSet.has(l.id));
   const worn = looks.filter((l: LookRow) => l.status === "WORN");
-  const pending = looks.filter((l: LookRow) => !["APPROVED", "WORN", "REJECTED"].includes(l.status));
+  const pending = looks.filter((l: LookRow) => !["APPROVED", "WORN", "REJECTED"].includes(l.status) && !hiSet.has(l.id));
   const rejected = looks.filter((l: LookRow) => l.status === "REJECTED");
   const ctx: Ctx = { returnPath: peca ? `/looks?peca=${peca}` : filtro === "todos" ? "/looks" : `/looks?filtro=${filtro}`, imgRemaining, defaultVisualStyle };
   const pecaItem = peca ? items.find((i: any) => i.id === peca) : null;
@@ -170,6 +200,11 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
     <h1>Seus looks</h1>
     {error && <p role="alert" className="trial-banner">{error}</p>}
     <p className="usage-line">{aiRemaining === null ? "IA ilimitada" : `${aiRemaining} operaç${aiRemaining === 1 ? "ão" : "ões"} de IA`} · {imgRemaining === null ? "imagens ilimitadas" : `${imgRemaining} imagem${imgRemaining === 1 ? "" : "ns"} este período`}</p>
+
+    {!peca && filtro === "todos" && highlighted.length > 0 && <section className="new-looks" id="novos">
+      <div className="section-head"><h2>{highlighted.length === 1 ? "Seu look está pronto" : "Acabou de ser gerado"}</h2><span className="look-meta">{highlighted.length === 1 ? "Veja como ficou. Gostou? Toque em “Gostei” para guardar nos looks prontos." : `${highlighted.length} looks novos para você decidir.`}</span></div>
+      <div className="decide-list">{highlighted.map((l: LookRow) => <DecideCard key={l.id} l={l} ctx={ctx} isNew />)}</div>
+    </section>}
 
     <div className="action-cards">
       <div className="card compact">
@@ -245,28 +280,7 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
       {pending.length > 0 && <section>
         <div className="section-head"><h2>Para decidir</h2><span className="look-meta">Aprove o que gostou. O que não for pra você some da lista.</span></div>
         <div className="decide-list">
-          {pending.map((l: LookRow) => (
-            <article className="decide-card" key={l.id}>
-              <div className="decide-cover"><Cover l={l} /></div>
-              <div className="decide-body">
-                <h3>{l.name || "Look sem nome"}</h3>
-                <p className="look-meta">{l.occasion || "Ocasião não informada"}</p>
-                <p className="look-pieces">{(l.items || []).map((it: any) => it.name).join(" + ") || "Sem peças"}</p>
-                <GenerateImageCta l={l} ctx={ctx} />
-                <div className="decide-actions">
-                  <form action={submitLookFeedback}>
-                    <input type="hidden" name="look_id" value={l.id} /><input type="hidden" name="kind" value="LIKE" /><input type="hidden" name="return_path" value={ctx.returnPath} />
-                    <button className="approve">♡ Gostei</button>
-                  </form>
-                  <form action={submitLookFeedback}>
-                    <input type="hidden" name="look_id" value={l.id} /><input type="hidden" name="kind" value="DISLIKE" /><input type="hidden" name="return_path" value={ctx.returnPath} />
-                    <button className="reject">Não é pra mim</button>
-                  </form>
-                </div>
-                <details className="more"><summary>Ver detalhes e mais opções</summary><LookDetails l={l} ctx={ctx} mode="pending" /></details>
-              </div>
-            </article>
-          ))}
+          {pending.map((l: LookRow) => <DecideCard key={l.id} l={l} ctx={ctx} />)}
         </div>
       </section>}
     </>}

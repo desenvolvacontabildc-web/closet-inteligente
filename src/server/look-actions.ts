@@ -173,6 +173,11 @@ export async function generateLookIllustration(f: FormData) {
   });
   if (!saved) redirect(returnPath);
   if (saved === "FAILED") bounce(returnPath, "Não foi possível salvar a imagem gerada agora. Tente de novo em instantes.");
+  // Na tela de looks, leva a usuária direto ao look que acabou de ficar pronto (aparece destacado no topo).
+  if (/^\/looks(\?|$)/.test(returnPath) && /^[0-9a-f-]{36}$/i.test(lookId)) {
+    await flash("Imagem pronta! Seu look está aqui no topo.");
+    redirect(`${returnPath}${returnPath.includes("?") ? "&" : "?"}visto=${lookId}`);
+  }
   redirect(returnPath);
 }
 
@@ -295,7 +300,7 @@ async function weatherPromptHint(city: string): Promise<string> {
  * Looks salvos são ilimitados -- só a operação de IA (esta chamada) é contada. Gerencia
  * suas próprias transações curtas (não recebe `c` de fora) -- a chamada à IA roda
  * inteiramente sem nenhuma conexão do pool presa. */
-async function generateLooksFromRequest(userId: string, request: string, maxLooks: number, kind: "SUGGESTED" | "DAILY" | "TRIP", tripLabel = "", returnPath = "/looks", mustIncludeId = ""): Promise<{ createdCount: number; note?: string }> {
+async function generateLooksFromRequest(userId: string, request: string, maxLooks: number, kind: "SUGGESTED" | "DAILY" | "TRIP", tripLabel = "", returnPath = "/looks", mustIncludeId = ""): Promise<{ createdCount: number; createdIds: string[]; note?: string }> {
   const ctx = await withProfile(async (c) => {
     if (!process.env.OPENAI_API_KEY) return { ok: false as const, message: "Sugestão por IA não configurada: defina OPENAI_API_KEY no servidor." };
     const budget = await bumpAndCheckAiUsage(c, userId);
@@ -344,6 +349,7 @@ async function generateLooksFromRequest(userId: string, request: string, maxLook
     const validIds = new Set(ctx.items.map((i: any) => i.id));
     const proposals = Array.isArray(parsed.looks) ? parsed.looks.slice(0, maxLooks) : [];
     let count = 0;
+    const newIds: string[] = [];
     for (const p of proposals) {
       const ids = Array.isArray(p.item_ids) ? p.item_ids.filter((id: string) => validIds.has(id)) : [];
       if (ids.length === 0) continue;
@@ -362,11 +368,12 @@ async function generateLooksFromRequest(userId: string, request: string, maxLook
         );
       }
       count++;
+      newIds.push(lookId);
     }
-    return count;
+    return { count, ids: newIds };
   });
   if (created === null) bounce(returnPath, "Sessão expirada. Faça login de novo.");
-  return { createdCount: created, note: parsed.note };
+  return { createdCount: created.count, createdIds: created.ids, note: parsed.note };
 }
 
 /** Na tela de uma peça: monta 3 looks diferentes entre si, todos usando essa peça como base,
@@ -429,7 +436,9 @@ export async function suggestLooks(f: FormData) {
   if (!userId) redirect("/");
   const result = await generateLooksFromRequest(userId, request, 5, "SUGGESTED", "", "/looks");
   if (result.createdCount === 0) bounce("/looks", "Não foi possível montar nenhum look com as peças atuais do seu closet para esse pedido.");
-  redirect("/looks");
+  const n = result.createdCount;
+  await flash(`${n} look${n === 1 ? "" : "s"} novo${n === 1 ? "" : "s"} montado${n === 1 ? "" : "s"}! Estão aqui no topo.`);
+  redirect(`/looks?novos=${result.createdIds.join(",")}`);
 }
 
 /** Botão "Look de hoje": gera 2 opções (cabem lado a lado na tela e custa menos em geração

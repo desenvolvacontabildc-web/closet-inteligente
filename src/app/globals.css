@@ -985,3 +985,10 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .form .check input{width:auto;margin-top:3px}
 .bazar-mine-row{display:flex;gap:12px;align-items:center;margin-bottom:8px}
 .bazar-mine-row img,.bazar-mine-row .cover-empty{width:84px;height:104px;object-fit:cover;border-radius:12px;flex:none}
+
+/* Look recem-gerado em destaque no topo de /looks */
+.new-looks{margin-top:14px;padding:12px;border:2px solid var(--accent);border-radius:22px;background:rgba(255,255,255,.55);animation:newlook-in .6s ease-out}
+.new-looks .section-head{margin-top:2px}
+.decide-card.is-new{border-color:var(--accent);box-shadow:0 0 0 3px rgba(150,60,90,.12),var(--shadow)}
+.new-badge{display:inline-block;padding:3px 10px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px;font-weight:800;letter-spacing:.06em;margin-bottom:6px}
+@keyframes newlook-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
