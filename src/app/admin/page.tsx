@@ -39,15 +39,26 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
     <section className="card">
       <h2>Avisos {unread > 0 && <span className="chip chip-SUSPENDED">{unread} novo{unread === 1 ? "" : "s"}</span>}</h2>
       <p className="look-meta">Pagamentos recebidos já liberam a usuária automaticamente; aqui você só acompanha. Atrasos e suspensões também aparecem aqui.</p>
-      {notifications.length === 0 ? <p>Nenhum aviso ainda.</p> : notifications.slice(0, 20).map((n: any) => (
-        <div key={n.id} className={`notif ${n.kind}${n.read_at ? "" : " unread"}`}>
-          <p><strong>{n.title}</strong> <small>· {new Date(n.created_at).toLocaleString("pt-BR")}</small></p>
-          <p className="look-meta">{n.body}</p>
-          {n.kind === "PARTNER" ? <Link href="/admin/parceiras" className="link">Abrir parcerias →</Link>
-            : n.user_id && <Link href={`/admin/usuarias/${n.user_id}`} className="link">Abrir ficha da usuária →</Link>}
-        </div>
-      ))}
-      {unread > 0 && <form action={markNotificationsRead}><SubmitButton pendingText="Marcando...">Marcar todos como lidos</SubmitButton></form>}
+      {(() => {
+        const renderNotif = (n: any) => (
+          <div key={n.id} className={`notif ${n.kind}${n.read_at ? "" : " unread"}`}>
+            <p><strong>{n.title}</strong> <small>· {new Date(n.created_at).toLocaleString("pt-BR")}</small></p>
+            <p className="look-meta">{n.body}</p>
+            {n.kind === "PARTNER" ? <Link href="/admin/parceiras" className="link">Abrir parcerias →</Link>
+              : n.user_id && <Link href={`/admin/usuarias/${n.user_id}`} className="link">Abrir ficha da usuária →</Link>}
+          </div>
+        );
+        const newOnes = notifications.filter((n: any) => !n.read_at);
+        const oldOnes = notifications.filter((n: any) => n.read_at);
+        return <>
+          {newOnes.length === 0 ? <p>Nenhum aviso novo. ✔</p> : newOnes.slice(0, 30).map(renderNotif)}
+          {unread > 0 && <form action={markNotificationsRead}><SubmitButton pendingText="Marcando...">Marcar todos como lidos</SubmitButton></form>}
+          {oldOnes.length > 0 && <details style={{ marginTop: 12 }}>
+            <summary className="look-meta">Avisos já lidos ({oldOnes.length})</summary>
+            {oldOnes.slice(0, 20).map(renderNotif)}
+          </details>}
+        </>;
+      })()}
     </section>
 
     <section className="card">
