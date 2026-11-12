@@ -1009,3 +1009,11 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .bazar-main{width:260px;max-width:100%;aspect-ratio:4/5;max-height:none;object-fit:cover;border-radius:14px}
 .bazar-gallery a:first-child{flex:0 0 auto}
 .bazar-thumb{width:64px;height:80px;border-radius:10px}
+
+/* Home: card de novidades do Bazar */
+.bazar-teaser{align-items:flex-start}
+.bazar-teaser-body{min-width:0;flex:1}
+.bazar-teaser-body strong{margin-top:4px}
+.bazar-teaser-body .look-meta{margin:2px 0 0}
+.bazar-teaser-thumbs{display:flex;gap:8px;margin-top:10px}
+.bazar-teaser-thumbs img{width:56px;height:70px;border-radius:10px;object-fit:cover;flex:none}

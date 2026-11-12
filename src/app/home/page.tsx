@@ -47,11 +47,12 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
    const cuidese=await hasCuidese(c,id);
    const hair=cuidese?await hairReminder(c):null;
    const skin=cuidese?await skinReminder(c):null;
-   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review,hair,skin};
+   const bazar=(await c.query("SELECT bazar_home($1) b",[id])).rows[0].b as {total:number;alugueis:number;bazar:number;novas:number;latest:{id:string;kind:string;title:string;price_cents:number;price_unit:string;photo_id:string}[]};
+   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review,hair,skin,bazar};
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until,hair,skin}=profile;
+ const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until,hair,skin,bazar}=profile;
  const showReview=review.length>0&&(!closet_review_snooze_until||new Date(closet_review_snooze_until)<new Date());
  const weather=await fetchCurrentWeather(city||"");
  const firstName=((display_name||"").trim().split(/\s+/)[0]||"").toLowerCase().replace(/^./,(ch:string)=>ch.toUpperCase());
@@ -217,6 +218,16 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          <form action={snoozeClosetReview}><input type="hidden" name="return_path" value="/home"/><button className="link">Agora não (lembrar em 30 dias)</button></form>
        </div>
      </div>}
+     <Link href="/bazar" className="trend-teaser bazar-teaser">
+       <div className="bazar-teaser-body">
+         <span className="eyebrow">BAZAR &amp; ALUGUEL{bazar.novas>0?" · NOVIDADE":""}</span>
+         <strong>{bazar.total===0?"Ainda não tem peças por aqui. Anuncie a sua!":bazar.novas>0?`${bazar.novas} peça${bazar.novas===1?"":"s"} nova${bazar.novas===1?"":"s"} esta semana`:`${bazar.total} peça${bazar.total===1?"":"s"} disponíve${bazar.total===1?"l":"is"}`}</strong>
+         <p className="look-meta">{bazar.total===0?"Alugue ou venda peças do seu closet para outras mulheres.":`${bazar.alugueis} para alugar · ${bazar.bazar} no bazar${bazar.novas>0?` · ${bazar.total} no total`:""}`}</p>
+         {bazar.latest.length>0&&<div className="bazar-teaser-thumbs">
+           {bazar.latest.map((p)=><img key={p.id} src={`/api/bazar/foto/${p.photo_id}?w=200`} alt={p.title} loading="lazy"/>)}
+         </div>}
+       </div>
+     </Link>
      {trend&&<Link href="/tendencias" className="trend-teaser">
        {trend.object_key&&<img src={`/api/tendencias/photos/${trend.id}`} alt={trend.title}/>}
        <div>
