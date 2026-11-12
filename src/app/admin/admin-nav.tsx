@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/admin/parceiras", label: "Parcerias" },
   { href: "/admin/tendencias", label: "Tendências" },
   { href: "/admin/achadinhos", label: "Achadinhos" },
+  { href: "/admin/bazar", label: "Bazar" },
 ];
 
 export default function AdminNav() {

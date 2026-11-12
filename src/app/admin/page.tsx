@@ -34,6 +34,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
       <Link href="/admin/parceiras" className="admin-tile"><strong>Parcerias</strong><small>Parceiras e vitrine</small></Link>
       <Link href="/admin/tendencias" className="admin-tile"><strong>Tendências</strong><small>Radar de tendências</small></Link>
       <Link href="/admin/achadinhos" className="admin-tile"><strong>Achadinhos</strong><small>Achados com desconto</small></Link>
+      <Link href="/admin/bazar" className="admin-tile"><strong>Bazar & Aluguel</strong><small>Anúncios e denúncias</small></Link>
     </div>
 
     <section className="card">
@@ -45,6 +46,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
             <p><strong>{n.title}</strong> <small>· {new Date(n.created_at).toLocaleString("pt-BR")}</small></p>
             <p className="look-meta">{n.body}</p>
             {n.kind === "PARTNER" ? <Link href="/admin/parceiras" className="link">Abrir parcerias →</Link>
+              : n.kind === "BAZAR" ? <Link href="/admin/bazar" className="link">Abrir o Bazar →</Link>
               : n.user_id && <Link href={`/admin/usuarias/${n.user_id}`} className="link">Abrir ficha da usuária →</Link>}
           </div>
         );

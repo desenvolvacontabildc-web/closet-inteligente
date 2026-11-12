@@ -200,6 +200,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        <Link href="/looks/analisar"><span aria-hidden="true">✦</span>Analisar meu look</Link>
        <Link href="/closet"><span aria-hidden="true">✦</span>Adicionar peças</Link>
        <Link href="/vitrine"><span aria-hidden="true">✦</span>Comprar com desconto</Link>
+       <Link href="/bazar"><span aria-hidden="true">✦</span>Bazar e aluguel</Link>
      </div>
      {showReview&&<div className="card home-review">
        <h2>Hora de rever seu closet</h2>

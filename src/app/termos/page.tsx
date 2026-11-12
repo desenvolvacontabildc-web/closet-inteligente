@@ -26,6 +26,7 @@ export default function Termos(){return <main className="shell narrow">
 <h2>5. Uso aceitável</h2>
 <p>Use o aplicativo apenas para o seu próprio guarda-roupa e a sua imagem. Não é permitido enviar fotos de terceiros sem autorização, usar o serviço para fins ilícitos, tentar acessar dados de outras usuárias ou burlar os limites do plano.</p>
 
+<p>No Bazar &amp; Aluguel, cada usuária é responsável pelos anúncios que publica (fotos, valores, estado das peças) e pela negociação feita diretamente com a outra parte pelo WhatsApp. Ao anunciar, você autoriza que o seu número de WhatsApp seja usado para abrir a conversa com quem demonstrar interesse. O Closet Inteligente apenas conecta as usuárias, não participa de pagamentos, entregas ou devoluções, e pode ocultar anúncios denunciados ou que violem estes termos.</p>
 <h2>6. Suspensão e cancelamento de acesso</h2>
 <p>A administradora pode suspender ou cancelar o acesso de uma conta em caso de inadimplência, uso indevido ou encerramento do período de teste. Você também pode pedir o cancelamento da sua conta e a exclusão dos seus dados a qualquer momento.</p>
 

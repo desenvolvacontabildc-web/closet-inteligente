@@ -25,6 +25,7 @@ export default async function Vitrine() {
       <h1>Compre com desconto nas nossas lojas parceiras.</h1>
       <p>Peças selecionadas pelas lojas parceiras do Closet Inteligente, com desconto exclusivo. Fale direto com a loja pelo WhatsApp ou conheça o Instagram.</p>
     </section>
+    <p className="look-meta">Quer alugar ou vender peças entre usuárias? Conheça o <a href="/bazar"><strong>Bazar &amp; Aluguel</strong></a>.</p>
     {stores.size === 0 && <p>Nenhuma loja parceira publicou peças ainda.</p>}
     {[...stores.entries()].map(([id, store]) => (
       <section key={id} className="card">

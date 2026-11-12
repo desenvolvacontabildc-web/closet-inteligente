@@ -959,3 +959,29 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 
 .danger-link{color:#b3261e}
 .cancel-sub{margin-top:6px}
+
+/* ---------- Bazar & Aluguel ---------- */
+.bazar-tabs{display:flex;gap:8px;margin:14px 0 8px}
+.bazar-tab{padding:9px 16px;border-radius:999px;background:var(--surface);border:1px solid var(--line-strong);font-size:13px;font-weight:700;color:var(--ink);text-decoration:none}
+.bazar-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.bazar-grid .card{position:relative;padding:0 0 10px;overflow:hidden}
+.bazar-grid .card img,.bazar-grid .card .cover-empty{aspect-ratio:4/5;object-fit:cover;width:100%;border-radius:0;display:flex}
+.bazar-grid .card h3,.bazar-grid .card p{padding:0 10px}
+.bazar-kind{position:absolute;top:8px;left:8px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.04em;background:#fff;color:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.bazar-kind.BAZAR{color:#8a6a1f}
+.bazar-gallery{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.bazar-gallery a{display:block}
+.bazar-main{width:100%;max-height:520px;object-fit:cover;border-radius:16px;display:block}
+.bazar-gallery a:first-child{flex:1 1 100%}
+.bazar-thumb{width:96px;height:120px;object-fit:cover;border-radius:12px;display:block}
+.bazar-price{font-size:24px;font-weight:800;margin:4px 0}
+.bazar-cta{width:100%;margin-top:12px;padding:14px;font-size:16px}
+.bazar-kind-pick{border:1px solid var(--line-strong);border-radius:14px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:16px}
+.bazar-kind-pick legend{font-size:13px;color:var(--muted);padding:0 6px}
+.bazar-kind-pick label{display:flex;align-items:center;gap:8px;font-weight:700}
+.bazar-kind-pick input{width:auto}
+.bazar-price-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form .check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.4}
+.form .check input{width:auto;margin-top:3px}
+.bazar-mine-row{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+.bazar-mine-row img,.bazar-mine-row .cover-empty{width:84px;height:104px;object-fit:cover;border-radius:12px;flex:none}
