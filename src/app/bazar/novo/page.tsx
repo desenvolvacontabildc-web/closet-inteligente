@@ -10,13 +10,26 @@ export default async function NovoAnuncio({ searchParams }: { searchParams: Prom
   const pre = await withProfile(async (c, userId) => ({
     city: String((await c.query("SELECT city FROM profiles WHERE user_id=$1", [userId])).rows[0]?.city || ""),
     whatsapp: String((await c.query("SELECT bazar_last_whatsapp($1) w", [userId])).rows[0]?.w || ""),
+    can: (await c.query("SELECT * FROM bazar_can_post($1)", [userId])).rows[0] as { ok: boolean; msg: string; used: number; max_posts: number },
   }));
   if (!pre) redirect("/");
+  if (!pre.can.ok) return <main className="shell narrow">
+    <div className="top"><span className="eyebrow">NOVO ANÚNCIO</span><Link href="/bazar">← Bazar</Link></div>
+    <h1>Anunciar uma peça</h1>
+    <div className="card">
+      <p>{pre.can.msg}</p>
+      <div className="action-row">
+        {pre.can.used >= pre.can.max_posts ? <Link href="/bazar/meus"><button type="button">Ver meus anúncios</button></Link> : null}
+        <Link href="/assinatura"><button type="button">Ver planos</button></Link>
+      </div>
+    </div>
+    <p className="look-meta">Navegar pelo Bazar e chamar quem anuncia continua liberado para todas.</p>
+  </main>;
   const kind = sp.f_kind === "BAZAR" ? "BAZAR" : "ALUGUEL";
   return <main className="shell narrow">
     <div className="top"><span className="eyebrow">NOVO ANÚNCIO</span><Link href="/bazar">← Bazar</Link></div>
     <h1>Anunciar uma peça</h1>
-    <p className="look-meta">Fotografe a peça (ou o look inteiro), diga o valor e pronto: quem tiver interesse chama você direto no WhatsApp.</p>
+    <p className="look-meta">Fotografe a peça (ou o look inteiro), diga o valor e pronto: quem tiver interesse chama você direto no WhatsApp. Anúncios abertos: {pre.can.used} de {pre.can.max_posts}.</p>
     {sp.error && <p role="alert" className="trial-banner">{sp.error}</p>}
     <form action={createBazarPost} encType="multipart/form-data" className="form">
       <fieldset className="bazar-kind-pick">

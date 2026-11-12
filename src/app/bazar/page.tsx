@@ -21,7 +21,7 @@ export default async function Bazar({ searchParams }: { searchParams: Promise<{ 
     <div className="top"><span className="eyebrow">BAZAR & ALUGUEL</span><Link href="/home">Voltar</Link></div>
     <section className="hero">
       <h1>Alugue ou garimpe peças de outras mulheres.</h1>
-      <p>Aqui as usuárias do Closet anunciam looks e peças para <strong>alugar</strong> (para um evento, uma viagem…) ou para o <strong>bazar</strong> (venda). Toque em “Chamar no WhatsApp” e a conversa abre direto com a dona da peça.</p>
+      <p>Aqui as assinantes do Closet anunciam looks e peças para <strong>alugar</strong> (para um evento, uma viagem…) ou para o <strong>bazar</strong> (venda). Toque em “Chamar no WhatsApp” e a conversa abre direto com a dona da peça. <span className="look-meta">Anunciar é um benefício das assinantes.</span></p>
       <div className="action-row">
         <Link href="/bazar/novo"><button type="button">＋ Anunciar uma peça</button></Link>
         <Link href="/bazar/meus">Meus anúncios</Link>
