@@ -48,11 +48,14 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
    const hair=cuidese?await hairReminder(c):null;
    const skin=cuidese?await skinReminder(c):null;
    const bazar=(await c.query("SELECT bazar_home($1) b",[id])).rows[0].b as {total:number;alugueis:number;bazar:number;novas:number;latest:{id:string;kind:string;title:string;price_cents:number;price_unit:string;photo_id:string}[]};
-   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review,hair,skin,bazar};
+   const stats=(await c.query("SELECT (SELECT count(*) FROM closet_items WHERE status='ACTIVE')::int pecas,(SELECT count(*) FROM looks WHERE status IN ('APPROVED','WORN') AND kind NOT IN ('DAILY','TRIP','ANALYSIS'))::int looks,(SELECT count(*) FROM looks WHERE status='WORN')::int usados")).rows[0] as {pecas:number;looks:number;usados:number};
+   const vitrine=(await c.query("SELECT item_id,item_name,object_key FROM storefront_list()")).rows as {item_id:string;item_name:string;object_key:string|null}[];
+   const finds=(await c.query("SELECT id,title,object_key FROM list_active_finds() LIMIT 12")).rows as {id:string;title:string;object_key:string|null}[];
+   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review,hair,skin,bazar,stats,vitrine,finds};
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until,hair,skin,bazar}=profile;
+ const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until,hair,skin,bazar,stats,vitrine,finds}=profile;
  const showReview=review.length>0&&(!closet_review_snooze_until||new Date(closet_review_snooze_until)<new Date());
  const weather=await fetchCurrentWeather(city||"");
  const firstName=((display_name||"").trim().split(/\s+/)[0]||"").toLowerCase().replace(/^./,(ch:string)=>ch.toUpperCase());
@@ -78,6 +81,22 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      {weather
        ? <p className="look-meta">Hoje em {weather.city}: {weather.temp}°C{weather.chovendo?", chance de chuva":""}.</p>
        : <p className="look-meta">Cadastre sua cidade no <Link href="/perfil">Perfil</Link> pra eu te avisar aqui do clima do dia.</p>}
+     <div className="home-stats">
+       <Link href="/closet" className="home-stat"><strong>{stats.pecas}</strong><small>peça{stats.pecas===1?"":"s"}</small></Link>
+       <Link href="/looks" className="home-stat"><strong>{stats.looks}</strong><small>look{stats.looks===1?"":"s"} pronto{stats.looks===1?"":"s"}</small></Link>
+       <Link href="/looks?filtro=usados" className="home-stat"><strong>{stats.usados}</strong><small>já usado{stats.usados===1?"":"s"}</small></Link>
+     </div>
+     {poucasPecas&&<div className="card start-card">
+       <span className="eyebrow">COMECE POR AQUI</span>
+       <h2>Monte o seu closet: {Math.min(stats.pecas,8)} de 8 peças</h2>
+       <div className="hair-progress" aria-hidden="true"><i style={{width:`${Math.round((Math.min(stats.pecas,8)/8)*100)}%`}}/></div>
+       <ol className="start-steps">
+         <li className={stats.pecas>=8?"done":""}>Cadastre pelo menos 8 peças (foto de cada uma).</li>
+         <li className={stats.looks>0||todayLooks.length>0?"done":""}>Peça o seu primeiro look.</li>
+         <li className={stats.looks>0?"done":""}>Toque em “Gostei” nos looks que combinam com você.</li>
+       </ol>
+       <div className="action-row"><Link href="/closet"><button type="button">{stats.pecas===0?"Cadastrar a primeira peça":"Adicionar mais peças"}</button></Link></div>
+     </div>}
      <div className="empty">
        <h2>Look para hoje</h2>
        {poucasPecas&&<p className="look-meta">Suas sugestões ainda vão melhorar: quanto mais peças você cadastrar e mais looks usar/avaliar, mais o app entende sua rotina e seu estilo e mais certeiras ficam as opções.</p>}
@@ -202,6 +221,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        <Link href="/closet"><span aria-hidden="true">✦</span>Adicionar peças</Link>
        <Link href="/vitrine"><span aria-hidden="true">✦</span>Comprar com desconto</Link>
        <Link href="/bazar"><span aria-hidden="true">✦</span>Bazar e aluguel</Link>
+       <Link href="/mala"><span aria-hidden="true">✦</span>Mala de viagem</Link>
      </div>
      {showReview&&<div className="card home-review">
        <h2>Hora de rever seu closet</h2>
@@ -218,16 +238,28 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          <form action={snoozeClosetReview}><input type="hidden" name="return_path" value="/home"/><button className="link">Agora não (lembrar em 30 dias)</button></form>
        </div>
      </div>}
+     <div className="section-head feed-head"><h2>Novidades pra você</h2><span className="look-meta">O que mudou por aqui.</span></div>
      <Link href="/bazar" className="trend-teaser bazar-teaser">
        <div className="bazar-teaser-body">
          <span className="eyebrow">BAZAR &amp; ALUGUEL{bazar.novas>0?" · NOVIDADE":""}</span>
          <strong>{bazar.total===0?"Ainda não tem peças por aqui. Anuncie a sua!":bazar.novas>0?`${bazar.novas} peça${bazar.novas===1?"":"s"} nova${bazar.novas===1?"":"s"} esta semana`:`${bazar.total} peça${bazar.total===1?"":"s"} disponíve${bazar.total===1?"l":"is"}`}</strong>
          <p className="look-meta">{bazar.total===0?"Alugue ou venda peças do seu closet para outras mulheres.":`${bazar.alugueis} para alugar · ${bazar.bazar} no bazar${bazar.novas>0?` · ${bazar.total} no total`:""}`}</p>
          {bazar.latest.length>0&&<div className="bazar-teaser-thumbs">
-           {bazar.latest.map((p)=><img key={p.id} src={`/api/bazar/foto/${p.photo_id}?w=200`} alt={p.title} loading="lazy"/>)}
+           {bazar.latest.map((p:any)=><img key={p.id} src={`/api/bazar/foto/${p.photo_id}?w=200`} alt={p.title} loading="lazy"/>)}
          </div>}
        </div>
      </Link>
+     {(vitrine.length>0||finds.length>0)&&<Link href="/vitrine" className="trend-teaser bazar-teaser">
+       <div className="bazar-teaser-body">
+         <span className="eyebrow">VITRINE &amp; ACHADINHOS</span>
+         <strong>{vitrine.length>0?`${vitrine.length} peça${vitrine.length===1?"":"s"} com desconto exclusivo`:`${finds.length} achadinho${finds.length===1?"":"s"} para você`}</strong>
+         <p className="look-meta">{vitrine.length>0?"Lojas parceiras, contato direto pelo WhatsApp":"Dicas de amiga, para comprar direto na loja"}{vitrine.length>0&&finds.length>0?` · ${finds.length} achadinho${finds.length===1?"":"s"}`:""}</p>
+         {(vitrine.some((v:any)=>v.object_key)||finds.some((f:any)=>f.object_key))&&<div className="bazar-teaser-thumbs">
+           {vitrine.filter((v:any)=>v.object_key).slice(0,4).map((v:any)=><img key={v.item_id} src={`/api/vitrine/photos/${v.item_id}`} alt={v.item_name} loading="lazy"/>)}
+           {vitrine.filter((v:any)=>v.object_key).length<4&&finds.filter((f:any)=>f.object_key).slice(0,4-Math.min(4,vitrine.filter((v:any)=>v.object_key).length)).map((f:any)=><img key={f.id} src={`/api/achadinhos/photos/${f.id}`} alt={f.title} loading="lazy"/>)}
+         </div>}
+       </div>
+     </Link>}
      {trend&&<Link href="/tendencias" className="trend-teaser">
        {trend.object_key&&<img src={`/api/tendencias/photos/${trend.id}`} alt={trend.title}/>}
        <div>
