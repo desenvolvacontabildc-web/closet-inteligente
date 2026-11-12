@@ -47,6 +47,7 @@ export default async function RevisaoCloset({ searchParams }: { searchParams: Pr
                       <input type="hidden" name="item_id" value={p.id} /><input type="hidden" name="decision" value="KEEP" />
                       <button className="reject">Manter</button>
                     </form>
+                    <a href={`/bazar/novo?peca=${p.id}`}><button type="button" className="reject">Vender ou alugar no Bazar</button></a>
                     <form action={reviewItem}>
                       <input type="hidden" name="item_id" value={p.id} /><input type="hidden" name="decision" value="DONATE" />
                       <ConfirmButton className="reject" pendingText="Salvando..." message={`Marcar "${p.name}" como doada? Ela sai das sugestões de look (você pode reativar depois na tela da peça).`}>Doar</ConfirmButton>

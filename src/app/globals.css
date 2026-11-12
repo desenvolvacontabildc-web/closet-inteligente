@@ -992,3 +992,9 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .decide-card.is-new{border-color:var(--accent);box-shadow:0 0 0 3px rgba(150,60,90,.12),var(--shadow)}
 .new-badge{display:inline-block;padding:3px 10px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px;font-weight:800;letter-spacing:.06em;margin-bottom:6px}
 @keyframes newlook-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+
+.bazar-piece-photos{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.bazar-piece-photo{display:flex;flex-direction:column;gap:6px;width:112px;font-size:12px}
+.bazar-piece-photo img{width:112px;height:140px;object-fit:cover;border-radius:12px;background:var(--soft)}
+.bazar-piece-photo span{display:flex;align-items:center;gap:6px}
+.bazar-piece-photo input{width:auto}

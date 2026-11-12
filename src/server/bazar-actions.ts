@@ -22,14 +22,32 @@ export async function createBazarPost(f: FormData) {
   const whatsapp = String(f.get("whatsapp") || "").trim();
   const priceUnit = String(f.get("price_unit") || "");
   const reais = Number(String(f.get("price") || "").replace(/\./g, "").replace(",", "."));
-  const typed = { kind, title, description, category, size, city, whatsapp, price: String(f.get("price") || ""), price_unit: priceUnit };
+  const typed = { kind, title, description, category, size, city, whatsapp, price: String(f.get("price") || ""), price_unit: priceUnit, item_id: String(f.get("item_id") || "") };
   const back = (msg: string): never => bounce("/bazar/novo", msg, typed);
 
   if (!Number.isFinite(reais) || reais <= 0) back("Informe o valor (ex.: 80 ou 79,90).");
   if (f.get("consent") !== "on") back("Para anunciar, marque que concorda em compartilhar o seu WhatsApp com quem tocar em “Chamar no WhatsApp”.");
-  const files = f.getAll("photos").filter((x): x is File => x instanceof File && x.size > 0).slice(0, 4);
-  if (files.length === 0) back("Envie pelo menos 1 foto da peça.");
+  const itemId = UUID.test(String(f.get("item_id") || "")) ? String(f.get("item_id")) : "";
   const photos: Buffer[] = [];
+  // Fotos da própria peça do closet (catálogo e/ou original), se ela escolheu usá-las.
+  if (itemId && (f.get("use_std") === "on" || f.get("use_orig") === "on")) {
+    const keys = await withProfile(async (c) => {
+      const it = (await c.query("SELECT standard_object_key FROM closet_items WHERE id=$1", [itemId])).rows[0];
+      if (!it) return null;
+      const orig = (await c.query("SELECT object_key FROM closet_item_photos WHERE item_id=$1 ORDER BY created_at DESC LIMIT 1", [itemId])).rows[0];
+      return { std: (it.standard_object_key as string | null) || null, orig: (orig?.object_key as string | undefined) || null };
+    });
+    const wanted = [f.get("use_std") === "on" ? keys?.std : null, f.get("use_orig") === "on" ? keys?.orig : null].filter((k): k is string => !!k);
+    for (const key of wanted) {
+      try {
+        const chunks: Buffer[] = [];
+        for await (const ch of (await store.getObject(BUCKET(), key)) as AsyncIterable<Buffer>) chunks.push(Buffer.from(ch));
+        photos.push(await sharp(Buffer.concat(chunks)).rotate().resize({ width: 1280, height: 1280, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer());
+      } catch (e) { console.error("createBazarPost: foto da peça indisponível:", e); }
+    }
+  }
+  const files = f.getAll("photos").filter((x): x is File => x instanceof File && x.size > 0).slice(0, 4 - photos.length);
+  if (files.length === 0 && photos.length === 0) back("Envie pelo menos 1 foto da peça.");
   for (const file of files) {
     if (!file.type.startsWith("image/")) back("Envie apenas arquivos de imagem.");
     if (file.size > 8 * 1024 * 1024) back("Cada foto pode ter até 8 MB.");
@@ -48,6 +66,7 @@ export async function createBazarPost(f: FormData) {
       const m = (await c.query("SELECT bazar_add_photo($1,$2,$3,$4) m", [userId, r.post_id, key, "image/jpeg"])).rows[0].m;
       if (m) back(m);
     }
+    if (itemId) await c.query("SELECT bazar_link_item($1,$2,$3)", [userId, r.post_id, itemId]);
     return r.post_id as string;
   });
   if (!postId) redirect("/");
