@@ -9,6 +9,7 @@ export default function Privacidade(){return <main className="shell narrow">
 
 <h2>2. Quais dados coletamos</h2>
 <ul>
+<li>Número de WhatsApp, informado no cadastro, usado para enviar as boas-vindas, orientações de uso e responder dúvidas por mensagem (inclusive pela Aura, nossa assistente virtual). Nos anúncios do Bazar &amp; Aluguel, o número só é usado para abrir a conversa com quem tocar em “Chamar no WhatsApp”. Você pode trocar ou apagar o número no Perfil;</li>
 <li>Nome e e-mail, para criar e identificar sua conta; a senha é guardada apenas como hash criptográfico, nunca em texto legível;</li>
 <li>Respostas dos questionários que você preencher (estilo, Colorimetria, Skincare e Cronograma Capilar) e sua cidade, usada para o clima do dia;</li>
 <li>Fotos que você enviar voluntariamente: das suas peças, de perfil, de looks para análise e, se você quiser, uma foto de corpo ou de rosto para gerar imagens parecidas com você e para a Colorimetria;</li>

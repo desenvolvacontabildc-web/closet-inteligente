@@ -18,6 +18,8 @@ export async function register(f:FormData){
   const referralCode=String(f.get("referral_code")||"").trim().toLowerCase()||null;
   if(!/^\S+@\S+\.\S+$/.test(email)||!name)bounce("/","Informe nome e e-mail válidos.");
   if(!terms)bounce("/","É necessário aceitar os Termos de Uso e a Política de Privacidade.");
+  const whatsapp=String(f.get("whatsapp")||"").trim();
+  if(whatsapp.replace(/\D/g,"").length<10)bounce("/","Informe o seu WhatsApp com DDD (ex.: 81 98888-7777).");
   if(password.length<6)bounce("/","A senha deve ter pelo menos 6 caracteres.");
   // Cadastro por convite: sem um código válido não cria conta (o código é conferido de verdade mais abaixo).
   const inviteOnly=(await getPool().query("SELECT get_signup_mode() m")).rows[0]?.m==="INVITE";
@@ -28,6 +30,7 @@ export async function register(f:FormData){
     await x.query("BEGIN");
     const id=(await x.query("SELECT user_id FROM register_account($1,$2,$3,$4,$5)",[email,ph,name,terms,referralCode])).rows[0].user_id;
     // Código de teste (oferta de R$ 1,99 por 7 dias no Pix): se for inválido, desfaz o cadastro e avisa.
+    const wmsg=(await x.query("SELECT set_my_whatsapp($1,$2) m",[id,whatsapp])).rows[0].m;if(wmsg)bounce("/",wmsg);
     const offerCode=String(f.get("offer_code")||"").trim().toLowerCase();
     if(offerCode){const msg=(await x.query("SELECT claim_offer($1,$2) m",[id,offerCode])).rows[0].m;if(msg)bounce("/",msg)}
     await issue(x,id);

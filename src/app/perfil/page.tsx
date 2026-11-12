@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { withProfile } from "@/server/profile-session";
 import { logout } from "@/server/auth-actions";
+import { saveWhatsapp } from "@/server/whatsapp-actions";
 import { uploadAvatar, setBodyAvatarReference, setDefaultVisualStyle, setCity } from "@/server/avatar-actions";
 import { mySubscription, PLAN_LABEL } from "@/server/limits";
 import SubmitButton from "@/components/submit-button";
@@ -12,7 +13,7 @@ const STYLE_LABEL: Record<string, string> = { REALISTA: "Fotografia realista", A
 export default async function Perfil({searchParams}:{searchParams:Promise<{error?:string}>}) {
   const {error} = await searchParams;
   const data = await withProfile(async (c, userId) => {
-    const p = (await c.query("SELECT display_name, avatar_object_key, avatar_illustration_object_key, default_visual_style, city, bonus_image_credits FROM profiles WHERE user_id=$1", [userId])).rows[0];
+    const p = (await c.query("SELECT display_name, avatar_object_key, avatar_illustration_object_key, default_visual_style, city, bonus_image_credits, whatsapp FROM profiles WHERE user_id=$1", [userId])).rows[0];
     const u = (await c.query("SELECT email, is_admin, referral_code FROM app_users WHERE id=$1", [userId])).rows[0];
     const indicacoes = (await c.query("SELECT count(*)::int n FROM app_users WHERE referred_by=$1", [userId])).rows[0].n;
     const pagantes = (await c.query("SELECT count(*)::int n FROM credit_grants WHERE user_id=$1 AND left(reason,9)='REFERRAL_'", [userId])).rows[0].n;
@@ -23,12 +24,12 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
       hasStore: !!partnerId, storeName,
       displayName: p?.display_name || "", hasAvatar: !!p?.avatar_object_key,
       hasStyleAvatar: !!p?.avatar_illustration_object_key, defaultVisualStyle: p?.default_visual_style || "ILUSTRACAO",
-      city: p?.city || "", bonusCredits: p?.bonus_image_credits || 0, referralCode: u.referral_code, indicacoes, pagantes,
+      city: p?.city || "", whatsapp: String(p?.whatsapp || ""), bonusCredits: p?.bonus_image_credits || 0, referralCode: u.referral_code, indicacoes, pagantes,
       email: u.email, isAdmin: u.is_admin, sub,
     };
   });
   if (!data) redirect("/");
-  const { hasStore, storeName, displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, bonusCredits, referralCode, indicacoes, pagantes, email, isAdmin, sub } = data;
+  const { hasStore, storeName, displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, whatsapp, bonusCredits, referralCode, indicacoes, pagantes, email, isAdmin, sub } = data;
   const referralLink = `${process.env.APP_URL || ""}/?ref=${referralCode}`;
 
   return <main className="shell narrow">
@@ -113,6 +114,12 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
       <Link href="/tendencias">Radar de Tendências</Link>
       {isAdmin && <Link href="/admin">Gerenciamento do app</Link>}
     </nav>
+    <form action={saveWhatsapp} className="card form">
+      <h2>Seu WhatsApp</h2>
+      <p className="look-meta">Usamos só para as boas-vindas e para tirar dúvidas com a Aura, nossa assistente. Você pode trocar ou apagar quando quiser.</p>
+      <input name="whatsapp" type="tel" inputMode="tel" autoComplete="tel" placeholder="81 98888-7777" defaultValue={whatsapp.replace(/^55/, "")} />
+      <SubmitButton pendingText="Salvando...">Salvar WhatsApp</SubmitButton>
+    </form>
     <div className="card"><h2>Precisa de ajuda?</h2><p className="look-meta">Dúvida, problema ou sugestão? Fale com a gente pelo WhatsApp.</p><a className="trip-btn" href={SUPPORT_URL} target="_blank" rel="noreferrer">Falar no WhatsApp {SUPPORT_PHONE}</a></div>
 
     <form action={logout}><button className="link">Sair da conta</button></form>

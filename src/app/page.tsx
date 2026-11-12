@@ -23,6 +23,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
         {registerError && <p role="alert">{registerError}</p>}
         <label>Seu nome<input name="name" required /></label>
         <label>E-mail<input name="email" type="email" required /></label>
+        <label>Seu WhatsApp (com DDD)<input name="whatsapp" type="tel" inputMode="tel" autoComplete="tel" placeholder="81 98888-7777" required /></label>
+        <p className="look-meta">Usamos só para te dar as boas-vindas e tirar dúvidas pelo WhatsApp, com a Aura, nossa assistente.</p>
         <label>Senha<input name="password" type="password" minLength={6} required /></label>
         <label>Código de indicação (opcional)<input name="referral_code" defaultValue={ref || ""} placeholder="Se uma amiga te indicou, cole aqui" /></label>
         {inviteOnly && <p className="look-meta">Cadastro disponível só para quem recebeu um <strong>código de convite</strong>. Ainda não tem? <a href={WAITLIST_URL} target="_blank" rel="noreferrer">Entre na lista de espera pelo WhatsApp</a>.</p>}
