@@ -37,6 +37,7 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
       <input name="category" placeholder="Categoria" defaultValue={f_category||""} required/>
       <input name="color" placeholder="Cor" defaultValue={f_color||""}/>
       <label>Foto real da peça (opcional, mas ajuda a IA a identificar)<input type="file" name="photo" accept="image/*"/></label>
+      <p className="photo-tip">📸 <strong>Dica:</strong> o melhor é enviar uma foto <strong>vestindo a peça</strong> (de frente, com boa luz, a peça inteira aparecendo). A IA reconhece a peça com mais precisão e cria a foto de catálogo.</p>
       <textarea name="description" placeholder="Observações" defaultValue={f_description||""}/>
       <SubmitButton pendingText="Adicionando... (se enviou foto, a IA analisa em seguida, até 20s)">Adicionar ao closet</SubmitButton>
     </form>

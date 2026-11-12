@@ -91,7 +91,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        <h2>Monte o seu closet: {Math.min(stats.pecas,8)} de 8 peças</h2>
        <div className="hair-progress" aria-hidden="true"><i style={{width:`${Math.round((Math.min(stats.pecas,8)/8)*100)}%`}}/></div>
        <ol className="start-steps">
-         <li className={stats.pecas>=8?"done":""}>Cadastre pelo menos 8 peças (foto de cada uma).</li>
+         <li className={stats.pecas>=8?"done":""}>Cadastre pelo menos 8 peças (de preferência com uma foto sua vestindo cada uma).</li>
          <li className={stats.looks>0||todayLooks.length>0?"done":""}>Peça o seu primeiro look.</li>
          <li className={stats.looks>0?"done":""}>Toque em “Gostei” nos looks que combinam com você.</li>
        </ol>

@@ -1029,3 +1029,6 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .start-steps li.done{text-decoration:line-through;color:var(--muted)}
 .start-steps li.done::marker{content:"\2713  ";color:var(--accent)}
 .feed-head{margin-top:22px}
+
+/* Dica ao enviar foto da peca */
+.photo-tip{margin:0;padding:10px 12px;border-radius:12px;background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.35);font-size:13px;line-height:1.45}
