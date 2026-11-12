@@ -998,3 +998,14 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .bazar-piece-photo img{width:112px;height:140px;object-fit:cover;border-radius:12px;background:var(--soft)}
 .bazar-piece-photo span{display:flex;align-items:center;gap:6px}
 .bazar-piece-photo input{width:auto}
+
+/* Bazar: fotos menores (lista em miniaturas; a foto grande abre ao tocar no anuncio) */
+.bazar-grid{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:8px}
+.bazar-grid .card img,.bazar-grid .card .cover-empty{aspect-ratio:1/1}
+.bazar-grid .card h3{font-size:12px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:6px 0 2px}
+.bazar-grid .card p{font-size:11px;line-height:1.3}
+.bazar-grid .card h3,.bazar-grid .card p{padding:0 8px}
+.bazar-kind{top:6px;left:6px;font-size:9px;padding:3px 8px}
+.bazar-main{width:260px;max-width:100%;aspect-ratio:4/5;max-height:none;object-fit:cover;border-radius:14px}
+.bazar-gallery a:first-child{flex:0 0 auto}
+.bazar-thumb{width:64px;height:80px;border-radius:10px}

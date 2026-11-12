@@ -18,8 +18,9 @@ export default async function BazarPost({ params, searchParams }: { params: Prom
     <div className="top"><span className="eyebrow">{BAZAR_KIND[p.kind].toUpperCase()}</span><Link href="/bazar">← Bazar</Link></div>
     {error && <p role="alert" className="trial-banner">{error}</p>}
     {p.photo_ids.length > 0 && <div className="bazar-gallery">
-      {p.photo_ids.map((pid: string, i: number) => <a href={`/api/bazar/foto/${pid}`} target="_blank" rel="noopener noreferrer" key={pid}><img src={`/api/bazar/foto/${pid}?w=${i === 0 ? 960 : 480}`} alt={`${p.title} — foto ${i + 1}`} className={i === 0 ? "bazar-main" : "bazar-thumb"} /></a>)}
+      {p.photo_ids.map((pid: string, i: number) => <a href={`/api/bazar/foto/${pid}`} target="_blank" rel="noopener noreferrer" key={pid}><img src={`/api/bazar/foto/${pid}?w=${i === 0 ? 640 : 200}`} alt={`${p.title} — foto ${i + 1}`} className={i === 0 ? "bazar-main" : "bazar-thumb"} /></a>)}
     </div>}
+    {p.photo_ids.length > 0 && <p className="look-meta">Toque na foto para ampliar.</p>}
     <h1>{p.title}</h1>
     <p className="bazar-price">{bazarPrice(p.price_cents, p.price_unit)}</p>
     <p className="look-meta">{BAZAR_KIND[p.kind]}{p.category ? ` · ${p.category}` : ""}{p.size ? ` · Tamanho ${p.size}` : ""}{p.city ? ` · ${p.city}` : ""}</p>
