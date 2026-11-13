@@ -27,7 +27,8 @@ export default async function MeusAnuncios({ searchParams }: { searchParams: Pro
           </div>
         </div>
         <div className="action-row">
-          {p.status === "ACTIVE" && <form action={setBazarStatus}><input type="hidden" name="id" value={p.id} /><input type="hidden" name="status" value="PAUSED" /><button>Pausar</button></form>}
+          <Link href={`/bazar/${p.id}/editar`}><button type="button">Editar</button></Link>
+          {p.status === "ACTIVE" &&<form action={setBazarStatus}><input type="hidden" name="id" value={p.id} /><input type="hidden" name="status" value="PAUSED" /><button>Pausar</button></form>}
           {p.status !== "ACTIVE" && <form action={setBazarStatus}><input type="hidden" name="id" value={p.id} /><input type="hidden" name="status" value="ACTIVE" /><button>Reativar</button></form>}
           {p.status !== "CLOSED" && <form action={setBazarStatus}><input type="hidden" name="id" value={p.id} /><input type="hidden" name="status" value="CLOSED" /><button>{p.kind === "ALUGUEL" ? "Já aluguei" : "Já vendi"}</button></form>}
           <form action={deleteBazarPost}><input type="hidden" name="id" value={p.id} /><ConfirmButton className="link danger-link" pendingText="Excluindo..." message="Excluir este anúncio? Isso não pode ser desfeito.">Excluir</ConfirmButton></form>

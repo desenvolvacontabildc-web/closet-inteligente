@@ -27,7 +27,7 @@ export default async function BazarPost({ params, searchParams }: { params: Prom
     {p.description && <p>{p.description}</p>}
     <p className="look-meta">Anunciado por {p.owner_name}.</p>
     {p.mine
-      ? <div className="card"><p>Este é o seu anúncio{p.hidden ? " (oculto pela administradora)" : p.status === "PAUSED" ? " (pausado)" : p.status === "CLOSED" ? " (encerrado)" : ""}.</p><Link href="/bazar/meus">Gerenciar meus anúncios</Link></div>
+      ? <div className="card"><p>Este é o seu anúncio{p.hidden ? " (oculto pela administradora)" : p.status === "PAUSED" ? " (pausado)" : p.status === "CLOSED" ? " (encerrado)" : ""}.</p><div className="action-row"><Link href={`/bazar/${p.id}/editar`}><button type="button">Editar anúncio</button></Link><Link href="/bazar/meus">Gerenciar meus anúncios</Link></div></div>
       : available
         ? <a href={`/api/bazar/contato?post=${p.id}`} target="_blank" rel="noopener noreferrer"><button type="button" className="bazar-cta">Chamar no WhatsApp</button></a>
         : <p className="trial-banner">Esta peça não está mais disponível.</p>}

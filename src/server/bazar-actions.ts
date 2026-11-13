@@ -103,6 +103,62 @@ export async function reportBazarPost(f: FormData) {
   redirect(`/bazar/${id}`);
 }
 
+/** Editar anúncio: dados, remover fotos e/ou enviar fotos novas (sempre de 1 a 4 fotos no total). */
+export async function updateBazarPost(f: FormData) {
+  const id = String(f.get("id") || "");
+  if (!UUID.test(id)) redirect("/bazar/meus");
+  const kind = String(f.get("kind") || "");
+  const title = String(f.get("title") || "").trim();
+  const description = String(f.get("description") || "").trim();
+  const category = String(f.get("category") || "").trim();
+  const size = String(f.get("size") || "").trim();
+  const city = String(f.get("city") || "").trim();
+  const whatsapp = String(f.get("whatsapp") || "").trim();
+  const priceUnit = String(f.get("price_unit") || "");
+  const reais = Number(String(f.get("price") || "").replace(/\./g, "").replace(",", "."));
+  const back = (msg: string): never => bounce(`/bazar/${id}/editar`, msg);
+  if (!Number.isFinite(reais) || reais <= 0) back("Informe o valor (ex.: 80 ou 79,90).");
+
+  const removeIds = f.getAll("remove_photo").map(String).filter((x) => UUID.test(x));
+  const files = f.getAll("photos").filter((x): x is File => x instanceof File && x.size > 0).slice(0, 4);
+  const newPhotos: Buffer[] = [];
+  for (const file of files) {
+    if (!file.type.startsWith("image/")) back("Envie apenas arquivos de imagem.");
+    if (file.size > 8 * 1024 * 1024) back("Cada foto pode ter até 8 MB.");
+    try {
+      newPhotos.push(await sharp(Buffer.from(await file.arrayBuffer())).rotate().resize({ width: 1280, height: 1280, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer());
+    } catch (e) { console.error("updateBazarPost: imagem inválida:", e); back("Não consegui ler uma das fotos. Tente outra imagem (JPG ou PNG)."); }
+  }
+
+  const removedKeys = await withProfile(async (c, userId) => {
+    const cur = (await c.query("SELECT photo_ids, mine FROM bazar_get($1,$2)", [userId, id])).rows[0] as { photo_ids: string[]; mine: boolean } | undefined;
+    if (!cur || !cur.mine) back("Anúncio não encontrado.");
+    const toRemove = removeIds.filter((r) => cur!.photo_ids.includes(r));
+    const total = cur!.photo_ids.length - toRemove.length + newPhotos.length;
+    if (total < 1) back("O anúncio precisa ter pelo menos 1 foto.");
+    if (total > 4) back("Cada anúncio pode ter até 4 fotos. Marque alguma para remover.");
+    const msg = (await c.query("SELECT bazar_update($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) m", [userId, id, kind, title, description, category, size, Math.round(reais * 100), priceUnit, city, whatsapp])).rows[0].m;
+    if (msg) back(msg);
+    const keys: string[] = [];
+    for (const pid of toRemove) {
+      const k = (await c.query("SELECT bazar_remove_photo($1,$2) k", [userId, pid])).rows[0].k as string | null;
+      if (k) keys.push(k);
+    }
+    for (const buf of newPhotos) {
+      const key = `bazar/${id}/${randomUUID()}`;
+      try { await store.putObject(BUCKET(), key, buf, buf.length, { "Content-Type": "image/jpeg" }); }
+      catch (e) { console.error("updateBazarPost putObject falhou:", e); back("Não foi possível enviar as fotos agora. Tente de novo em instantes."); }
+      const m = (await c.query("SELECT bazar_add_photo($1,$2,$3,$4) m", [userId, id, key, "image/jpeg"])).rows[0].m;
+      if (m) back(m);
+    }
+    return keys;
+  });
+  if (removedKeys === null) redirect("/");
+  for (const k of removedKeys) { try { await store.removeObject(BUCKET(), k); } catch (e) { console.error("updateBazarPost removeObject falhou:", e); } }
+  await flash("Anúncio atualizado.");
+  redirect(`/bazar/${id}`);
+}
+
 /* ---------- administradora ---------- */
 export async function adminListBazar() {
   const result = await withProfile(async (c, userId) => {

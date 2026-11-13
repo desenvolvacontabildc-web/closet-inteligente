@@ -242,10 +242,11 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      <Link href="/bazar" className="trend-teaser bazar-teaser">
        <div className="bazar-teaser-body">
          <span className="eyebrow">BAZAR &amp; ALUGUEL{bazar.novas>0?" · NOVIDADE":""}</span>
-         <strong>{bazar.total===0?"Ainda não tem peças por aqui. Anuncie a sua!":bazar.novas>0?`${bazar.novas} peça${bazar.novas===1?"":"s"} nova${bazar.novas===1?"":"s"} esta semana`:`${bazar.total} peça${bazar.total===1?"":"s"} disponíve${bazar.total===1?"l":"is"}`}</strong>
-         <p className="look-meta">{bazar.total===0?"Alugue ou venda peças do seu closet para outras mulheres.":`${bazar.alugueis} para alugar · ${bazar.bazar} no bazar${bazar.novas>0?` · ${bazar.total} no total`:""}`}</p>
-         {bazar.latest.length>0&&<div className="bazar-teaser-thumbs">
-           {bazar.latest.map((p:any)=><img key={p.id} src={`/api/bazar/foto/${p.photo_id}?w=200`} alt={p.title} loading="lazy"/>)}
+         <strong>{bazar.total===0?(bazar.meus>0?"Seus anúncios estão no ar":"Ainda não tem peças por aqui. Anuncie a sua!"):bazar.novas>0?`${bazar.novas} peça${bazar.novas===1?"":"s"} nova${bazar.novas===1?"":"s"} esta semana`:`${bazar.total} peça${bazar.total===1?"":"s"} disponíve${bazar.total===1?"l":"is"}`}</strong>
+         <p className="look-meta">{bazar.total===0?(bazar.meus>0?"Quando outras usuárias anunciarem, as novidades aparecem aqui.":"Alugue ou venda peças do seu closet para outras mulheres."):`${bazar.alugueis} para alugar · ${bazar.bazar} no bazar${bazar.novas>0?` · ${bazar.total} no total`:""}`}</p>
+         {bazar.meus>0&&<p className="look-meta"><strong>Seus anúncios:</strong> {bazar.meus} no ar{bazar.meus_contatos>0?` · ${bazar.meus_contatos} pessoa${bazar.meus_contatos==1?"":"s"} chamou${bazar.meus_contatos==1?"":"ram"} no WhatsApp`:""}</p>}
+         {(bazar.latest.length>0||bazar.meus_latest.length>0)&&<div className="bazar-teaser-thumbs">
+           {(bazar.latest.length>0?bazar.latest:bazar.meus_latest).map((p:any)=><img key={p.id} src={`/api/bazar/foto/${p.photo_id}?w=200`} alt={p.title} loading="lazy"/>)}
          </div>}
        </div>
      </Link>
