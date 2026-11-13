@@ -23,6 +23,7 @@ export async function mySubscription(c: PoolClient, userId: string) {
     current_period_end: (sub?.current_period_end || null) as Date | null, overdue_since: (sub?.overdue_since || null) as Date | null,
     payment_method: (sub?.payment_method || null) as string | null, provider: (sub?.provider || null) as string | null,
     cancel_at_period_end: !!sub?.cancel_at_period_end,
+    promo_cycles_left: Number(sub?.promo_cycles_left || 0),
   };
 }
 

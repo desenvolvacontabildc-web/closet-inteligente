@@ -76,6 +76,10 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
       {sub.provider === "MERCADOPAGO" && sub.current_period_end && sub.status !== "SUSPENDED" && <p className="look-meta">
         {sub.cancel_at_period_end ? "Assinatura cancelada · acesso até " : sub.payment_method === "CARD" ? "Cartão recorrente · próxima cobrança automática por volta de " : "Pix · pago até "}{new Date(sub.current_period_end).toLocaleDateString("pt-BR")}.
       </p>}
+      {sub.payment_method === "CARD" && !sub.cancel_at_period_end && sub.promo_cycles_left > 0 && (() => {
+        const cur = plans.find((p: any) => p.plan === sub.plan) as any;
+        return cur ? <p className="look-meta">Desconto ativo: <strong>{formatPrice(cur.promo_price_cents)} por mês</strong>. Ainda {sub.promo_cycles_left === 1 ? "falta 1 cobrança" : `faltam ${sub.promo_cycles_left} cobranças`} com desconto; depois o valor passa a {formatPrice(cur.base_price_cents)} por mês.</p> : null;
+      })()}
       {sub.cancel_at_period_end && sub.status !== "SUSPENDED" && <p className="look-meta">Não haverá novas cobranças. Para continuar depois dessa data, escolha um plano abaixo.</p>}
       {sub.payment_method === "CARD" && !sub.cancel_at_period_end && (sub.status === "ACTIVE" || sub.status === "PAST_DUE") && <form action={cancelSubscription} className="cancel-sub">
         <ConfirmButton className="link danger-link" pendingText="Cancelando..." message={`Cancelar a assinatura no cartão? Você continua com acesso até ${new Date(sub.current_period_end as Date).toLocaleDateString("pt-BR")} e não haverá novas cobranças.`}>Cancelar assinatura</ConfirmButton>
@@ -111,7 +115,7 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
         return <div key={p.plan} className="strategy-card">
           <strong>{PLAN_LABEL[p.plan as Plan]}</strong> — {formatPrice(p.base_price_cents)}/mês no Pix
           {hasPromo
-            ? <p className="look-meta">No <strong>cartão recorrente</strong>: <strong>{formatPrice(p.promo_price_cents)}/mês nos primeiros {p.promo_months} meses</strong>, depois {formatPrice(p.base_price_cents)}/mês.</p>
+            ? <p className="look-meta">No <strong>cartão recorrente</strong>: <strong>{formatPrice(p.promo_price_cents)} por mês durante os primeiros {p.promo_months} meses</strong> (cobrado todo mês, {p.promo_months} cobranças com desconto), depois {formatPrice(p.base_price_cents)} por mês.</p>
             : <p className="look-meta">No cartão recorrente: {formatPrice(p.base_price_cents)}/mês, cobrado automaticamente.</p>}
           <ul className="look-meta plan-limits">
             <li>{p.ai_ops_monthly_limit ?? "Ilimitados"} pedidos de IA por mês (looks, mala, análises); cada pedido de look traz 2 a 3 opções</li>
