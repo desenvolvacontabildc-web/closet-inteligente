@@ -115,7 +115,9 @@ async function catalogQuota(c: PoolClient, userId: string): Promise<{ limit: num
 
 /** Pode gerar uma foto de catálogo agora? Dentro da cota do plano, sim. Passou da cota: só se `allowCredits` (botão manual)
  * e a usuária tiver créditos de imagem comprados/ganhos. A geração automática ao cadastrar peça NUNCA gasta créditos. */
-export async function standardAllowance(c: PoolClient, userId: string, allowCredits = true): Promise<{ ok: boolean; limit: number | null; used: number; source: "PLAN" | "BONUS" }> {
+export async function standardAllowance(c: PoolClient, userId: string, allowCredits = true): Promise<{ ok: boolean; limit: number | null; used: number; source: "PLAN" | "BONUS"; paused?: boolean }> {
+  const isAdm = !!(await c.query("SELECT is_admin FROM app_users WHERE id=$1", [userId])).rows[0]?.is_admin;
+  if (!isAdm && (await c.query("SELECT app_flag('images_paused') v")).rows[0]?.v === "1") return { ok: false, limit: null, used: 0, source: "PLAN", paused: true };
   const q = await catalogQuota(c, userId);
   if (q.limit === null || q.used < q.limit) return { ok: true, ...q, source: "PLAN" };
   if (allowCredits) {

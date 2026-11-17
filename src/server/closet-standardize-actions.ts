@@ -36,6 +36,7 @@ export async function standardizeOneItem(f: FormData) {
   });
   if (!ctx) redirect("/");
   if (!ctx.has) bounce(back, "Envie uma foto da peça primeiro.");
+  if (!ctx.allowance.ok && ctx.allowance.paused) bounce(back, "A geração de imagens está pausada por um momento. Tente de novo mais tarde.");
   if (!ctx.allowance.ok) bounce(back, `Você já usou as ${ctx.allowance.limit} fotos de catálogo do seu plano neste mês e não tem créditos. Compre créditos em Assinatura → Extras, ou espere o próximo mês.`);
   const r = await standardizeItem({ userId: ctx.userId, tenantId: ctx.tenantId }, id);
   if (!r.ok) bounce(back, "Não consegui gerar a foto de catálogo agora. Tente de novo em instantes.");

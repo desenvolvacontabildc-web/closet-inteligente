@@ -33,6 +33,8 @@ export default function Privacidade(){return <main className="shell narrow">
 <h2>5. Onde seus dados ficam armazenados</h2>
 <p>Em servidor virtual contratado por nós, com fotos guardadas em armazenamento privado, sem acesso público, acessíveis apenas mediante login. Mantemos cópias de segurança diárias do banco de dados, guardadas por 14 dias, e uma cópia espelhada das fotos.</p>
 
+<p>Para dar suporte, a administradora do Closet pode abrir, somente para leitura, as peças, os looks e as imagens geradas na sua conta (por exemplo, para ajudar com uma dúvida ou resolver um problema). Esses acessos ficam registrados. Fotos de perfil e de corpo e as respostas da Colorimetria não são exibidas nesse modo.</p>
+
 <h2>6. Por quanto tempo guardamos seus dados</h2>
 <p>Enquanto sua conta estiver ativa. Se você pedir o cancelamento, apagamos sua conta e seus dados; o que estiver nas cópias de segurança diárias deixa de existir quando elas forem substituídas, em até 14 dias.</p>
 

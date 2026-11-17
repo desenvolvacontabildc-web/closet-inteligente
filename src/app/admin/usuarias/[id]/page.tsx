@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { adminListAccounts, adminUserOverview, adminListAudit, setSubscription, resetPassword, recordPayment, grantModule, grantCredits, adminListArchived, archiveAccount } from "@/server/admin-actions";
+import { adminListAccounts, adminUserOverview, adminListAudit, setSubscription, resetPassword, recordPayment, grantModule, grantCredits, adminListArchived, archiveAccount, extendTrial } from "@/server/admin-actions";
 import SubmitButton from "@/components/submit-button";
 import { STATUS_LABEL, PLAN_LABEL, brl, brlInput } from "../../labels";
 
@@ -8,6 +8,7 @@ const AUDIT_LABEL: Record<string, string> = {
   PIX_PAYMENT_APPROVED: "Pix aprovado", CARD_SUBSCRIPTION_AUTHORIZED: "Assinatura no cartão ativada", CARD_CYCLE_CHARGED: "Cobrança mensal do cartão paga",
   CARD_CYCLE_REJECTED: "Cobrança do cartão recusada", CARD_SUBSCRIPTION_CANCELLED: "Assinatura no cartão cancelada", CARD_SUBSCRIPTION_PAUSED: "Assinatura no cartão pausada",
   AUTO_SUSPENDED: "Suspensa automaticamente por atraso", GRANT_CREDITS: "Créditos concedidos", GRANT_MODULE: "Módulo liberado",
+  ADMIN_VIEW_ACCOUNT: "Conta aberta em modo suporte", ADMIN_EXTEND_TRIAL: "Teste gratuito estendido",
 };
 const CHARGE_KIND: Record<string, string> = { PIX: "Pix", CARD_PREAPPROVAL: "Cartão recorrente" };
 const CHARGE_STATUS: Record<string, string> = { pending: "pendente", approved: "pago", cancelled: "cancelado", rejected: "recusado", expired: "expirado", authorized: "autorizado", paused: "pausado" };
@@ -126,8 +127,19 @@ export default async function UsuariaDetalhe({ params, searchParams }: { params:
     </section>
 
     <section className="card">
+      <h2>Ver a conta dela</h2>
+      <p className="look-meta">Abra as peças, os looks e as imagens geradas por esta usuária, em modo somente leitura, para ajudar quando ela tiver dúvida ou algo estranho. O acesso fica registrado no histórico.</p>
+      <Link className="trip-btn" href={`/admin/usuarias/${a.user_id}/conta`}>Abrir a conta de {a.display_name || "usuária"}</Link>
+    </section>
+
+    <section className="card">
       <h2>Uso do app</h2>
       <p className="look-meta">{a.last_login_at ? `Último acesso em ${new Date(a.last_login_at).toLocaleString("pt-BR")}` : "Nunca fez login"} · {a.closet_count} peça(s) no closet · {a.looks_count} look(s)</p>
+      {!self && a.sub_status === "TRIAL" && <form action={extendTrial} className="form">
+        <input type="hidden" name="user_id" value={a.user_id} /><input type="hidden" name="return_to" value={back} />
+        <label>Estender o teste gratuito (dias)<input name="days" type="number" min={1} max={60} defaultValue={7} required /></label>
+        <SubmitButton pendingText="Estendendo...">Estender teste</SubmitButton>
+      </form>}
       {!self && <form action={resetPassword}><input type="hidden" name="user_id" value={a.user_id} /><SubmitButton pendingText="Resetando...">Resetar senha</SubmitButton></form>}
     </section>
 

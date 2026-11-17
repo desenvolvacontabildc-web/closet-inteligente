@@ -35,6 +35,9 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
       <Link href="/admin/tendencias" className="admin-tile"><strong>Tendências</strong><small>Radar de tendências</small></Link>
       <Link href="/admin/achadinhos" className="admin-tile"><strong>Achadinhos</strong><small>Achados com desconto</small></Link>
       <Link href="/admin/bazar" className="admin-tile"><strong>Bazar & Aluguel</strong><small>Anúncios e denúncias</small></Link>
+      <Link href="/admin/uso" className="admin-tile"><strong>Uso e custos</strong><small>Imagens, IA e gasto estimado</small></Link>
+      <Link href="/admin/comunicados" className="admin-tile"><strong>Comunicados</strong><small>Avisos na tela inicial do app</small></Link>
+      <Link href="/admin/sistema" className="admin-tile"><strong>Sistema</strong><small>Pausar imagens, cadastros, planilha</small></Link>
     </div>
 
     <section className="card">

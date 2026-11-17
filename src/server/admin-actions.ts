@@ -312,3 +312,88 @@ export async function archiveAccount(f:FormData){
   await flash(archive?"Conta arquivada: ela saiu das listas.":"Conta restaurada.");
   redirect(archive?"/admin/usuarias":`/admin/usuarias/${encodeURIComponent(target)}`);
 }
+
+/* ---------- conta da usuária em modo suporte (somente leitura; cada acesso é registrado) ---------- */
+export async function adminAccountView(targetId:string){
+  const r=await withProfile(async(c,userId)=>{
+    try{
+      await c.query("SELECT admin_log_view($1,$2)",[userId,targetId]);
+      const summary=(await c.query("SELECT admin_account_summary($1,$2) s",[userId,targetId])).rows[0].s;
+      const items=(await c.query("SELECT * FROM admin_account_items($1,$2,200,0)",[userId,targetId])).rows;
+      const looks=(await c.query("SELECT * FROM admin_account_looks($1,$2,60)",[userId,targetId])).rows;
+      const images=(await c.query("SELECT * FROM admin_account_image_log($1,$2)",[userId,targetId])).rows;
+      const trips=(await c.query("SELECT * FROM admin_account_trips($1,$2)",[userId,targetId])).rows;
+      return{summary,items,looks,images,trips};
+    }catch(e){console.error("adminAccountView falhou:",e);return null}
+  });
+  return r||null;
+}
+
+/* ---------- uso e custos ---------- */
+export async function adminUsage(){
+  const r=await withProfile(async(c,userId)=>{
+    try{
+      const users=(await c.query("SELECT * FROM admin_usage_overview($1)",[userId])).rows;
+      const months=(await c.query("SELECT * FROM admin_usage_months($1)",[userId])).rows;
+      return{users,months};
+    }catch(e){console.error("adminUsage falhou:",e);return null}
+  });
+  return r||{users:[],months:[]};
+}
+
+/* ---------- comunicados ---------- */
+export async function adminListAnnouncements(){
+  const r=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_list_announcements($1)",[userId])).rows}
+    catch(e){console.error("adminListAnnouncements falhou:",e);return null}
+  });
+  return r||[];
+}
+export async function saveAnnouncement(f:FormData){
+  const idRaw=String(f.get("id")||"").trim();
+  const id=/^[0-9a-f-]{36}$/i.test(idRaw)?idRaw:null;
+  const title=String(f.get("title")||"").trim().slice(0,80);
+  const body=String(f.get("body")||"").trim().slice(0,600);
+  const audience=["ALL","TRIAL","PAID"].includes(String(f.get("audience")))?String(f.get("audience")):"ALL";
+  const endRaw=String(f.get("ends")||"").trim();
+  const ends=/^\d{4}-\d{2}-\d{2}$/.test(endRaw)?`${endRaw}T23:59:59-03:00`:null;
+  const active=f.get("active")==="on";
+  if(!title)bounce("/admin/comunicados","Escreva um título para o comunicado.");
+  try{
+    await withProfile(async(c,userId)=>{await c.query("SELECT admin_save_announcement($1,$2,$3,$4,$5,$6,$7,$8)",[userId,id,title,body,audience,null,ends,active]);return true});
+  }catch(e){console.error("saveAnnouncement falhou:",e);bounce("/admin/comunicados","Não foi possível salvar o comunicado.")}
+  await flash("Comunicado salvo.");
+  redirect("/admin/comunicados");
+}
+export async function deleteAnnouncement(f:FormData){
+  const id=String(f.get("id")||"");
+  if(!/^[0-9a-f-]{36}$/i.test(id))redirect("/admin/comunicados");
+  try{await withProfile(async(c,userId)=>{await c.query("SELECT admin_delete_announcement($1,$2)",[userId,id]);return true})}
+  catch(e){console.error("deleteAnnouncement falhou:",e);bounce("/admin/comunicados","Não foi possível apagar.")}
+  await flash("Comunicado apagado.");
+  redirect("/admin/comunicados");
+}
+
+/* ---------- chaves do sistema ---------- */
+export async function adminImagesPaused(){
+  const r=await withProfile(async(c)=>(await c.query("SELECT app_flag('images_paused') v")).rows[0].v==="1");
+  return !!r;
+}
+export async function setImagesPaused(f:FormData){
+  const v=f.get("paused")==="1"?"1":"0";
+  try{await withProfile(async(c,userId)=>{await c.query("SELECT admin_set_flag($1,'images_paused',$2)",[userId,v]);return true})}
+  catch(e){console.error("setImagesPaused falhou:",e);bounce("/admin/sistema","Não foi possível alterar.")}
+  await flash(v==="1"?"Geração de imagens pausada para todas as usuárias.":"Geração de imagens liberada de novo.");
+  redirect("/admin/sistema");
+}
+
+/* ---------- estender o teste gratuito ---------- */
+export async function extendTrial(f:FormData){
+  const target=String(f.get("user_id")||"");
+  const days=Math.floor(Number(f.get("days")||0));
+  const back=adminPath(f.get("return_to"),`/admin/usuarias/${encodeURIComponent(target)}`);
+  try{await withProfile(async(c,userId)=>{await c.query("SELECT admin_extend_trial($1,$2,$3)",[userId,target,days]);return true})}
+  catch(e:any){console.error("extendTrial falhou:",e);bounce(back,String(e?.message||"").includes("Só vale")?"Só vale para contas em teste gratuito (ou com o teste encerrado).":"Informe de 1 a 60 dias.")}
+  await flash(`Teste estendido em ${days} dia${days===1?"":"s"}.`);
+  redirect(back);
+}

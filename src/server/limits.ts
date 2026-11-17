@@ -68,6 +68,12 @@ export async function aiUsageRemaining(c: PoolClient, userId: string): Promise<n
   return Math.max(0, cfg.ai_ops_monthly_limit - Number(used.rows[0].n));
 }
 
+/** Chave da administradora (Gestão → Sistema): pausa a geração de imagens para todas as usuárias. */
+export async function imagesPaused(c: PoolClient): Promise<boolean> {
+  return (await c.query("SELECT app_flag('images_paused') v")).rows[0]?.v === "1";
+}
+export const IMAGES_PAUSED_MESSAGE = "A geração de imagens está pausada por um momento. Tente de novo mais tarde. O resto do app continua funcionando normalmente.";
+
 async function bonusImageCredits(c: PoolClient, userId: string): Promise<number> {
   const r = await c.query("SELECT bonus_image_credits FROM profiles WHERE user_id=$1", [userId]);
   return Number(r.rows[0]?.bonus_image_credits || 0);
@@ -93,6 +99,7 @@ export async function imageGenerationsRemaining(c: PoolClient, userId: string): 
  * `consumeImageAllowance` descontar do lugar certo só quando a geração realmente funcionar. */
 export async function checkImageAllowance(c: PoolClient, userId: string): Promise<{ ok: boolean; message?: string; source?: "PLAN" | "BONUS" }> {
   if (await isUnlimitedAdmin(c, userId)) return { ok: true, source: "PLAN" };
+  if (await imagesPaused(c)) return { ok: false, message: IMAGES_PAUSED_MESSAGE };
   const sub = await mySubscription(c, userId);
   const plan: Plan = sub.status === "TRIAL" ? TRIAL_PLAN : sub.plan;
   const cfg = await planConfig(c, plan);
