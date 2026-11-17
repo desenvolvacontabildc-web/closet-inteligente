@@ -1065,3 +1065,15 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 /* ===== Tipo de closet ===== */
 .closet-type{border:1px solid var(--line-strong);border-radius:14px;padding:10px 14px;margin:0 0 14px;display:grid;gap:8px}
 .closet-type legend{padding:0 6px;font-weight:800;color:var(--accent)}
+
+/* ===== Varios closets na mesma conta ===== */
+.family-list{list-style:none;margin:10px 0;padding:0;display:grid;gap:8px}
+.family-list li{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+.family-list li small,.family-row small{display:block;color:var(--muted);font-size:12px}
+.family-row{display:flex;gap:12px;align-items:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:10px 14px;cursor:pointer}
+.family-row input{margin-top:4px;width:20px;height:20px;flex:none}
+.closet-chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.closet-chips-label{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-ink)}
+.closet-chips form{margin:0}
+.closet-chip{margin:0;min-height:34px;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:700;background:var(--surface);color:var(--accent);border:1px solid var(--line-strong);display:inline-flex;align-items:center}
+.closet-chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}

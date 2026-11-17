@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
 import { mySubscription, PLAN_LABEL, type Plan } from "@/server/limits";
 import { startPixCheckout, startCardCheckout, startOfferPix, cancelSubscription } from "@/server/billing-actions";
+import { startFamilyPix, switchCloset } from "@/server/family-actions";
+import { CLOSET_TYPES } from "@/server/closet-type";
 import ConfirmButton from "@/components/confirm-button";
 import { logout } from "@/server/auth-actions";
 import { reconcilePendingPix } from "@/server/billing-sync";
@@ -32,10 +34,11 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
     const plans = await Promise.all(PLANS.map(async (p) => ({ ...(await c.query("SELECT plan, base_price_cents, promo_price_cents, promo_months FROM get_plan_pricing($1)", [p])).rows[0], ...(await c.query("SELECT ai_ops_monthly_limit, image_gen_monthly_limit FROM get_plan_config($1)", [p])).rows[0], std: (await c.query("SELECT get_standard_limit($1) l", [p])).rows[0]?.l })));
     const usedCardPromo = (await c.query("SELECT 1 FROM payment_charges WHERE kind='CARD_PREAPPROVAL' AND status='approved' LIMIT 1")).rowCount! > 0;
     const offer = (await c.query("SELECT * FROM my_offer($1)", [userId])).rows[0] || null;
-    return { sub, plans, pending, usedCardPromo, offer };
+    const family = (await c.query("SELECT * FROM my_family($1)", [userId])).rows as any[];
+    return { sub, plans, pending, usedCardPromo, offer, family, me: userId };
   }, { allowSuspended: true });
   if (!data) redirect("/");
-  const { sub, plans, pending, usedCardPromo, offer } = data;
+  const { sub, plans, pending, usedCardPromo, offer, family, me } = data;
 
   const showPixQr = pending?.kind === "PIX" && pending.status === "pending" && (!pending.pix_expires_at || new Date(pending.pix_expires_at) > new Date());
   const showCardPending = charge === "card" && pending?.kind === "CARD_PREAPPROVAL" && pending.status === "pending";
@@ -100,6 +103,26 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
       <h2>{offer.label || "Teste de pagamento"}: {formatPrice(offer.price_cents)} por {offer.days} dias</h2>
       <p>Pague {formatPrice(offer.price_cents)} no Pix e use o plano {PLAN_LABEL[offer.plan as Plan]} por {offer.days} dias. É um pagamento de verdade, para você testar como funciona. Depois, é só escolher o plano abaixo.</p>
       <form action={startOfferPix}><SubmitButton pendingText="Gerando Pix...">Pagar {formatPrice(offer.price_cents)} no Pix</SubmitButton></form>
+    </div>}
+
+    {family.length > 1 && <div className="card">
+      <h2>Closets da sua conta</h2>
+      <p className="look-meta">Cada closet tem o seu plano. Marque os que quer pagar e gere <strong>um único Pix</strong>: cada closet é liberado com o seu plano quando o pagamento é confirmado. (No cartão, cada closet assina separado, entrando nele.)</p>
+      <form action={startFamilyPix} className="form">
+        {family.map((m: any) => {
+          const awaiting = !m.is_main && m.status === "TRIAL_EXPIRED";
+          const due = m.status !== "ACTIVE" || (m.payment_method === "PIX" && m.current_period_end && new Date(m.current_period_end).getTime() - Date.now() < 5 * 86400000);
+          return <label className="family-row" key={m.user_id}>
+            <input type="checkbox" name="closet_id" value={m.user_id} defaultChecked={!!due} />
+            <span><strong>{m.name || "Closet principal"}</strong> <small>{CLOSET_TYPES.find((t) => t.value === m.closet_type)?.label || ""}{m.user_id === me ? " · você está aqui" : ""}</small>
+              <small>Plano {PLAN_LABEL[m.plan as Plan]} · {formatPrice(m.price_cents || 0)}/mês · {awaiting ? "aguardando pagamento" : (STATUS_LABEL[m.status] || m.status)}{m.current_period_end && m.status === "ACTIVE" ? ` até ${new Date(m.current_period_end).toLocaleDateString("pt-BR")}` : ""}</small></span>
+          </label>;
+        })}
+        <SubmitButton pendingText="Gerando Pix...">Pagar os marcados no Pix</SubmitButton>
+      </form>
+      <div className="action-row">
+        {family.filter((m: any) => m.user_id !== me).map((m: any) => <form key={m.user_id} action={switchCloset}><input type="hidden" name="closet_id" value={m.user_id} /><input type="hidden" name="back" value="/assinatura" /><button type="submit" className="link">Entrar em {m.name || "closet principal"}</button></form>)}
+      </div>
     </div>}
 
     {showCardPending && <div className="card alert-card" style={{ borderColor: "#a9714c", background: "#fdf6ee" }}>

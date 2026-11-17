@@ -8,6 +8,7 @@ import { uploadAvatar, setBodyAvatarReference, setDefaultVisualStyle, setCity } 
 import { mySubscription, PLAN_LABEL } from "@/server/limits";
 import { CLOSET_TYPES } from "@/server/closet-type";
 import { saveClosetType } from "@/server/closet-type-actions";
+import { addCloset, switchCloset } from "@/server/family-actions";
 import SubmitButton from "@/components/submit-button";
 
 const STYLE_LABEL: Record<string, string> = { REALISTA: "Fotografia realista", AVATAR: "Meu avatar", ILUSTRACAO: "Ilustração" };
@@ -26,12 +27,14 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
       hasStore: !!partnerId, storeName,
       displayName: p?.display_name || "", hasAvatar: !!p?.avatar_object_key,
       hasStyleAvatar: !!p?.avatar_illustration_object_key, defaultVisualStyle: p?.default_visual_style || "ILUSTRACAO",
-      city: p?.city || "", whatsapp: String(p?.whatsapp || ""), closetType: String(p?.closet_type || "FEMININO"), closetAge: p?.closet_age ?? null, bonusCredits: p?.bonus_image_credits || 0, referralCode: u.referral_code, indicacoes, pagantes,
+      city: p?.city || "", whatsapp: String(p?.whatsapp || ""), closetType: String(p?.closet_type || "FEMININO"), closetAge: p?.closet_age ?? null,
+      family: (await c.query("SELECT * FROM my_family($1)", [userId])).rows as any[], me: userId,
+      prices: Object.fromEntries(await Promise.all(["ARRUMADA", "FASHION", "SUPER_STAR"].map(async (pl) => [pl, Number((await c.query("SELECT base_price_cents FROM get_plan_pricing($1)", [pl])).rows[0]?.base_price_cents || 0)]))) as Record<string, number>, bonusCredits: p?.bonus_image_credits || 0, referralCode: u.referral_code, indicacoes, pagantes,
       email: u.email, isAdmin: u.is_admin, sub,
     };
   });
   if (!data) redirect("/");
-  const { hasStore, storeName, displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, whatsapp, closetType, closetAge, bonusCredits, referralCode, indicacoes, pagantes, email, isAdmin, sub } = data;
+  const { hasStore, storeName, displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, whatsapp, closetType, closetAge, family, me, prices, bonusCredits, referralCode, indicacoes, pagantes, email, isAdmin, sub } = data;
   const referralLink = `${process.env.APP_URL || ""}/?ref=${referralCode}`;
 
   return <main className="shell narrow">
@@ -79,6 +82,38 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
         </select>
         <button>Salvar preferência</button>
       </form>
+    </div>
+
+    <div className="card" id="closets">
+      <h2>Meus closets</h2>
+      <p className="look-meta">Você pode ter mais de um closet na mesma conta, por exemplo o seu e o do seu filho. Cada closet tem as suas peças, os seus looks e o seu próprio plano e pagamento, e você paga todos juntos num único Pix na tela Assinatura.</p>
+      <ul className="family-list">
+        {family.map((m: any) => (
+          <li key={m.user_id}>
+            <span><strong>{m.name || "Closet principal"}</strong><small>{CLOSET_TYPES.find(t => t.value === m.closet_type)?.label || "Closet"}{m.closet_age != null ? ` · ${m.closet_age} anos` : ""} · plano {({ ARRUMADA: "Arrumada", FASHION: "Fashion", SUPER_STAR: "Super Star" } as Record<string, string>)[m.plan] || m.plan}{m.user_id === me ? " · você está aqui" : ""}</small></span>
+            {m.user_id !== me && <form action={switchCloset}><input type="hidden" name="closet_id" value={m.user_id} /><button type="submit" className="link">Entrar</button></form>}
+          </li>
+        ))}
+      </ul>
+      {family.length < 5 && <details className="more">
+        <summary>Adicionar outro closet</summary>
+        <form action={addCloset} className="form">
+          <label>Nome do closet<input name="name" maxLength={40} required placeholder="Ex.: Pedro" /></label>
+          <label>Tipo
+            <select name="closet_type" defaultValue="INFANTIL">{CLOSET_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
+          </label>
+          <label>Se for infantil: idade da criança (opcional)<input name="closet_age" type="number" min={0} max={17} placeholder="Ex.: 6" /></label>
+          <label>Plano deste closet
+            <select name="plan" defaultValue="ARRUMADA">
+              <option value="ARRUMADA">Arrumada · R$ {(prices.ARRUMADA / 100).toFixed(2).replace(".", ",")}/mês</option>
+              <option value="FASHION">Fashion · R$ {(prices.FASHION / 100).toFixed(2).replace(".", ",")}/mês</option>
+              <option value="SUPER_STAR">Super Star · R$ {(prices.SUPER_STAR / 100).toFixed(2).replace(".", ",")}/mês</option>
+            </select>
+          </label>
+          <p className="look-meta">Se a sua conta está no teste grátis, o novo closet usa o mesmo teste. Depois do teste (ou se você já é assinante), o novo closet é liberado quando você paga, na tela Assinatura.</p>
+          <SubmitButton pendingText="Criando...">Criar closet</SubmitButton>
+        </form>
+      </details>}
     </div>
 
     <div className="card">

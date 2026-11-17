@@ -13,6 +13,7 @@ import { hasCuidese } from "@/server/extras";
 import { toggleHairStep } from "@/server/hair-actions";
 import { STEP_TYPES } from "@/server/hair-options";
 import AnnouncementsBanner from "@/components/announcements-banner";
+import ClosetSwitcher from "@/components/closet-switcher";
 export default async function Home({searchParams}:{searchParams:Promise<{error?:string,skip?:string}>}){
  const {error,skip}=await searchParams;
  const skipIds=(skip||"").split(",").filter(Boolean);
@@ -66,6 +67,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
  return <main className="shell">
    <span className="eyebrow">CLOSET INTELIGENTE</span>
    {error&&<p role="alert" className="trial-banner">{error}</p>}
+   <ClosetSwitcher/>
    <AnnouncementsBanner/>
    {novasConquistas.map((m:any)=>(
      <div className="trial-banner" key={m.reason}><p>Parabéns! Você completa {MILESTONE_LABEL[m.reason]||m.reason} de Closet Inteligente e ganhou {m.credits} créditos bônus de geração de imagem!</p></div>
