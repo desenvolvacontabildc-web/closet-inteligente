@@ -1,3 +1,4 @@
+import { kidCloset } from "@/server/closet-type";
 import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
 import { generateColorimetria, saveColorStep, restartColorimetria } from "@/server/style-actions";
@@ -203,6 +204,7 @@ function ResultsView({ dossier, profile, closetItems, error }: any) {
 }
 
 export default async function Colorimetria({ searchParams }: { searchParams: Promise<{ error?: string; step?: string }> }) {
+  if (await kidCloset()) return <main className="shell narrow"><a href="/home">← Início</a><h1>"Colorimetria pessoal"</h1><p>Este recurso é para closets feminino e masculino. No closet infantil ele fica desativado, para cuidar da privacidade das crianças.</p></main>;
   const { error, step: stepRaw } = await searchParams;
   const step = Number(stepRaw || 0);
   const data = await withProfile(async (c, userId) => {

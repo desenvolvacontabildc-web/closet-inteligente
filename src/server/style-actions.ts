@@ -2,6 +2,7 @@
 import OpenAI from "openai";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
+import { closetKindC, closetNote } from "./closet-type";
 import { hasColorimetria, bumpAndCheckAiUsage } from "./limits";
 import { bounce } from "./action-error";
 import { CORES_PALETA, NEUTROS_PALETA, TINGIDO_OPCOES, BRONZEAMENTO_OPCOES, PROFUNDIDADE_PELE_SWATCHES, BRANCO_SWATCHES, METAL_SWATCHES, SUBTOM_OPCOES, INTENSIDADE_OPCOES, CONTRASTE_OPCOES } from "./color-options";
@@ -174,7 +175,7 @@ export async function generateWardrobeGaps(f: FormData) {
     const dossier = (await c.query("SELECT dossier FROM style_profiles WHERE user_id=$1", [userId])).rows[0]?.dossier || null;
     // Tendências publicadas pela administradora (Radar de Tendências) -- fonte preferida das sugestões por tendência.
     const trends = (await c.query("SELECT title, body FROM list_active_trends(6)")).rows.map((t: any) => ({ title: t.title, body: String(t.body || "").slice(0, 400) }));
-    return { ok: true as const, items, dossier, trends };
+    return { ok: true as const, items, dossier, trends, note: closetNote(await closetKindC(c, userId)) };
   });
   if (!ctx) redirect(returnPath);
   if (!ctx.ok) bounce(returnPath, ctx.message);
@@ -188,7 +189,7 @@ export async function generateWardrobeGaps(f: FormData) {
         content: [{
           type: "input_text",
           text:
-            `Você é uma consultora de imagem. Peças reais e ativas no closet da cliente (nomes já indicam cor/estampa):\n${JSON.stringify(ctx.items)}\n` +
+            `Você é uma consultora de imagem.${ctx.note} Peças reais e ativas no closet da cliente (nomes já indicam cor/estampa):\n${JSON.stringify(ctx.items)}\n` +
             (ctx.dossier ? `Colorimetria já feita da cliente (cores favoráveis e a evitar), leve em conta pra sugerir cores que funcionem nela:\n${JSON.stringify(ctx.dossier)}\n` : "") +
             `Analise se o closet tem peças "coringa" suficientes (básicos versáteis que combinam entre si e cobrem as categorias principais: parte de cima, parte de baixo, calçado, bolsa, uma peça de destaque/estruturada). ` +
             `Se o closet já for amplo, variado em cor e cobre bem essas categorias, responda que está suficiente -- não sugira por sugerir. ` +

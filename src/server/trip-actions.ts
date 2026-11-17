@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "minio";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
+import { closetKindC, closetNote } from "./closet-type";
 import { bounce } from "./action-error";
 import { flash } from "./flash";
 import { bumpAndCheckAiUsage } from "./limits";
@@ -180,11 +181,11 @@ export async function generateTripPlan(f: FormData) {
     if (items.length < 5) return { ok: false as const, message: "Cadastre pelo menos 5 peças no closet antes de gerar a mala." };
     const budget = await bumpAndCheckAiUsage(c, userId);
     if (!budget.ok) return { ok: false as const, message: budget.message || "Limite de operações de IA atingido." };
-    return { ok: true as const, tripRow, items };
+    return { ok: true as const, tripRow, items, note: closetNote(await closetKindC(c, userId)) };
   });
   if (!ctx) redirect("/");
   if (!ctx.ok) bounce(ctx.notFound ? "/mala" : review, ctx.message);
-  const { tripRow, items } = ctx;
+  const { tripRow, items, note } = ctx;
 
   const dias: number = tripRow.dias;
   const eventos: TripEvent[] = Array.isArray(tripRow.eventos) ? tripRow.eventos : [];
@@ -206,7 +207,7 @@ export async function generateTripPlan(f: FormData) {
         content: [{
           type: "input_text",
           text:
-            `Você é uma consultora de imagem montando uma mala de viagem real, usando SOMENTE peças que a cliente realmente tem no closet (nunca invente peça nova).\n` +
+            `Você é uma consultora de imagem montando uma mala de viagem real.${note} Monte-a usando SOMENTE peças que a cliente realmente tem no closet (nunca invente peça nova).\n` +
             `Destino: ${tripRow.destino}. Duração: ${dias} dia(s). Motivo da viagem: ${objetivoTxt[tripRow.objetivo] || "não informado"}. Transporte: ${tripRow.transporte || "não informado"}. Bagagem: ${tripRow.bagagem || "não informado"}.\n` +
             `Clima esperado: ${JSON.stringify(tripRow.clima)}. Sensibilidade térmica da cliente: ${tripRow.sensibilidade_termica}.\n` +
             `COMPROMISSOS (cada um precisa de um look PRÓPRIO, adequado ao período, ao tipo e ao dress code; o detalhe do local importa -- ex.: à beira-mar pede tecido leve e calçado confortável):\n${agenda}\n` +
@@ -381,7 +382,7 @@ export async function regenerateTripLook(f: FormData) {
     const inTrip = new Set((await c.query("SELECT item_id FROM trip_items WHERE trip_id=$1", [tripId])).rows.map((r: any) => r.item_id));
     const budget = await bumpAndCheckAiUsage(c, userId);
     if (!budget.ok) return { ok: false as const, message: budget.message || "Limite de operações de IA atingido." };
-    return { ok: true as const, trip, look, current, items, inTrip };
+    return { ok: true as const, trip, look, current, items, inTrip, note: closetNote(await closetKindC(c, userId)) };
   });
   if (!ctx) redirect("/");
   if (!ctx.ok) bounce(back, ctx.message);
@@ -397,7 +398,7 @@ export async function regenerateTripLook(f: FormData) {
         content: [{
           type: "input_text",
           text:
-            `Você é uma consultora de imagem. Monte UM look ALTERNATIVO para este compromisso de viagem: "${ctx.look.trip_period}" (${ctx.look.occasion}). Destino: ${ctx.trip.destino}. Clima: ${JSON.stringify(ctx.trip.clima)}. Estilo desejado: ${(ctx.trip.estilo || []).join(", ") || "não informado"}.\n` +
+            `Você é uma consultora de imagem.${ctx.note} Monte UM look ALTERNATIVO para este compromisso de viagem: "${ctx.look.trip_period}" (${ctx.look.occasion}). Destino: ${ctx.trip.destino}. Clima: ${JSON.stringify(ctx.trip.clima)}. Estilo desejado: ${(ctx.trip.estilo || []).join(", ") || "não informado"}.\n` +
             `NÃO repita a combinação atual (${ctx.current.join(" + ")}); troque pelo menos metade das peças. Prefira peças com "na_mala": true (já estão na mala) e use outras só se for necessário. Use SOMENTE estas peças reais:\n${JSON.stringify(candidatos)}\n` +
             `Responda apenas JSON: {"item_ids":["..."],"occasion":"descrição curta do look"}.`,
         }],

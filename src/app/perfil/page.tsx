@@ -6,6 +6,8 @@ import { logout } from "@/server/auth-actions";
 import { saveWhatsapp } from "@/server/whatsapp-actions";
 import { uploadAvatar, setBodyAvatarReference, setDefaultVisualStyle, setCity } from "@/server/avatar-actions";
 import { mySubscription, PLAN_LABEL } from "@/server/limits";
+import { CLOSET_TYPES } from "@/server/closet-type";
+import { saveClosetType } from "@/server/closet-type-actions";
 import SubmitButton from "@/components/submit-button";
 
 const STYLE_LABEL: Record<string, string> = { REALISTA: "Fotografia realista", AVATAR: "Meu avatar", ILUSTRACAO: "Ilustração" };
@@ -13,7 +15,7 @@ const STYLE_LABEL: Record<string, string> = { REALISTA: "Fotografia realista", A
 export default async function Perfil({searchParams}:{searchParams:Promise<{error?:string}>}) {
   const {error} = await searchParams;
   const data = await withProfile(async (c, userId) => {
-    const p = (await c.query("SELECT display_name, avatar_object_key, avatar_illustration_object_key, default_visual_style, city, bonus_image_credits, whatsapp FROM profiles WHERE user_id=$1", [userId])).rows[0];
+    const p = (await c.query("SELECT display_name, avatar_object_key, avatar_illustration_object_key, default_visual_style, city, bonus_image_credits, whatsapp, closet_type, closet_age FROM profiles WHERE user_id=$1", [userId])).rows[0];
     const u = (await c.query("SELECT email, is_admin, referral_code FROM app_users WHERE id=$1", [userId])).rows[0];
     const indicacoes = (await c.query("SELECT count(*)::int n FROM app_users WHERE referred_by=$1", [userId])).rows[0].n;
     const pagantes = (await c.query("SELECT count(*)::int n FROM credit_grants WHERE user_id=$1 AND left(reason,9)='REFERRAL_'", [userId])).rows[0].n;
@@ -24,12 +26,12 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
       hasStore: !!partnerId, storeName,
       displayName: p?.display_name || "", hasAvatar: !!p?.avatar_object_key,
       hasStyleAvatar: !!p?.avatar_illustration_object_key, defaultVisualStyle: p?.default_visual_style || "ILUSTRACAO",
-      city: p?.city || "", whatsapp: String(p?.whatsapp || ""), bonusCredits: p?.bonus_image_credits || 0, referralCode: u.referral_code, indicacoes, pagantes,
+      city: p?.city || "", whatsapp: String(p?.whatsapp || ""), closetType: String(p?.closet_type || "FEMININO"), closetAge: p?.closet_age ?? null, bonusCredits: p?.bonus_image_credits || 0, referralCode: u.referral_code, indicacoes, pagantes,
       email: u.email, isAdmin: u.is_admin, sub,
     };
   });
   if (!data) redirect("/");
-  const { hasStore, storeName, displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, whatsapp, bonusCredits, referralCode, indicacoes, pagantes, email, isAdmin, sub } = data;
+  const { hasStore, storeName, displayName, hasAvatar, hasStyleAvatar, defaultVisualStyle, city, whatsapp, closetType, closetAge, bonusCredits, referralCode, indicacoes, pagantes, email, isAdmin, sub } = data;
   const referralLink = `${process.env.APP_URL || ""}/?ref=${referralCode}`;
 
   return <main className="shell narrow">
@@ -76,6 +78,23 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
           {Object.entries(STYLE_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}
         </select>
         <button>Salvar preferência</button>
+      </form>
+    </div>
+
+    <div className="card">
+      <h2>Tipo de closet</h2>
+      <p className="look-meta">Escolha para quem este closet é. As sugestões de looks, mala e compras, e o estilo das imagens, se ajustam a essa escolha. Suas peças continuam as mesmas.</p>
+      <form action={saveClosetType} className="form">
+        {CLOSET_TYPES.map(t => (
+          <label className="strategy-card" key={t.value}>
+            <input type="radio" name="closet_type" value={t.value} defaultChecked={closetType === t.value} />
+            <strong>{t.label}</strong>
+            <p className="look-meta">{t.desc}</p>
+          </label>
+        ))}
+        <label>Se for infantil: idade da criança (opcional)<input name="closet_age" type="number" min={0} max={17} defaultValue={closetAge ?? ""} placeholder="Ex.: 6" /></label>
+        <p className="look-meta">No closet infantil não usamos foto de corpo nem avatar, e as imagens são sempre ilustrações. Colorimetria e Cuide-se não se aplicam a crianças.</p>
+        <SubmitButton pendingText="Salvando...">Salvar tipo de closet</SubmitButton>
       </form>
     </div>
 

@@ -2,6 +2,7 @@
 import OpenAI from "openai";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
+import { closetKindC, closetNote } from "./closet-type";
 import { mySubscription, hasPlanAtLeast, bumpAndCheckAiUsage } from "./limits";
 import { bounce } from "./action-error";
 /** Segue o padrão de 3 fases (ler / chamar IA / gravar) pra nunca manter uma conexão do
@@ -16,7 +17,7 @@ export async function generateCapsule(f: FormData) {
     if (!budget.ok) return { ok: false as const, message: budget.message || "Limite de uso de IA atingido." };
     const items = (await c.query("SELECT id,name,category,color FROM closet_items WHERE status='ACTIVE'")).rows;
     if (items.length === 0) return { ok: false as const, message: "Cadastre peças no closet antes de gerar uma cápsula." };
-    return { ok: true as const, items };
+    return { ok: true as const, items, note: closetNote(await closetKindC(c, userId)) };
   });
   if (!ctx) redirect("/capsula");
   if (!ctx.ok) bounce("/capsula", ctx.message);
@@ -30,7 +31,7 @@ export async function generateCapsule(f: FormData) {
         content: [{
           type: "input_text",
           text:
-            `Você é uma consultora de imagem especialista em guarda-roupa cápsula. Peças reais disponíveis (use SOMENTE estas, nunca invente):\n${JSON.stringify(ctx.items)}\n` +
+            `Você é uma consultora de imagem especialista em guarda-roupa cápsula.${ctx.note} Peças reais disponíveis (use SOMENTE estas, nunca invente):\n${JSON.stringify(ctx.items)}\n` +
             `Selecione até ${target} peças que, juntas, formem a cápsula mais versátil possível (o maior número de combinações diferentes entre si). ` +
             `Responda apenas JSON: {"item_ids":["..."],"reasoning":"...","combinations_estimate":numero}. ` +
             `item_ids deve conter só ids da lista fornecida, no máximo ${target}. Em reasoning, explique brevemente a lógica da seleção.`,

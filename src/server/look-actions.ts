@@ -6,6 +6,7 @@ import { Client } from "minio";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
 import { bumpAndCheckAiUsage, checkImageAllowance, consumeImageAllowance } from "./limits";
+import { closetKindC, closetNote, closetImageNote } from "./closet-type";
 import { bounce } from "./action-error";
 import { flash } from "./flash";
 import { fetchCurrentWeather } from "./weather";
@@ -25,6 +26,9 @@ async function prepareIllustration(c: any, userId: string, itemIds: string[], de
   | { ok: true; promptBase: string; refs: { key: string; type: string; px?: number }[]; hasIdentityRef: boolean }
   | { ok: false; result: "NO_AVATAR" }
 > {
+  // Closet infantil: nunca usa foto de corpo nem avatar; a imagem é sempre uma ilustração genérica.
+  const ck = await closetKindC(c, userId);
+  if (ck.type === "INFANTIL") style = "ILUSTRACAO";
   // Uma foto de referência por peça do look (até 4) -- com menos peças com foto real, a IA
   // precisa "adivinhar" as demais só pelo nome e acaba inventando cor/corte errado.
   const photos = (await c.query(
@@ -94,6 +98,7 @@ async function prepareIllustration(c: any, userId: string, itemIds: string[], de
       `Ilustração editorial de moda, estilo croqui/silhueta estilizada, figura genérica de moda, sem rosto detalhado e sem identidade real de nenhuma pessoa. ` +
       `Vestindo esta combinação: ${description}. ${semInvencao} Fundo neutro claro, traço elegante, sem texto na imagem.`;
   }
+  promptBase = closetImageNote(ck) + promptBase;
   const refs: { key: string; type: string; px?: number }[] = [];
   if (avatarKey) refs.push({ key: avatarKey, type: "image/png" });
   if (likenessRef) refs.push(likenessRef);
@@ -312,7 +317,7 @@ async function generateLooksFromRequest(userId: string, request: string, maxLook
        FROM looks l WHERE l.kind <> 'ANALYSIS' AND l.created_at >= now() - interval '14 days' ORDER BY l.created_at DESC LIMIT 10`,
     )).rows;
     const cityRow = (await c.query("SELECT city FROM profiles WHERE user_id=$1", [userId])).rows[0];
-    return { ok: true as const, items, recent, city: String(cityRow?.city || "").trim() };
+    return { ok: true as const, items, recent, city: String(cityRow?.city || "").trim(), note: closetNote(await closetKindC(c, userId)) };
   });
   if (!ctx) bounce(returnPath, "Sessão expirada. Faça login de novo.");
   if (!ctx.ok) bounce(returnPath, ctx.message);
@@ -328,7 +333,7 @@ async function generateLooksFromRequest(userId: string, request: string, maxLook
         content: [{
           type: "input_text",
           text:
-            `Você é uma consultora de imagem (personal stylist). Pedido da cliente: "${requestWithWeather}".\n` +
+            `Você é uma consultora de imagem (personal stylist).${ctx.note} Pedido da cliente: "${requestWithWeather}".\n` +
             `Peças reais disponíveis no closet, com atributos de estilo já analisados (use SOMENTE estas peças, nunca invente peças novas; use os atributos — estilo, formalidade, estação, ocasiões, combina_com — pra decidir a curadoria):\n${JSON.stringify(ctx.items)}\n` +
             (ctx.recent.length > 0 ? `Looks já sugeridos ou usados nos últimos 14 dias (evite repetir exatamente a mesma combinação; pode reutilizar peças individuais, mas varie a composição):\n${JSON.stringify(ctx.recent)}\n` : "") +
             `Monte até ${maxLooks} looks distintos e coerentes com o pedido, usando apenas essas peças. ` +

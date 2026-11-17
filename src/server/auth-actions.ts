@@ -1,4 +1,5 @@
 "use server";
+import { isClosetType } from "./closet-type";
 import { randomBytes, createHash, scrypt as sc, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { Client } from "minio";
@@ -52,13 +53,15 @@ export async function saveOnboarding(f:FormData){
   const answers=Object.fromEntries(fields.map(k=>[k,String(f.get(k)||"").trim()]));
   if(!answers.feeling||!answers.avoid) bounce("/onboarding","Preencha as respostas obrigatórias.");
   const tokens={accent:resolveAccent(answers.accent),tone:answers.tone||"acolhedor",density:"equilibrada"};
+  const closetRaw=String(f.get("closet_type")||"");const closetType=isClosetType(closetRaw)?closetRaw:"FEMININO";
+  const closetAgeN=Math.floor(Number(f.get("closet_age")||NaN));const closetAge=closetType==="INFANTIL"&&closetAgeN>=0&&closetAgeN<=17?closetAgeN:null;
   const avatar=f.get("avatar");
   const hasAvatar=avatar instanceof File && avatar.size>0;
   if(hasAvatar&&!(avatar as File).type.startsWith("image/")) bounce("/onboarding","Envie um arquivo de imagem pra foto.");
   const avatarBuf=hasAvatar?Buffer.from(await (avatar as File).arrayBuffer()):null;
   const bodyPhoto=f.get("body_photo");
   const bodyConsent=f.get("body_photo_consent")==="on";
-  const hasBodyPhoto=bodyPhoto instanceof File && bodyPhoto.size>0 && bodyConsent;
+  const hasBodyPhoto=bodyPhoto instanceof File && bodyPhoto.size>0 && bodyConsent && closetType!=="INFANTIL";
   if(hasBodyPhoto&&!(bodyPhoto as File).type.startsWith("image/")) bounce("/onboarding","Envie um arquivo de imagem pra foto de corpo.");
   const bodyPhotoBuf=hasBodyPhoto?Buffer.from(await (bodyPhoto as File).arrayBuffer()):null;
   const saved=await withProfile(async(c,id)=>{
@@ -85,6 +88,7 @@ export async function saveOnboarding(f:FormData){
       ],
     );
     if(q.rowCount!==1) bounce("/onboarding","Não foi possível salvar seu perfil.");
+    await c.query("SELECT set_closet_type($1,$2,$3)",[id,closetType,closetAge]);
     return {id,bodyPhotoKey};
   });
   if(!saved) redirect("/");

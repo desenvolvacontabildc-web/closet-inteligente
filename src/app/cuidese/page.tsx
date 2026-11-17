@@ -1,3 +1,4 @@
+import { kidCloset } from "@/server/closet-type";
 import Link from "next/link";
 const EM_PREPARACAO = [
   { title: "Meu Cabelo", desc: "Consultoria de cor e corte, com simulação visual." },
@@ -5,7 +6,8 @@ const EM_PREPARACAO = [
   { title: "Meus Produtos", desc: "Catálogo dos produtos de beleza que você já tem." },
   { title: "Agenda de Autocuidado", desc: "Todas as suas rotinas de cuidado num só lugar." },
 ];
-export default function CuideSe() {
+export default async function CuideSe() {
+  if (await kidCloset()) return <main className="shell narrow"><a href="/home">← Início</a><h1>Cuide-se</h1><p>Este recurso é para closets feminino e masculino. No closet infantil ele fica desativado, para cuidar da privacidade das crianças.</p></main>;
   return <main className="shell narrow">
     <Link href="/perfil">← Perfil</Link>
     <h1>Cuide-se</h1>

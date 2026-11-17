@@ -1,3 +1,4 @@
+import { kidCloset } from "@/server/closet-type";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
@@ -66,6 +67,7 @@ function Questionnaire({ d, again }: { d: Partial<Answers>; again: boolean }) {
 const dm = (d: Date) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 
 export default async function Cronograma({ searchParams }: { searchParams: Promise<{ error?: string; novo?: string; f_a?: string }> }) {
+  if (await kidCloset()) return <main className="shell narrow"><a href="/home">← Início</a><h1>"Cronograma capilar"</h1><p>Este recurso é para closets feminino e masculino. No closet infantil ele fica desativado, para cuidar da privacidade das crianças.</p></main>;
   const sp = await searchParams;
   const data = await withProfile(async (c, userId) => {
     const access = await cuideseAccess(c, userId);

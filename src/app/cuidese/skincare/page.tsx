@@ -1,3 +1,4 @@
+import { kidCloset } from "@/server/closet-type";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
@@ -47,6 +48,7 @@ function Questionnaire({ d, again }: { d: Partial<SkinAnswers>; again: boolean }
 }
 
 export default async function Skincare({ searchParams }: { searchParams: Promise<{ error?: string; novo?: string; dia?: string; f_a?: string }> }) {
+  if (await kidCloset()) return <main className="shell narrow"><a href="/home">← Início</a><h1>"Skincare"</h1><p>Este recurso é para closets feminino e masculino. No closet infantil ele fica desativado, para cuidar da privacidade das crianças.</p></main>;
   const sp = await searchParams;
   const today = dayStr();
   const data = await withProfile(async (c, userId) => {

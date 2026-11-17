@@ -1061,3 +1061,7 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .announce strong{color:var(--accent)}
 .announce p{margin:3px 0 0;font-size:13px;color:var(--ink-2)}
 .announce .link{margin:0;white-space:nowrap;font-weight:800}
+
+/* ===== Tipo de closet ===== */
+.closet-type{border:1px solid var(--line-strong);border-radius:14px;padding:10px 14px;margin:0 0 14px;display:grid;gap:8px}
+.closet-type legend{padding:0 6px;font-weight:800;color:var(--accent)}

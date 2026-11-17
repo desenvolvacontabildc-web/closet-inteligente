@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "minio";
 import { redirect } from "next/navigation";
 import { withProfile } from "./profile-session";
+import { closetKindC } from "./closet-type";
 import { bumpAndCheckAiUsage } from "./limits";
 import { bounce } from "./action-error";
 import { flash } from "./flash";
@@ -37,6 +38,7 @@ export async function analyzeLookPhoto(f: FormData) {
 
   // Fase 1: confere o orçamento de IA, lê as peças do closet (pra cruzar) e guarda a foto.
   const prep = await withProfile(async (c, userId) => {
+    if ((await closetKindC(c, userId)).type === "INFANTIL") bounce(ANALYZE, "Por segurança, no closet infantil não enviamos fotos de crianças para a análise por IA.", { occasion });
     const budget = await bumpAndCheckAiUsage(c, userId);
     if (!budget.ok) bounce(ANALYZE, budget.message || "Limite de operações de IA atingido.", { occasion });
     const items = (await c.query("SELECT id, name, category FROM closet_items WHERE status='ACTIVE' ORDER BY category, name LIMIT 200")).rows as { id: string; name: string; category: string }[];
