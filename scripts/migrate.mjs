@@ -7,6 +7,7 @@ if (!password || password.length < 32) {
   throw new Error("DB_APP_PASSWORD precisa ter pelo menos 32 caracteres.");
 }
 const client = new pg.Client({ connectionTimeoutMillis: 10000 });
+let phase = "conexão";
 try {
   await client.connect();
   await client.query("SELECT pg_advisory_lock(736201)");
@@ -23,6 +24,7 @@ try {
       if (applied.rows[0].checksum !== checksum) throw new Error(`Migration alterada após aplicação: ${name}`);
       continue;
     }
+    phase = `migration ${name}`;
     await client.query("BEGIN");
     try {
       await client.query(sql);
@@ -36,12 +38,16 @@ try {
   }
   // PostgreSQL role passwords cannot be query parameters. Quote the literal;
   // never print this command or raw database errors containing its contents.
+  phase = "senha do papel closet_app";
   const literal = "'" + password.replaceAll("'", "''") + "'";
   await client.query("SET standard_conforming_strings = on");
   await client.query(`ALTER ROLE closet_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD ${literal}`);
   console.log("Migrations concluídas.");
-} catch {
-  console.error("Falha nas migrations. Verifique conexão, permissões e integridade dos arquivos; segredos omitidos.");
+} catch (error) {
+  console.error(`Falha nas migrations (etapa: ${phase}).`);
+  // Erros de SQL das migrations não carregam segredos e dizem exatamente o que falhou. O da etapa da senha pode citar o comando, então fica omitido.
+  if (phase.startsWith("migration ") || phase === "conexão") console.error(`Motivo: ${error?.message || error}${error?.position ? ` (posição ${error.position})` : ""}`);
+  else console.error("Detalhes omitidos para não expor segredos.");
   process.exitCode = 1;
 } finally {
   await client.end(); // also releases the advisory lock
