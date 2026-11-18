@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { adminListAccounts, adminUserOverview, adminListAudit, setSubscription, resetPassword, recordPayment, grantModule, grantCredits, adminListArchived, archiveAccount, extendTrial } from "@/server/admin-actions";
+import { adminListAccounts, adminUserOverview, adminListAudit, setSubscription, resetPassword, recordPayment, grantModule, grantCredits, adminListArchived, archiveAccount, extendTrial, extendPeriod, adminContact, updateContact } from "@/server/admin-actions";
 import SubmitButton from "@/components/submit-button";
 import { STATUS_LABEL, PLAN_LABEL, brl, brlInput } from "../../labels";
 
@@ -8,7 +8,7 @@ const AUDIT_LABEL: Record<string, string> = {
   PIX_PAYMENT_APPROVED: "Pix aprovado", CARD_SUBSCRIPTION_AUTHORIZED: "Assinatura no cartão ativada", CARD_CYCLE_CHARGED: "Cobrança mensal do cartão paga",
   CARD_CYCLE_REJECTED: "Cobrança do cartão recusada", CARD_SUBSCRIPTION_CANCELLED: "Assinatura no cartão cancelada", CARD_SUBSCRIPTION_PAUSED: "Assinatura no cartão pausada",
   AUTO_SUSPENDED: "Suspensa automaticamente por atraso", GRANT_CREDITS: "Créditos concedidos", GRANT_MODULE: "Módulo liberado",
-  ADMIN_VIEW_ACCOUNT: "Conta aberta em modo suporte", ADMIN_EXTEND_TRIAL: "Teste gratuito estendido",
+  ADMIN_VIEW_ACCOUNT: "Conta aberta em modo suporte", ADMIN_EXTEND_TRIAL: "Teste gratuito estendido", ADMIN_EXTEND_PIX_PERIOD: "Prazo do Pix estendido", ADMIN_UPDATE_CONTACT: "Dados de contato alterados",
 };
 const CHARGE_KIND: Record<string, string> = { PIX: "Pix", CARD_PREAPPROVAL: "Cartão recorrente" };
 const CHARGE_STATUS: Record<string, string> = { pending: "pendente", approved: "pago", cancelled: "cancelado", rejected: "recusado", expired: "expirado", authorized: "autorizado", paused: "pausado" };
@@ -22,7 +22,7 @@ export default async function UsuariaDetalhe({ params, searchParams }: { params:
   const isArchived = (await adminListArchived()).includes(id);
   if (!a) return <main className="shell narrow"><h1>Usuária não encontrada</h1><Link href="/admin/usuarias">← Usuárias</Link></main>;
 
-  const [overview, audit] = await Promise.all([adminUserOverview(id), adminListAudit(id)]);
+  const [overview, audit, contact] = await Promise.all([adminUserOverview(id), adminListAudit(id), adminContact(id)]);
   const self = a.user_id === actorId;
   const back = `/admin/usuarias/${a.user_id}`;
   const needsAttention = ["PAST_DUE", "SUSPENDED", "TRIAL_EXPIRED"].includes(a.sub_status);
@@ -127,6 +127,19 @@ export default async function UsuariaDetalhe({ params, searchParams }: { params:
     </section>
 
     <section className="card">
+      <h2>Dados de contato</h2>
+      {contact.referred_by_name && <p className="look-meta">Indicada por {contact.referred_by_name}.</p>}
+      <form action={updateContact} className="form">
+        <input type="hidden" name="user_id" value={a.user_id} /><input type="hidden" name="return_to" value={back} />
+        <label>Nome<input name="name" defaultValue={a.display_name || ""} maxLength={80} /></label>
+        <label>E-mail (é o login dela)<input name="email" type="email" defaultValue={a.email} required /></label>
+        <label>WhatsApp com DDD<input name="whatsapp" defaultValue={contact.whatsapp || ""} inputMode="tel" placeholder="81 98888-7777" /></label>
+        <SubmitButton pendingText="Salvando...">Salvar dados</SubmitButton>
+        {contact.whatsapp && <a className="link" href={`https://wa.me/${String(contact.whatsapp).replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">Abrir conversa no WhatsApp</a>}
+      </form>
+    </section>
+
+    <section className="card">
       <h2>Ver a conta dela</h2>
       <p className="look-meta">Abra as peças, os looks e as imagens geradas por esta usuária, em modo somente leitura, para ajudar quando ela tiver dúvida ou algo estranho. O acesso fica registrado no histórico.</p>
       <Link className="trip-btn" href={`/admin/usuarias/${a.user_id}/conta`}>Abrir a conta de {a.display_name || "usuária"}</Link>
@@ -139,6 +152,11 @@ export default async function UsuariaDetalhe({ params, searchParams }: { params:
         <input type="hidden" name="user_id" value={a.user_id} /><input type="hidden" name="return_to" value={back} />
         <label>Estender o teste gratuito (dias)<input name="days" type="number" min={1} max={60} defaultValue={7} required /></label>
         <SubmitButton pendingText="Estendendo...">Estender teste</SubmitButton>
+      </form>}
+      {!self && a.sub_status === "ACTIVE" && a.payment_method === "PIX" && <form action={extendPeriod} className="form">
+        <input type="hidden" name="user_id" value={a.user_id} /><input type="hidden" name="return_to" value={back} />
+        <label>Estender o acesso de quem paga no Pix (dias)<input name="days" type="number" min={1} max={60} defaultValue={10} required /></label>
+        <SubmitButton pendingText="Estendendo...">Estender acesso</SubmitButton>
       </form>}
       {!self && <form action={resetPassword}><input type="hidden" name="user_id" value={a.user_id} /><SubmitButton pendingText="Resetando...">Resetar senha</SubmitButton></form>}
     </section>

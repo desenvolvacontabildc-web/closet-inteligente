@@ -7,6 +7,8 @@ const LINKS = [
   { href: "/admin/usuarias", label: "Usuárias" },
   { href: "/admin/precos", label: "Preços" },
   { href: "/admin/descontos", label: "Descontos" },
+  { href: "/admin/grupo", label: "Ações em grupo" },
+  { href: "/admin/mensagens", label: "Mensagens" },
   { href: "/admin/ofertas", label: "Ofertas de teste" },
   { href: "/admin/beneficios", label: "Benefícios" },
   { href: "/admin/parceiras", label: "Parcerias" },

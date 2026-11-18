@@ -434,3 +434,90 @@ export async function adminFunnel(days:number){
   });
   return r||{f:EMPTY_FUNNEL,weeks:[]};
 }
+
+/* ---------- grupos: ações em lote ---------- */
+const GROUP_KINDS=["TRIAL","PIX","TRIAL_PIX","CARD","ALL"];
+const groupKind=(raw:FormDataEntryValue|null)=>GROUP_KINDS.includes(String(raw))?String(raw):"TRIAL";
+const groupOffer=(raw:FormDataEntryValue|null)=>/^[a-z0-9_-]{0,32}$/.test(String(raw||"").toLowerCase())?String(raw||"").toLowerCase():"";
+const groupBack=(kind:string,offer:string)=>`/admin/grupo?kind=${kind}${offer?`&offer=${encodeURIComponent(offer)}`:""}`;
+export async function adminAudience(kind:string,offer:string){
+  const r=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_audience($1,$2,$3)",[userId,GROUP_KINDS.includes(kind)?kind:"TRIAL",offer||""])).rows}
+    catch(e){console.error("adminAudience falhou:",e);return null}
+  });
+  return r||[];
+}
+export async function groupExtend(f:FormData){
+  const kind=groupKind(f.get("kind")),offer=groupOffer(f.get("offer")),days=Math.floor(Number(f.get("days")||0));
+  const back=groupBack(kind,offer);
+  if(!(days>=1&&days<=60))bounce("/admin/grupo","Informe de 1 a 60 dias.");
+  let res:any=null;
+  try{res=await withProfile(async(c,userId)=>(await c.query("SELECT admin_group_extend($1,$2,$3,$4) r",[userId,kind,offer,days])).rows[0].r)}
+  catch(e){console.error("groupExtend falhou:",e);bounce(back,"Não foi possível estender o prazo.")}
+  await flash(`Prazo estendido em ${days} dia${days===1?"":"s"}: ${res?.trial??0} em teste grátis e ${res?.pix??0} no Pix. (Cartão recorrente não é alterado.)`);
+  redirect(back);
+}
+export async function groupGrantModule(f:FormData){
+  const kind=groupKind(f.get("kind")),offer=groupOffer(f.get("offer")),back=groupBack(kind,offer);
+  let n=0;
+  try{n=await withProfile(async(c,userId)=>(await c.query("SELECT admin_group_grant_module($1,$2,$3) n",[userId,kind,offer])).rows[0].n)||0}
+  catch(e){console.error("groupGrantModule falhou:",e);bounce(back,"Não foi possível liberar a Colorimetria.")}
+  await flash(n>0?`Colorimetria liberada para ${n} usuária${n===1?"":"s"} (quem já tinha não mudou).`:"Todas deste grupo já tinham a Colorimetria.");
+  redirect(back);
+}
+export async function groupGrantCredits(f:FormData){
+  const kind=groupKind(f.get("kind")),offer=groupOffer(f.get("offer")),back=groupBack(kind,offer);
+  const credits=Math.floor(Number(f.get("credits")||0)),note=String(f.get("note")||"").trim().slice(0,120);
+  if(!(credits>=1&&credits<=500))bounce(back,"Informe entre 1 e 500 créditos.");
+  let n=0;
+  try{n=await withProfile(async(c,userId)=>(await c.query("SELECT admin_group_grant_credits($1,$2,$3,$4,$5) n",[userId,kind,offer,credits,note])).rows[0].n)||0}
+  catch(e){console.error("groupGrantCredits falhou:",e);bounce(back,"Não foi possível conceder os créditos.")}
+  await flash(`${credits} crédito${credits===1?"":"s"} de imagem para ${n} usuária${n===1?"":"s"}.`);
+  redirect(back);
+}
+
+/* ---------- prazo do Pix, contato, painel de hoje e campanha do cartão ---------- */
+export async function extendPeriod(f:FormData){
+  const target=String(f.get("user_id")||""),days=Math.floor(Number(f.get("days")||0));
+  const back=adminPath(f.get("return_to"),`/admin/usuarias/${encodeURIComponent(target)}`);
+  try{await withProfile(async(c,userId)=>{await c.query("SELECT admin_extend_period($1,$2,$3)",[userId,target,days]);return true})}
+  catch(e:any){console.error("extendPeriod falhou:",e);bounce(back,String(e?.message||"").includes("Pix")?"Só vale para assinantes que pagam no Pix.":"Informe de 1 a 60 dias.")}
+  await flash(`Prazo estendido em ${days} dia${days===1?"":"s"}.`);
+  redirect(back);
+}
+export async function adminContact(target:string){
+  const r=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_contact_get($1,$2)",[userId,target])).rows[0]||null}
+    catch(e){console.error("adminContact falhou:",e);return null}
+  });
+  return r||{whatsapp:"",referred_by_name:null};
+}
+export async function updateContact(f:FormData){
+  const target=String(f.get("user_id")||"");
+  const back=adminPath(f.get("return_to"),`/admin/usuarias/${encodeURIComponent(target)}`);
+  const name=String(f.get("name")||""),email=String(f.get("email")||""),whatsapp=String(f.get("whatsapp")||"");
+  let msg="";
+  try{msg=await withProfile(async(c,userId)=>String((await c.query("SELECT admin_update_contact($1,$2,$3,$4,$5) m",[userId,target,name,email,whatsapp])).rows[0].m||""))||""}
+  catch(e){console.error("updateContact falhou:",e);bounce(back,"Não foi possível salvar os dados.")}
+  if(msg)bounce(back,msg);
+  await flash("Dados da usuária salvos.");
+  redirect(back);
+}
+export async function adminToday(){
+  const r=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_today($1)",[userId])).rows}
+    catch(e){console.error("adminToday falhou:",e);return null}
+  });
+  return r||[];
+}
+export async function adminCardGift(){
+  const r=await withProfile(async(c)=>{try{return (await c.query("SELECT app_flag('card_gift_colorimetria') v")).rows[0].v}catch{return"0"}});
+  return r==="1";
+}
+export async function setCardGift(f:FormData){
+  const v=String(f.get("on"))==="1"?"1":"0";
+  try{await withProfile(async(c,userId)=>{await c.query("SELECT admin_set_flag($1,'card_gift_colorimetria',$2)",[userId,v]);return true})}
+  catch(e){console.error("setCardGift falhou:",e);bounce("/admin/beneficios","Não foi possível salvar.")}
+  await flash(v==="1"?"Campanha ligada: quem assinar no cartão recorrente ganha a Colorimetria.":"Campanha desligada. Quem já ganhou continua com a Colorimetria.");
+  redirect("/admin/beneficios");
+}

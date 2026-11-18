@@ -1,4 +1,5 @@
-import { adminListAccounts, grantCredits, grantModule } from "@/server/admin-actions";
+import Link from "next/link";
+import { adminListAccounts, grantCredits, grantModule, adminCardGift, setCardGift } from "@/server/admin-actions";
 import SubmitButton from "@/components/submit-button";
 
 export default async function Beneficios({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -6,6 +7,7 @@ export default async function Beneficios({ searchParams }: { searchParams: Promi
   const { accounts } = await adminListAccounts();
   if (!accounts) return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/home">← Voltar</a></main>;
   const clients = accounts.filter((a: any) => !a.is_admin);
+  const cardGift = await adminCardGift();
 
   return <main className="shell narrow">
     <h1>Benefícios</h1>
@@ -20,6 +22,16 @@ export default async function Beneficios({ searchParams }: { searchParams: Promi
         <li><strong>Indicação (10 amigas):</strong> quem indica 10 amigas que viram assinantes ganha a Colorimetria de presente, liberada automaticamente.</li>
         <li><strong>Colorimetria:</strong> vendida à parte (compra única, em Assinatura → Extras); você pode liberar como cortesia abaixo.</li>
       </ul>
+    </section>
+
+    <section className={cardGift ? "card start-card" : "card"}>
+      <h2>Campanha: Colorimetria de brinde no cartão recorrente</h2>
+      <p className="look-meta">{cardGift ? "LIGADA: quem passar a assinar no cartão recorrente ganha a Colorimetria automaticamente (quem já assinava no cartão também recebeu)." : "Desligada: ninguém ganha a Colorimetria só por assinar no cartão."} No plano Super Star ela já vem incluída.</p>
+      <form action={setCardGift}>
+        <input type="hidden" name="on" value={cardGift ? "0" : "1"} />
+        <button>{cardGift ? "Desligar a campanha" : "Ligar a campanha"}</button>
+      </form>
+      <p className="look-meta">Para dar a Colorimetria a um grupo de uma vez (por exemplo, quem já assina no cartão), use <Link href="/admin/grupo?kind=CARD">Ações em grupo</Link>.</p>
     </section>
 
     <section className="card">

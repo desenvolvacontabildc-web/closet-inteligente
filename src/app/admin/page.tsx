@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { adminListAccounts, adminListNotifications, adminImageSpend, markNotificationsRead } from "@/server/admin-actions";
+import { adminListAccounts, adminListNotifications, adminImageSpend, markNotificationsRead, adminToday } from "@/server/admin-actions";
 import SubmitButton from "@/components/submit-button";
 
 const IMAGE_SPEND_ALERT_CENTS = 10000; // R$ 100/mês — avisa quando o gasto estimado com geração de imagem passar disso
@@ -10,6 +10,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
   const { accounts } = await adminListAccounts();
   if (!accounts) return <main className="shell narrow"><h1>Acesso restrito</h1><p>Esta conta não é administradora.</p><a href="/home">← Voltar</a></main>;
 
+  const today = await adminToday();
   const notifications = await adminListNotifications();
   const unread = notifications.filter((n: any) => !n.read_at).length;
   const imageSpend = await adminImageSpend();
@@ -35,11 +36,23 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
       <Link href="/admin/tendencias" className="admin-tile"><strong>Tendências</strong><small>Radar de tendências</small></Link>
       <Link href="/admin/achadinhos" className="admin-tile"><strong>Achadinhos</strong><small>Achados com desconto</small></Link>
       <Link href="/admin/bazar" className="admin-tile"><strong>Bazar & Aluguel</strong><small>Anúncios e denúncias</small></Link>
+      <Link href="/admin/grupo" className="admin-tile"><strong>Ações em grupo</strong><small>Estender prazo, liberar Colorimetria, créditos</small></Link>
+      <Link href="/admin/mensagens" className="admin-tile"><strong>Mensagens prontas</strong><small>Convites e avisos para o WhatsApp</small></Link>
       <Link href="/admin/funil" className="admin-tile"><strong>Funil</strong><small>Cadastro, primeira peça, primeiro look e pagamento</small></Link>
       <Link href="/admin/uso" className="admin-tile"><strong>Uso e custos</strong><small>Imagens, IA e gasto estimado</small></Link>
       <Link href="/admin/comunicados" className="admin-tile"><strong>Comunicados</strong><small>Avisos na tela inicial do app</small></Link>
       <Link href="/admin/sistema" className="admin-tile"><strong>Sistema</strong><small>Pausar imagens, cadastros, planilha</small></Link>
     </div>
+
+    <section className="card">
+      <h2>Hoje</h2>
+      {today.length === 0 ? <p className="look-meta">Nada pedindo atenção agora: sem cadastros novos, testes acabando ou Pix vencendo.</p> : <ul>
+        {today.map((t: any, i: number) => <li key={i}>
+          <Link href={`/admin/usuarias/${t.user_id}`}>{t.name}</Link>{" "}
+          <small>{t.kind === "NOVA" ? "criou a conta nas últimas 24h" : t.kind === "TESTE_ACABA" ? `teste grátis termina em ${new Date(t.at).toLocaleDateString("pt-BR")}` : t.kind === "PIX_VENCE" ? `Pix vence em ${new Date(t.at).toLocaleDateString("pt-BR")}` : t.kind === "PIX_ATRASADO" ? `Pix venceu em ${new Date(t.at).toLocaleDateString("pt-BR")}` : "cartão recusado, em atraso"}</small>
+        </li>)}
+      </ul>}
+    </section>
 
     <section className="card">
       <h2>Avisos {unread > 0 && <span className="chip chip-SUSPENDED">{unread} novo{unread === 1 ? "" : "s"}</span>}</h2>

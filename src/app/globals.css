@@ -1128,3 +1128,4 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .funnel-head small{color:var(--muted);font-size:12px}
 .funnel-bar{height:10px;border-radius:99px;background:var(--surface-2);overflow:hidden;margin-top:4px}
 .funnel-bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.msg-preview{white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:14px;line-height:1.5;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0}
