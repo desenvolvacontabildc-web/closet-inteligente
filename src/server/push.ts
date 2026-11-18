@@ -1,5 +1,5 @@
 import "server-only";
-import webpush from "web-push";
+import { setVapidDetails, sendNotification } from "web-push";
 import type { PoolClient } from "pg";
 import { getPool } from "./db";
 import { skinReminder } from "./skin-progress";
@@ -12,7 +12,7 @@ function configure(): boolean {
   if (configured) return true;
   const pub = process.env.VAPID_PUBLIC_KEY, priv = process.env.VAPID_PRIVATE_KEY;
   if (!pub || !priv) return false;
-  webpush.setVapidDetails(process.env.APP_URL || "https://closet.desenvolvacontabil.com.br", pub, priv);
+  setVapidDetails(process.env.APP_URL || "https://closet.desenvolvacontabil.com.br", pub, priv);
   configured = true;
   return true;
 }
@@ -23,7 +23,7 @@ type Target = { user_id: string; endpoint: string; p256dh: string; auth: string 
 
 async function sendOne(t: Target, r: { title: string; body: string; url: string }): Promise<void> {
   try {
-    await webpush.sendNotification({ endpoint: t.endpoint, keys: { p256dh: t.p256dh, auth: t.auth } }, JSON.stringify({ title: r.title, body: r.body, url: r.url }), { TTL: 60 * 60 * 12 });
+    await sendNotification({ endpoint: t.endpoint, keys: { p256dh: t.p256dh, auth: t.auth } }, JSON.stringify({ title: r.title, body: r.body, url: r.url }), { TTL: 60 * 60 * 12 });
   } catch (e: any) {
     if (e?.statusCode === 404 || e?.statusCode === 410) await getPool().query("SELECT delete_push_endpoint($1)", [t.endpoint]);
     else console.error("push: falha ao enviar:", e?.statusCode || e?.message);
