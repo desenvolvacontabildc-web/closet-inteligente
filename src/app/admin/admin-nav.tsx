@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/admin/tendencias", label: "Tendências" },
   { href: "/admin/achadinhos", label: "Achadinhos" },
   { href: "/admin/bazar", label: "Bazar" },
+  { href: "/admin/funil", label: "Funil" },
   { href: "/admin/uso", label: "Uso e custos" },
   { href: "/admin/comunicados", label: "Comunicados" },
   { href: "/admin/sistema", label: "Sistema" },

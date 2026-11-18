@@ -421,3 +421,16 @@ export async function sendTestPushToMe(){
   await flash(n>0?`Notificação de teste enviada para ${n} aparelho${n===1?"":"s"} seu${n===1?"":"s"}.`:"Você ainda não ativou os lembretes em nenhum aparelho. Ative em Perfil → Lembretes no celular.");
   redirect("/admin/sistema");
 }
+
+/* ---------- funil de conversão ---------- */
+const EMPTY_FUNNEL={cadastros:0,onboarding:0,com_peca:0,com_look:0,look_aprovado:0,voltou:0,com_lembretes:0,pagou:0,ativas:0,em_teste:0,imagens:0,ai_ops:0};
+export async function adminFunnel(days:number){
+  const r=await withProfile(async(c,userId)=>{
+    try{
+      const f=(await c.query("SELECT * FROM admin_funnel($1,$2)",[userId,Math.max(0,Math.floor(days)||0)])).rows[0];
+      const weeks=(await c.query("SELECT * FROM admin_funnel_weeks($1)",[userId])).rows;
+      return{f,weeks};
+    }catch(e){console.error("adminFunnel falhou:",e);return null}
+  });
+  return r||{f:EMPTY_FUNNEL,weeks:[]};
+}
