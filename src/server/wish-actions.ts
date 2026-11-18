@@ -97,7 +97,7 @@ export async function generateWishLooks(f: FormData) {
   });
   if (!saved) redirect("/");
   await flash(`${looks.length} look${looks.length === 1 ? "" : "s"} pronto${looks.length === 1 ? "" : "s"}! Veja o que vale comprar em cada um.`);
-  redirect(`${BACK}?lote=${batch}`);
+  redirect(`${BACK}?lote=${batch}#resultado`);
 }
 
 /** Marca (ou desmarca) uma peça da lista como "comprei". */
@@ -126,10 +126,10 @@ export async function generateWishLookImage(f: FormData) {
   const prep = await withProfile(async (c, userId) => {
     const allowance = await checkImageAllowance(c, userId);
     if (!allowance.ok) bounce(BACK, allowance.message || "Limite de gerações de imagem atingido.");
-    const row = (await c.query("SELECT name, occasion, pieces FROM wish_looks WHERE id=$1", [id])).rows[0];
+    const row = (await c.query("SELECT name, occasion, pieces, batch_id FROM wish_looks WHERE id=$1", [id])).rows[0];
     if (!row) bounce(BACK, "Look não encontrado.");
     const desc = (row.pieces as Piece[]).map((p) => `${p.name}${p.color && !p.name.toLowerCase().includes(p.color.toLowerCase()) ? ` (${p.color})` : ""}`).join(", ");
-    return { source: allowance.source, desc, occasion: String(row.occasion || ""), note: closetImageNote(await closetKindC(c, userId)) };
+    return { source: allowance.source, desc, occasion: String(row.occasion || ""), batch: String(row.batch_id), note: closetImageNote(await closetKindC(c, userId)) };
   });
   if (!prep) redirect("/");
 
@@ -151,5 +151,5 @@ export async function generateWishLookImage(f: FormData) {
     return true;
   });
   await flash("Imagem pronta!");
-  redirect(BACK);
+  redirect(`${BACK}?lote=${prep.batch}#resultado`);
 }

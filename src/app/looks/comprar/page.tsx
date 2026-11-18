@@ -71,7 +71,7 @@ export default async function LooksComprar({ searchParams }: { searchParams: Pro
     </div>
 
     {looks.length > 0 && <>
-      <div className="section-head"><h2>{lote ? "Seus looks novos" : "Seus looks com peças para comprar"}</h2>{lote && <Link href="/looks/comprar" className="look-meta">Ver todos</Link>}</div>
+      <div className="section-head" id="resultado"><h2>{lote ? "Seus looks novos" : "Seus looks com peças para comprar"}</h2>{lote && <Link href="/looks/comprar" className="look-meta">Ver todos</Link>}</div>
       {looks.map((l) => {
         const pieces = l.pieces as Piece[];
         return <article className="card wish-look" key={l.id}>
