@@ -1077,3 +1077,24 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .closet-chips form{margin:0}
 .closet-chip{margin:0;min-height:34px;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:700;background:var(--surface);color:var(--accent);border:1px solid var(--line-strong);display:inline-flex;align-items:center}
 .closet-chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ===== Looks com pecas novas (o que comprar) ===== */
+.wish-look header{display:grid;gap:2px;margin-bottom:8px}
+.wish-look h3{margin:0;font-family:var(--font-display);font-size:26px;font-weight:600}
+.wish-img{width:100%;max-width:420px;border-radius:16px;display:block;margin:8px 0;border:1px solid var(--line)}
+.wish-pieces{list-style:none;margin:8px 0;padding:0;display:grid;gap:8px}
+.wish-pieces li{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:8px 10px}
+.wish-pieces li.buy{border-color:var(--gold);background:linear-gradient(135deg,var(--surface),var(--soft))}
+.wish-pieces li.done{opacity:.6}
+.wish-pieces img,.wish-ico{flex:none;width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--soft);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:800;font-size:20px}
+.wish-txt{flex:1;display:grid;gap:1px;font-size:14px}
+.wish-txt small{color:var(--muted);font-size:12px}
+.wish-txt .why{font-style:italic}
+.wish-pieces form{margin:0}
+.chip-have{flex:none;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-ink);border:1px solid var(--gold);border-radius:999px;padding:3px 10px}
+.chip-buy{margin:0;min-height:34px;padding:6px 14px;font-size:12px;font-weight:800;background:var(--accent);color:#fff;border-radius:999px}
+.chip-buy.done{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.wish-tip{margin-top:4px}
+.wish-shop{list-style:none;margin:8px 0;padding:0;display:grid;gap:6px}
+.wish-shop li{display:grid;gap:1px;padding:8px 12px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line)}
+.wish-shop small{color:var(--muted);font-size:12px}

@@ -99,7 +99,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          <li className={stats.looks>0||todayLooks.length>0?"done":""}>Peça o seu primeiro look.</li>
          <li className={stats.looks>0?"done":""}>Toque em “Gostei” nos looks que combinam com você.</li>
        </ol>
-       <div className="action-row"><Link href="/closet"><button type="button">{stats.pecas===0?"Cadastrar a primeira peça":"Adicionar mais peças"}</button></Link></div>
+       <div className="action-row"><Link href="/closet"><button type="button">{stats.pecas===0?"Cadastrar a primeira peça":"Adicionar mais peças"}</button></Link><Link href="/looks/comprar" className="link">Ainda sem peças? Monte looks com o que vale comprar</Link></div>
      </div>}
      <div className="empty">
        <h2>Look para hoje</h2>
@@ -221,6 +221,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      </div>}
      <div className="quick-actions">
        <Link href="/looks"><span aria-hidden="true">✦</span>Criar look</Link>
+       <Link href="/looks/comprar"><span aria-hidden="true">✦</span>Looks com peças novas</Link>
        <Link href="/looks/analisar"><span aria-hidden="true">✦</span>Analisar meu look</Link>
        <Link href="/closet"><span aria-hidden="true">✦</span>Adicionar peças</Link>
        <Link href="/vitrine"><span aria-hidden="true">✦</span>Comprar com desconto</Link>

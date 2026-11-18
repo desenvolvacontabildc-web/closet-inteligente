@@ -302,6 +302,11 @@ export default async function Looks({ searchParams }: { searchParams: Promise<{ 
       </div>}
     </section>}
 
+    <Link href="/looks/comprar" className="card secondary find-card">
+      <h2>Looks com peças novas</h2>
+      <p>Ainda não tem peças suficientes? Monte looks completos e veja o que vale comprar para fechá-los, do zero ou a partir de uma peça que você já tem.</p>
+    </Link>
+
     <div className="card">
       <h2>O que vale comprar</h2>
       {wardrobeGap?.wardrobe_gap_updated_at ? (
