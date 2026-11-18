@@ -30,6 +30,7 @@ export default async function Closet({searchParams}:{searchParams:Promise<{categ
       {forgotten.length>0&&<p>Peças esquecidas — ainda não entraram em nenhum look: {forgotten.map((i:any)=>i.name).join(", ")}. Toque numa peça e gere 3 looks com ela.</p>}
       {reviewCount>0&&<p style={forgotten.length>0?{marginTop:8}:undefined}>{reviewCount} peça{reviewCount===1?"":"s"} parada{reviewCount===1?"":"s"} pede{reviewCount===1?"":"m"} uma revisão: manter, doar ou descartar. <Link href="/closet/revisao">Revisar agora</Link></p>}
     </div>}
+    <Link href="/closet/rapido" className="card quick-card"><strong>Cadastro rápido por foto</strong><span>Envie várias fotos de uma vez, ou uma foto sua vestida, e a IA preenche tudo. Recomendado.</span></Link>
     <details className="add-panel" open={!!error||items.length===0}>
       <summary><span aria-hidden="true">＋</span> Adicionar peça</summary>
     <form action={createItem} encType="multipart/form-data" className="form">

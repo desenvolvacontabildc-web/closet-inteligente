@@ -99,7 +99,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          <li className={stats.looks>0||todayLooks.length>0?"done":""}>Peça o seu primeiro look.</li>
          <li className={stats.looks>0?"done":""}>Toque em “Gostei” nos looks que combinam com você.</li>
        </ol>
-       <div className="action-row"><Link href="/closet"><button type="button">{stats.pecas===0?"Cadastrar a primeira peça":"Adicionar mais peças"}</button></Link><Link href="/looks/comprar" className="link">Ainda sem peças? Monte looks com o que vale comprar</Link></div>
+       <div className="action-row"><Link href="/closet/rapido"><button type="button">{stats.pecas===0?"Cadastrar as primeiras peças":"Adicionar mais peças"}</button></Link><Link href="/looks/comprar" className="link">Ainda sem peças? Monte looks com o que vale comprar</Link></div>
      </div>}
      <div className="empty">
        <h2>Look para hoje</h2>
