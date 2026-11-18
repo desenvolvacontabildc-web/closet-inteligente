@@ -1,3 +1,4 @@
+import ShareLook from "@/components/share-look";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withProfile } from "@/server/profile-session";
@@ -58,6 +59,11 @@ function LookDetails({ l, ctx, mode }: { l: LookRow; ctx: Ctx; mode: "ready" | "
     <p className="look-pieces">{(l.items || []).map((it: any) => it.name).join(" + ") || "Sem peças"}</p>
 
     {mode !== "rejected" && <GenerateImageCta l={l} ctx={ctx} />}
+    {mode !== "rejected" && (l.has_photo || l.has_illustration || (l.items || []).some((it: any) => it.photo_id)) && <ShareLook
+      name={l.name || ""} occasion={l.occasion || ""} pieces={(l.items || []).map((it: any) => it.name)}
+      imageUrl={l.has_photo ? `/api/looks/${l.id}/photo?w=1080` : l.has_illustration ? `/api/looks/${l.id}/illustration?w=1080` : null}
+      photos={(l.items || []).filter((it: any) => it.photo_id).map((it: any) => `/api/closet/photos/${it.photo_id}?w=480`)}
+      fileName={`look-${(l.name || "closet").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "closet"}.png`} />}
 
     {(l.items || []).length > 0 && <div className="outfit-collage">
       {(l.items || []).map((it: any) => (
