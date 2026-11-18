@@ -397,3 +397,27 @@ export async function extendTrial(f:FormData){
   await flash(`Teste estendido em ${days} dia${days===1?"":"s"}.`);
   redirect(back);
 }
+
+/* ---------- lembretes por notificação ---------- */
+export async function adminPushStats(){
+  const r=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_push_stats($1)",[userId])).rows[0]}
+    catch(e){console.error("adminPushStats falhou:",e);return null}
+  });
+  return r||{devices:0,users:0,sent_7d:0};
+}
+/** Simula o que seria enviado agora (sem enviar nem marcar como enviado). */
+export async function adminPushPreview(){
+  const ok=await withProfile(async(c,userId)=>{try{await c.query("SELECT admin_push_stats($1)",[userId]);return true}catch{return false}});
+  if(!ok)return[];
+  const { runReminders }=await import("./push");
+  return runReminders({dry:true,force:true});
+}
+export async function sendTestPushToMe(){
+  const me=await withProfile(async(c,userId)=>{try{await c.query("SELECT admin_push_stats($1)",[userId]);return userId}catch{return null}});
+  if(!me)redirect("/admin/sistema");
+  const { sendTestToUser }=await import("./push");
+  const n=await sendTestToUser(me);
+  await flash(n>0?`Notificação de teste enviada para ${n} aparelho${n===1?"":"s"} seu${n===1?"":"s"}.`:"Você ainda não ativou os lembretes em nenhum aparelho. Ative em Perfil → Lembretes no celular.");
+  redirect("/admin/sistema");
+}

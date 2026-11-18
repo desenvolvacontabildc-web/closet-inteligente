@@ -1107,3 +1107,7 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .pp-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;border:1px solid var(--line)}
 .scan-photo{width:100%;max-width:300px;border-radius:16px;display:block;margin:8px 0;border:1px solid var(--line)}
 .scan-piece{border:1px solid var(--line-strong);border-radius:14px;padding:10px 14px;margin:0 0 10px;display:grid;gap:6px}
+
+/* ===== Lembretes (notificacoes) ===== */
+.push-actions{display:flex;flex-direction:column;gap:2px;align-items:flex-end}
+.push-actions button{margin:0}

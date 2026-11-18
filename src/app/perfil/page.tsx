@@ -9,6 +9,7 @@ import { mySubscription, PLAN_LABEL } from "@/server/limits";
 import { CLOSET_TYPES } from "@/server/closet-type";
 import { saveClosetType } from "@/server/closet-type-actions";
 import { addCloset, switchCloset } from "@/server/family-actions";
+import PushToggle from "@/components/push-toggle";
 import SubmitButton from "@/components/submit-button";
 
 const STYLE_LABEL: Record<string, string> = { REALISTA: "Fotografia realista", AVATAR: "Meu avatar", ILUSTRACAO: "Ilustração" };
@@ -132,6 +133,8 @@ export default async function Perfil({searchParams}:{searchParams:Promise<{error
         <SubmitButton pendingText="Salvando...">Salvar tipo de closet</SubmitButton>
       </form>
     </div>
+
+    <PushToggle />
 
     <div className="card">
       <h2>Sua cidade</h2>
