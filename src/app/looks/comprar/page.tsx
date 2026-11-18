@@ -10,7 +10,7 @@ type Piece = { source: "CLOSET" | "BUY"; item_id?: string; name: string; categor
 const CAT_ORDER = ["vestido", "blusa", "camisa", "top", "calça", "saia", "casaco", "blazer", "sapato", "bolsa", "acessório", "outro"];
 const catRank = (c: string) => { const i = CAT_ORDER.findIndex((x) => (c || "").toLowerCase().includes(x)); return i < 0 ? 99 : i; };
 
-export default async function LooksComprar({ searchParams }: { searchParams: Promise<{ error?: string; lote?: string; f_occasion?: string; f_vibe?: string; f_budget?: string; f_base_text?: string }> }) {
+export default async function LooksComprar({ searchParams }: { searchParams: Promise<{ error?: string; primeiro?: string; lote?: string; f_occasion?: string; f_vibe?: string; f_budget?: string; f_base_text?: string }> }) {
   const sp = await searchParams;
   const lote = /^[0-9a-f-]{36}$/i.test(sp.lote || "") ? sp.lote! : "";
   const data = await withProfile(async (c, userId) => {
@@ -20,10 +20,15 @@ export default async function LooksComprar({ searchParams }: { searchParams: Pro
       : await c.query("SELECT id,name,occasion,mode,pieces,tip,illustration_object_key IS NOT NULL AS has_image,created_at FROM wish_looks ORDER BY created_at DESC LIMIT 9")).rows as any[];
     const ids = [...new Set(looks.flatMap((l) => (l.pieces as Piece[]).map((p) => p.item_id).filter(Boolean)))] as string[];
     const photos = ids.length ? (await c.query("SELECT DISTINCT ON (item_id) item_id, id FROM closet_item_photos WHERE item_id = ANY($1::uuid[]) ORDER BY item_id, created_at DESC", [ids])).rows : [];
-    return { items, looks, photoOf: Object.fromEntries(photos.map((p: any) => [p.item_id, p.id])) as Record<string, string>, ai: await aiUsageRemaining(c, userId), img: await imageGenerationsRemaining(c, userId) };
+    const ans = ((await c.query("SELECT answers FROM profiles WHERE user_id=$1", [userId])).rows[0]?.answers || {}) as Record<string, string>;
+    return { ans, items, looks, photoOf: Object.fromEntries(photos.map((p: any) => [p.item_id, p.id])) as Record<string, string>, ai: await aiUsageRemaining(c, userId), img: await imageGenerationsRemaining(c, userId) };
   });
   if (!data) redirect("/");
-  const { items, looks, photoOf, ai, img } = data;
+  const { ans, items, looks, photoOf, ai, img } = data;
+  const primeiro = sp.primeiro === "1" && looks.length === 0;
+  const OCC: Record<string, string> = { "Escritório e clientes": "trabalho no escritório e reuniões com clientes", "Rotina variada": "o dia a dia, do trabalho ao lazer", "Casa e lazer": "casa e lazer, confortável e bonito" };
+  const defOccasion = sp.f_occasion || (primeiro ? OCC[ans.routine || ""] || "o dia a dia" : "");
+  const defVibe = sp.f_vibe || (primeiro ? ans.style || "" : "");
   const back = lote ? `/looks/comprar?lote=${lote}` : "/looks/comprar";
 
   // Lista de compras: peças "comprar" ainda não marcadas como compradas, juntando as repetidas.
@@ -41,13 +46,26 @@ export default async function LooksComprar({ searchParams }: { searchParams: Pro
     <p className="look-meta">Ainda não tem peças suficientes no closet? Aqui a IA monta o look completo e mostra <strong>o que vale comprar</strong> para fechá-lo. Se você já tem uma peça, ela sugere o resto.</p>
     {sp.error && <p role="alert" className="trial-banner">{sp.error}</p>}
 
+    {primeiro && <div className="card start-card">
+      <span className="eyebrow">SEU PRIMEIRO LOOK</span>
+      <h2>Veja um look pronto para você em instantes</h2>
+      <p className="look-meta">Você não precisa cadastrar nada para começar. Já deixei os campos abaixo preenchidos com o que você contou: é só tocar em <strong>Gerar looks</strong>. Depois, cadastre as suas peças pela foto para os looks usarem o que você já tem.</p>
+      <form action={generateWishLooks} className="form">
+        <input type="hidden" name="mode" value="ZERO" />
+        <input type="hidden" name="occasion" value={defOccasion} />
+        <input type="hidden" name="vibe" value={defVibe} />
+        <SubmitButton disabled={ai === 0} pendingText="Montando seus looks... (até 30s)">Gerar meus primeiros looks</SubmitButton>
+      </form>
+      <p className="look-meta"><Link href="/closet/rapido">Prefiro cadastrar minhas peças primeiro</Link> · <Link href="/home">Ir para o início</Link></p>
+    </div>}
+
     <div className="card">
       <h2>Montar do zero</h2>
       <p className="look-meta">Conte a ocasião e a IA sugere o look inteiro, com as peças para comprar.</p>
       <form action={generateWishLooks} className="form">
         <input type="hidden" name="mode" value="ZERO" />
-        <label>Para qual ocasião?<input name="occasion" required maxLength={140} placeholder='Ex.: "reunião de trabalho", "jantar", "viagem de 5 dias"' defaultValue={sp.f_occasion || ""} /></label>
-        <label>Que estilo você gosta? (opcional)<input name="vibe" maxLength={140} placeholder="Ex.: elegante e confortável, minimalista" defaultValue={sp.f_vibe || ""} /></label>
+        <label>Para qual ocasião?<input name="occasion" required maxLength={140} placeholder='Ex.: "reunião de trabalho", "jantar", "viagem de 5 dias"' defaultValue={defOccasion} /></label>
+        <label>Que estilo você gosta? (opcional)<input name="vibe" maxLength={140} placeholder="Ex.: elegante e confortável, minimalista" defaultValue={defVibe} /></label>
         <label>Orçamento (opcional)<input name="budget" maxLength={60} placeholder="Ex.: até R$ 300 no total" defaultValue={sp.f_budget || ""} /></label>
         {items.length > 0 && <label className="checkbox"><input type="checkbox" name="use_closet" defaultChecked /> Aproveitar as peças que já tenho no closet</label>}
         <SubmitButton disabled={ai === 0} pendingText="Montando seus looks... (até 30s)">Gerar looks com peças para comprar</SubmitButton>

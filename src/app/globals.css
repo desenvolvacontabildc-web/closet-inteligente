@@ -1111,3 +1111,10 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 /* ===== Lembretes (notificacoes) ===== */
 .push-actions{display:flex;flex-direction:column;gap:2px;align-items:flex-end}
 .push-actions button{margin:0}
+
+/* ===== Resumo da semana ===== */
+.week-card{margin-top:14px}
+.week-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:8px 0}
+.week-grid div{display:flex;flex-direction:column;padding:10px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.week-grid strong{font-family:var(--font-display);font-size:26px;font-weight:500;line-height:1}
+.week-grid small{font-size:11px;color:var(--muted);margin-top:4px}

@@ -66,6 +66,11 @@ export async function remindersFor(userId: string, hour: number, force = false):
     }
   }
 
+  if ((force || hour === 20) && (force || new Date(`${dayStr()}T12:00:00Z`).getUTCDay() === 0) && tenant) {
+    const w = await inUserTx(userId, tenant, async (c) => (await c.query(`SELECT (SELECT count(*) FROM looks WHERE status='WORN' AND worn_at>now()-interval '7 days')::int usados,
+      (SELECT count(*) FROM closet_items WHERE status='ACTIVE')::int pecas`)).rows[0] as { usados: number; pecas: number });
+    if (w.pecas > 0) out.push({ kind: "WEEKLY", title: w.usados > 0 ? `Sua semana: ${w.usados} look${w.usados === 1 ? "" : "s"} usado${w.usados === 1 ? "" : "s"}` : "Que tal planejar a semana?", body: w.usados > 0 ? "Veja o resumo da semana e deixe os looks de amanhã prontos." : "Monte os looks dos próximos dias em poucos minutos.", url: "/home" });
+  }
   const wantSkinAm = force || hour === 9, wantSkinPm = force || hour === 20, wantHair = force || hour === 9;
   if (tenant && (wantSkinAm || wantSkinPm || wantHair)) {
     await inUserTx(userId, tenant, async (c) => {

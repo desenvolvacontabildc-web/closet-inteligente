@@ -51,14 +51,19 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
    const hair=cuidese?await hairReminder(c):null;
    const skin=cuidese?await skinReminder(c):null;
    const bazar=(await c.query("SELECT bazar_home($1) b",[id])).rows[0].b as {total:number;alugueis:number;bazar:number;novas:number;latest:{id:string;kind:string;title:string;price_cents:number;price_unit:string;photo_id:string}[]};
+   const week=(await c.query(`SELECT (SELECT count(*) FROM looks WHERE status='WORN' AND worn_at>now()-interval '7 days')::int usados,
+       (SELECT count(*) FROM looks WHERE kind NOT IN ('DAILY','TRIP','ANALYSIS') AND created_at>now()-interval '7 days')::int criados,
+       (SELECT count(*) FROM closet_items WHERE created_at>now()-interval '7 days')::int pecas_novas,
+       (SELECT count(DISTINCT li.item_id) FROM look_items li JOIN looks l ON l.id=li.look_id WHERE l.status='WORN' AND l.worn_at>now()-interval '7 days')::int pecas_usadas,
+       (SELECT count(*) FROM wish_looks WHERE created_at>now()-interval '7 days')::int sugestoes`)).rows[0] as {usados:number;criados:number;pecas_novas:number;pecas_usadas:number;sugestoes:number};
    const stats=(await c.query("SELECT (SELECT count(*) FROM closet_items WHERE status='ACTIVE')::int pecas,(SELECT count(*) FROM looks WHERE status IN ('APPROVED','WORN') AND kind NOT IN ('DAILY','TRIP','ANALYSIS'))::int looks,(SELECT count(*) FROM looks WHERE status='WORN')::int usados")).rows[0] as {pecas:number;looks:number;usados:number};
    const vitrine=(await c.query("SELECT item_id,item_name,object_key FROM storefront_list()")).rows as {item_id:string;item_name:string;object_key:string|null}[];
    const finds=(await c.query("SELECT id,title,object_key FROM list_active_finds() LIMIT 12")).rows as {id:string;title:string;object_key:string|null}[];
-   return {...p,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review,hair,skin,bazar,stats,vitrine,finds};
+   return {...p,week,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review,hair,skin,bazar,stats,vitrine,finds};
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until,hair,skin,bazar,stats,vitrine,finds}=profile;
+ const {display_name,week,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until,hair,skin,bazar,stats,vitrine,finds}=profile;
  const showReview=review.length>0&&(!closet_review_snooze_until||new Date(closet_review_snooze_until)<new Date());
  const weather=await fetchCurrentWeather(city||"");
  const firstName=((display_name||"").trim().split(/\s+/)[0]||"").toLowerCase().replace(/^./,(ch:string)=>ch.toUpperCase());
@@ -92,6 +97,17 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        <Link href="/looks" className="home-stat"><strong>{stats.looks}</strong><small>look{stats.looks===1?"":"s"} pronto{stats.looks===1?"":"s"}</small></Link>
        <Link href="/looks?filtro=usados" className="home-stat"><strong>{stats.usados}</strong><small>já usado{stats.usados===1?"":"s"}</small></Link>
      </div>
+     {(week.usados+week.criados+week.pecas_novas+week.sugestoes)>0&&<div className="card week-card">
+       <span className="eyebrow">SUA SEMANA</span>
+       <div className="week-grid">
+         {week.usados>0&&<div><strong>{week.usados}</strong><small>look{week.usados===1?"":"s"} usado{week.usados===1?"":"s"}</small></div>}
+         {week.criados>0&&<div><strong>{week.criados}</strong><small>look{week.criados===1?"":"s"} criado{week.criados===1?"":"s"}</small></div>}
+         {week.pecas_novas>0&&<div><strong>{week.pecas_novas}</strong><small>peça{week.pecas_novas===1?"":"s"} nova{week.pecas_novas===1?"":"s"} no closet</small></div>}
+         {week.pecas_usadas>0&&<div><strong>{week.pecas_usadas}</strong><small>peça{week.pecas_usadas===1?"":"s"} em uso</small></div>}
+         {week.sugestoes>0&&<div><strong>{week.sugestoes}</strong><small>sugest{week.sugestoes===1?"ão":"ões"} de compra</small></div>}
+       </div>
+       <p className="look-meta">{week.usados>0?`Você vestiu ${week.pecas_usadas} peça${week.pecas_usadas===1?"":"s"} diferente${week.pecas_usadas===1?"":"s"} nos últimos 7 dias. `:""}{stats.pecas>week.pecas_usadas&&stats.pecas>0?`Ainda há ${stats.pecas-week.pecas_usadas} peça${stats.pecas-week.pecas_usadas===1?"":"s"} esperando para voltar ao jogo.`:""}</p>
+     </div>}
      {poucasPecas&&<div className="card start-card">
        <span className="eyebrow">COMECE POR AQUI</span>
        <h2>Monte o seu closet: {Math.min(stats.pecas,8)} de 8 peças</h2>
@@ -101,7 +117,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          <li className={stats.looks>0||todayLooks.length>0?"done":""}>Peça o seu primeiro look.</li>
          <li className={stats.looks>0?"done":""}>Toque em “Gostei” nos looks que combinam com você.</li>
        </ol>
-       <div className="action-row"><Link href="/closet/rapido"><button type="button">{stats.pecas===0?"Cadastrar as primeiras peças":"Adicionar mais peças"}</button></Link><Link href="/looks/comprar" className="link">Ainda sem peças? Monte looks com o que vale comprar</Link></div>
+       <div className="action-row"><Link href="/closet/rapido"><button type="button">{stats.pecas===0?"Cadastrar as primeiras peças":"Adicionar mais peças"}</button></Link><Link href={stats.pecas===0?"/looks/comprar?primeiro=1":"/looks/comprar"} className="link">{stats.pecas===0?"Quer ver um look agora? Gere o seu primeiro sem cadastrar nada":"Ainda sem peças? Monte looks com o que vale comprar"}</Link></div>
      </div>}
      <div className="empty">
        <h2>Look para hoje</h2>

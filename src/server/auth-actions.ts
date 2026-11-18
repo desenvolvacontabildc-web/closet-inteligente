@@ -93,5 +93,6 @@ export async function saveOnboarding(f:FormData){
   });
   if(!saved) redirect("/");
   if(saved.bodyPhotoKey) await generateBodyAvatar(saved.id,saved.bodyPhotoKey,(bodyPhoto as File).type);
-  redirect("/home");
+  /* Valor em minutos: quem acabou de entrar vai direto ao primeiro look (sugestao com pecas para comprar), sem precisar cadastrar nada antes. */
+  redirect("/looks/comprar?primeiro=1");
 }
