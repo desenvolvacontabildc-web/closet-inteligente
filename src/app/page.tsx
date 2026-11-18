@@ -1,7 +1,7 @@
 import { SUPPORT_URL, SUPPORT_PHONE, WAITLIST_URL } from "@/components/support";
 import { register, login } from "@/server/auth-actions";
 import { getPool } from "@/server/db";
-const LOGIN_ERRORS = ["credentials", "blocked", "trial_expired"];
+const LOGIN_ERRORS = ["credentials", "blocked", "trial_expired", "wait"];
 export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string; ref?: string; cupom?: string }> }) {
   const { error, ref, cupom } = await searchParams;
   const cupomOk = /^[A-Za-z0-9_-]{3,32}$/.test(cupom || "") ? cupom!.toLowerCase() : "";
@@ -35,6 +35,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       <form action={login} className="card secondary">
         <h2>Já tenho conta</h2>
         {error === "credentials" && <p role="alert">E-mail ou senha inválidos.</p>}
+        {error === "wait" && <p role="alert">Muitas tentativas seguidas. Por segurança, aguarde alguns minutos e tente de novo.</p>}
         {error === "blocked" && <p role="alert">Acesso bloqueado. Fale com a equipe do Closet.</p>}
         <label>E-mail<input name="email" type="email" required /></label>
         <label>Senha<input name="password" type="password" required /></label>

@@ -3,12 +3,13 @@ import { isClosetType } from "./closet-type";
 import { randomBytes, createHash, scrypt as sc, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { Client } from "minio";
-import { cookies } from "next/headers"; import { redirect } from "next/navigation";
+import { cookies, headers } from "next/headers"; import { redirect } from "next/navigation";
 import { getPool } from "./db"; import { SESSION_COOKIE, SESSION_COOKIE_OPTIONS } from "./auth";
 import { withProfile } from "./profile-session";
 import { resolveAccent } from "./accent";
 import { bounce } from "./action-error";
 import { generateBodyAvatar } from "./avatar-actions";
+import { loginKeys, loginBlocked, loginFailed, loginOk } from "./rate-limit";
 const store=new Client({endPoint:(process.env.S3_ENDPOINT||"http://storage:9000").replace(/^https?:\/\//,'').split(':')[0],port:9000,useSSL:false,accessKey:process.env.S3_ACCESS_KEY_ID||"closet-web",secretKey:process.env.S3_SECRET_ACCESS_KEY||""});
 const scrypt=promisify(sc), hash=(v:string)=>createHash("sha256").update(v).digest("hex");
 async function makeHash(p:string){if(p.length<6)throw new Error("A senha deve ter pelo menos 6 caracteres.");const salt=randomBytes(16),key=await scrypt(p,salt,64) as Buffer;return `scrypt$${salt.toString("hex")}$${key.toString("hex")}`}
@@ -43,7 +44,7 @@ export async function register(f:FormData){
     throw e;
   }finally{x.release()}
 }
-export async function login(f:FormData){const email=String(f.get("email")||"").trim().toLowerCase(),p=String(f.get("password")||""),c=await getPool().connect();try{const q=await c.query("SELECT id,password_hash FROM lookup_login($1)",[email]);if(!q.rowCount||!(await checkHash(p,q.rows[0].password_hash)))redirect("/?error=credentials");const status=(await c.query("SELECT check_account_access($1) s",[q.rows[0].id])).rows[0].s;if(status==="BLOCKED"||status==="CANCELED")redirect("/?error=blocked");await issue(c,q.rows[0].id);await c.query("SELECT record_login($1)",[q.rows[0].id]);const onboarded=(await c.query("SELECT onboarding_completed FROM profiles WHERE user_id=$1",[q.rows[0].id])).rows[0]?.onboarding_completed;redirect(onboarded?"/home":"/onboarding")}finally{c.release()}}
+export async function login(f:FormData){const email=String(f.get("email")||"").trim().toLowerCase(),p=String(f.get("password")||""),h=await headers(),ip=(h.get("x-real-ip")||(h.get("x-forwarded-for")||"").split(",")[0]||"").trim(),keys=loginKeys(email,ip);if(loginBlocked(keys))redirect("/?error=wait");const c=await getPool().connect();try{const q=await c.query("SELECT id,password_hash FROM lookup_login($1)",[email]);if(!q.rowCount||!(await checkHash(p,q.rows[0].password_hash))){loginFailed(keys);redirect("/?error=credentials")}loginOk(keys);const status=(await c.query("SELECT check_account_access($1) s",[q.rows[0].id])).rows[0].s;if(status==="BLOCKED"||status==="CANCELED")redirect("/?error=blocked");await issue(c,q.rows[0].id);await c.query("SELECT record_login($1)",[q.rows[0].id]);const onboarded=(await c.query("SELECT onboarding_completed FROM profiles WHERE user_id=$1",[q.rows[0].id])).rows[0]?.onboarding_completed;redirect(onboarded?"/home":"/onboarding")}finally{c.release()}}
 export async function logout(){
   await withProfile(async c => { await c.query("DELETE FROM auth_sessions WHERE token_hash=current_setting('app.session_hash')"); return true; }, { allowSuspended: true });
   (await cookies()).delete(SESSION_COOKIE); redirect("/");
