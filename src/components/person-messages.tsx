@@ -56,9 +56,9 @@ O endereço é ${APP}. Se ajudar, eu também te mando o passo a passo para coloc
 }
 
 /** Passo 2: anúncio do sucesso com a Colorimetria de agradecimento no plano recorrente mensal. */
-function step2(t: Tester, seg: Segment): string {
+function step2(t: Tester, seg: Segment, n: string): string {
   const nome = first(t.name, t.email);
-  const sucesso = `o Closet Inteligente foi um sucesso! 🎉 Rodamos com cerca de 33 usuárias ao mesmo tempo, sem erros e sem bugs, e ele está pronto para ser liberado.`;
+  const sucesso = `o Closet Inteligente foi um sucesso! 🎉 Rodamos com cerca de ${n || "30"} usuárias ao mesmo tempo, sem erros e sem bugs, e ele está pronto para ser liberado.`;
   if (seg === "NAO_USOU") {
     return `Oi, ${nome}! 💛
 
@@ -88,12 +88,13 @@ Sou muito grata pelo seu apoio ao projeto! 🥰`;
 /** Mensagens individuais: cada pessoa recebe o texto certo para o jeito que usou o app. */
 export default function PersonMessages({ testers }: { testers: Tester[] }) {
   const [step, setStep] = useState<1 | 2>(1);
+  const [n, setN] = useState("33");
   const [filter, setFilter] = useState<"TODAS" | Segment>("TODAS");
   const [copied, setCopied] = useState("");
   const rows = useMemo(() => testers.map((t) => ({ t, seg: segmentOf(t) })), [testers]);
   const shown = rows.filter((r) => filter === "TODAS" || r.seg === filter);
   const count = (s: Segment) => rows.filter((r) => r.seg === s).length;
-  const textOf = (r: { t: Tester; seg: Segment }) => (step === 1 ? step1(r.t, r.seg) : step2(r.t, r.seg));
+  const textOf = (r: { t: Tester; seg: Segment }) => (step === 1 ? step1(r.t, r.seg) : step2(r.t, r.seg, n));
   const wa = (r: { t: Tester; seg: Segment }) => {
     const d = r.t.whatsapp.replace(/\D/g, "");
     return `https://wa.me/${d.length >= 10 ? (d.length <= 11 ? `55${d}` : d) : ""}?text=${encodeURIComponent(textOf(r))}`;
@@ -110,6 +111,7 @@ export default function PersonMessages({ testers }: { testers: Tester[] }) {
         <button type="button" className={step === 1 ? "active" : ""} onClick={() => setStep(1)}>Passo 1: questionário</button>
         <button type="button" className={step === 2 ? "active" : ""} onClick={() => setStep(2)}>Passo 2: sucesso + Colorimetria</button>
       </div>
+      {step === 2 && <label>Quantas usuárias testaram ao mesmo tempo (aparece na mensagem)<input value={n} onChange={(e) => setN(e.target.value.replace(/\D/g, "").slice(0, 3))} inputMode="numeric" /><small className="look-meta">Hoje há {testers.length} contas de testadoras no app. Confira se o número que vai na mensagem está certo.</small></label>}
       <div className="action-row">
         {(["TODAS", "USOU", "POUCO", "NAO_USOU"] as const).map((s) => <button key={s} type="button" className={filter === s ? "active link" : "link"} onClick={() => setFilter(s)}>
           {s === "TODAS" ? `Todas (${rows.length})` : `${SEG_LABEL[s]} (${count(s)})`}
@@ -118,7 +120,7 @@ export default function PersonMessages({ testers }: { testers: Tester[] }) {
     </div>
     {shown.map((r) => <section className="card" key={r.t.user_id}>
       <h3>{r.t.name || r.t.email} <small>· {SEG_LABEL[r.seg]}</small></h3>
-      <p className="look-meta">{plural(r.t.pieces, "peça", "peças")} · {plural(r.t.looks, "look", "looks")} · {plural(r.t.images, "imagem", "imagens")} · {r.t.last_login_at ? `último acesso ${new Date(r.t.last_login_at).toLocaleDateString("pt-BR")}` : "nunca fez login"}{r.t.feedback_done ? " · já respondeu o questionário" : ""}</p>
+      <p className="look-meta">{plural(r.t.pieces, "peça", "peças")} · {plural(r.t.looks, "look", "looks")} · {plural(r.t.images, "imagem", "imagens")} · {r.t.last_login_at ? `último acesso ${new Date(r.t.last_login_at).toLocaleDateString("pt-BR")}` : r.seg === "NAO_USOU" ? "nunca fez login" : "sem registro de login"}{r.t.feedback_done ? " · já respondeu o questionário" : ""}</p>
       <pre className="msg-preview">{textOf(r)}</pre>
       <div className="action-row">
         <button type="button" onClick={() => copy(r)}>{copied === r.t.user_id ? "Copiado!" : "Copiar mensagem"}</button>
