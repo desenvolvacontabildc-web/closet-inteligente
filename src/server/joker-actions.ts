@@ -28,20 +28,22 @@ export async function generateJokerSuggestions() {
   const monthNum = Number(today.slice(5, 7));
   const year = today.slice(0, 4);
 
-  const ctx = await withProfile(async (c, userId) => {
+  type Ctx = { k: "exists" } | { k: "few" } | { k: "error"; message: string } | { k: "ok"; items: { name: string; category: string; color: string }[]; city: string; answers: Record<string, string>; note: string };
+  const ctx: Ctx | null = await withProfile(async (c, userId): Promise<Ctx> => {
     const have = (await c.query("SELECT 1 FROM joker_suggestions WHERE month=$1", [month])).rowCount;
-    if (have) return { exists: true as const };
+    if (have) return { k: "exists" };
     const items = (await c.query("SELECT name,category,color FROM closet_items WHERE status='ACTIVE' ORDER BY created_at DESC LIMIT 120")).rows as { name: string; category: string; color: string }[];
-    if (items.length < 3) return { few: true as const };
+    if (items.length < 3) return { k: "few" };
     const budget = await bumpAndCheckAiUsage(c, userId);
-    if (!budget.ok) return { error: budget.message || "Limite de operações de IA atingido." };
+    if (!budget.ok) return { k: "error", message: budget.message || "Limite de operações de IA atingido." };
     const prof = (await c.query("SELECT city, answers FROM profiles WHERE user_id=$1", [userId])).rows[0] || {};
-    return { items, city: String(prof.city || "").trim(), answers: (prof.answers || {}) as Record<string, string>, note: closetNote(await closetKindC(c, userId)) };
+    return { k: "ok", items, city: String(prof.city || "").trim(), answers: (prof.answers || {}) as Record<string, string>, note: closetNote(await closetKindC(c, userId)) };
   });
   if (!ctx) redirect("/");
-  if ("exists" in ctx) redirect(BACK);
-  if ("few" in ctx) bounce(BACK, "Cadastre pelo menos 3 peças para eu indicar o que combina com o seu closet.");
-  if ("error" in ctx) bounce(BACK, ctx.error);
+  if (ctx.k === "exists") redirect(BACK);
+  if (ctx.k === "few") bounce(BACK, "Cadastre pelo menos 3 peças para eu indicar o que combina com o seu closet.");
+  if (ctx.k === "error") bounce(BACK, ctx.message);
+  if (ctx.k !== "ok") redirect(BACK);
 
   const a = ctx.answers;
   const prompt =
