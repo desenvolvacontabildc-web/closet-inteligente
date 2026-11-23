@@ -141,6 +141,7 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
             ? <p className="look-meta">No <strong>cartão recorrente</strong>: <strong>{formatPrice(p.promo_price_cents)} por mês durante os primeiros {p.promo_months} meses</strong> (cobrado todo mês, {p.promo_months} cobranças com desconto), depois {formatPrice(p.base_price_cents)} por mês.</p>
             : <p className="look-meta">No cartão recorrente: {formatPrice(p.base_price_cents)}/mês, cobrado automaticamente.</p>}
           <ul className="look-meta plan-limits">
+            <li>Peças ilimitadas no seu closet</li>
             <li>{p.ai_ops_monthly_limit ?? "Ilimitados"} pedidos de IA por mês (looks, mala, análises); cada pedido de look traz 2 a 3 opções</li>
             <li>{p.image_gen_monthly_limit ?? "Ilimitados"} looks em imagem por mês</li>
             <li>{p.std ?? "Ilimitadas"} fotos de catálogo das peças por mês</li>

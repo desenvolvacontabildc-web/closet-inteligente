@@ -43,19 +43,17 @@ ${INSTALAR}
 Se precisar de ajuda com qualquer passo, é só me chamar por aqui. Vou adorar te ajudar! 💛`,
   },
   {
-    id: "agradecimento", title: "Agradecimento + 10 dias extras + brinde no cartão", hint: "Para quem já está testando.",
-    build: ({ nome, dias }) => `Oi${nome ? `, ${nome}` : ""}! 💛
+    id: "agradecimento", title: "Sucesso do Closet + Colorimetria no plano recorrente", hint: "Versão geral, sem personalizar. Para o envio individual use a seção acima.",
+    build: ({ nome }) => `Oi${nome ? `, ${nome}` : ""}! 💛
 
-Tenho uma ótima notícia: o Closet Inteligente foi um sucesso e passou nos principais testes! 🎉 Muito disso é graças a você, que testou e me ajudou a deixar tudo mais redondinho.
+Tenho uma ótima notícia: o Closet Inteligente foi um sucesso! 🎉 Rodamos com cerca de 33 usuárias ao mesmo tempo, sem erros e sem bugs, e ele está pronto para ser liberado.
 
-Como agradecimento, estendi por mais ${dias || "10"} dias o seu uso do app. ✨
+Como agradecimento a quem participou dos testes, estou liberando a Colorimetria 🎨 (a análise das suas cores ideais) de presente para todas que escolherem um plano recorrente mensal no cartão. Os planos no cartão estão com valores especiais nos 3 primeiros meses. ✨
 
-E tem mais: quem escolher um dos planos com a opção recorrente no cartão ganha a Colorimetria de brinde! 🎨 (a análise das suas cores ideais). Os planos no cartão estão com valores especiais nos 3 primeiros meses.
-
-Para ver os planos, abra o app e toque em Assinatura:
+Para escolher o seu, abra o app e toque em Assinatura:
 👉 ${APP}
 
-Qualquer dúvida é só me chamar. Obrigada por fazer parte disso! 🥰`,
+Sou muito grata pelo seu apoio ao projeto! 🥰`,
   },
   {
     id: "lembrete", title: "Lembrete: o teste está acabando", hint: "Para quem está nos últimos dias do teste.",

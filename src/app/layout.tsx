@@ -5,6 +5,7 @@ import { withProfile } from "@/server/profile-session";
 import { resolveAccent } from "@/server/accent";
 import BottomNav from "./bottom-nav";
 import FlashToast from "@/components/flash-toast";
+import { closetKindC } from "@/server/closet-type";
 
 const displayFont = Cormorant_Garamond({ subsets: ["latin"], weight: ["500", "600", "700"], style: ["normal", "italic"], variable: "--font-cormorant", display: "swap" });
 const uiFont = Manrope({ subsets: ["latin"], variable: "--font-manrope", display: "swap" });
@@ -35,7 +36,7 @@ function billingNotice(sub: { status: string; payment_method: string | null; cur
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  let ctx: { experience_tokens: any; isAdmin: boolean; hasStore: boolean; unread: number; status: string; notice: string | null } | null = null;
+  let ctx: { experience_tokens: any; isAdmin: boolean; hasStore: boolean; unread: number; status: string; notice: string | null; kind: string } | null = null;
   try {
     ctx = await withProfile(async (c, userId) => {
       const q = await c.query("SELECT experience_tokens FROM profiles WHERE user_id=$1 AND onboarding_completed", [userId]);
@@ -48,17 +49,18 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       const hasStore = !!(await c.query("SELECT my_partner_id($1) id", [userId])).rows[0]?.id;
       const unread = isAdmin ? Number((await c.query("SELECT admin_unread_notifications($1) n", [userId])).rows[0]?.n || 0) : 0;
       const sub = (await c.query("SELECT * FROM my_subscription($1)", [userId])).rows[0] || null;
-      return { experience_tokens: q.rows[0].experience_tokens, isAdmin, hasStore, unread, status: String(sub?.status || "ACTIVE"), notice: billingNotice(sub) };
+      let kind = "FEMININO"; try { kind = (await closetKindC(c, userId)).type; } catch { /* sem tipo, segue como feminino */ }
+      return { experience_tokens: q.rows[0].experience_tokens, isAdmin, hasStore, unread, status: String(sub?.status || "ACTIVE"), notice: billingNotice(sub), kind };
     }, { allowSuspended: true });
   } catch { /* nunca deixar um erro aqui derrubar o layout inteiro do site */ }
   const accent = resolveAccent(ctx?.experience_tokens?.accent);
   const locked = ctx?.status === "SUSPENDED" || ctx?.status === "TRIAL_EXPIRED";
   return (
     <html lang="pt-BR" className={`${displayFont.variable} ${uiFont.variable}`}>
-      <body style={{ "--accent": accent } as React.CSSProperties}>
+      <body data-closet={ctx?.kind || "FEMININO"} style={{ "--accent": accent } as React.CSSProperties}>
         {ctx?.notice && !locked && <a className="billing-banner" href="/assinatura">{ctx.notice}</a>}
         {children}
-        {ctx && !locked && <BottomNav isAdmin={ctx.isAdmin} adminBadge={ctx.unread} hasStore={ctx.hasStore} />}
+        {ctx && !locked && <BottomNav isAdmin={ctx.isAdmin} adminBadge={ctx.unread} hasStore={ctx.hasStore} kind={ctx.kind} />}
         <FlashToast />
       </body>
     </html>

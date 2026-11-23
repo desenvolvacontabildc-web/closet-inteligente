@@ -7,7 +7,7 @@ export type ClosetType = "FEMININO" | "MASCULINO" | "INFANTIL";
 export const CLOSET_TYPES: { value: ClosetType; label: string; desc: string }[] = [
   { value: "FEMININO", label: "Closet feminino", desc: "Looks, cores e cuidados pensados para mulheres." },
   { value: "MASCULINO", label: "Closet masculino", desc: "Looks e sugestões com roupas e estilos masculinos." },
-  { value: "INFANTIL", label: "Closet infantil", desc: "Looks para criança: conforto, praticidade e a idade certa. Quem usa o app é o responsável." },
+  { value: "INFANTIL", label: "Closet infantil (meninas)", desc: "Looks para menina: conforto, brincadeira e a idade certa, com visual fofo e colorido. Quem usa o app é o responsável." },
 ];
 export const isClosetType = (v: unknown): v is ClosetType => v === "FEMININO" || v === "MASCULINO" || v === "INFANTIL";
 
@@ -26,13 +26,13 @@ export async function closetKind(userId: string): Promise<Kind> {
 /** Trecho que entra nas instruções da IA de texto (vazio no closet feminino, que é o comportamento de sempre). */
 export function closetNote(k: Kind): string {
   if (k.type === "MASCULINO") return " ESTE É UM CLOSET MASCULINO: todas as peças, looks e sugestões são para um homem. Use só estilos e peças masculinos (nunca sugira peças femininas) e fale no masculino.";
-  if (k.type === "INFANTIL") return ` ESTE É UM CLOSET INFANTIL${k.age != null ? ` (criança de ${k.age} ano${k.age === 1 ? "" : "s"})` : ""}: os looks são para uma criança e quem usa o app é o responsável. Priorize conforto, praticidade, liberdade para brincar e segurança, com peças adequadas à idade; nada de modelagem, decote, salto ou estilo adulto.`;
+  if (k.type === "INFANTIL") return ` ESTE É UM CLOSET INFANTIL DE MENINA${k.age != null ? ` (menina de ${k.age} ano${k.age === 1 ? "" : "s"})` : ""}: os looks são para uma menina e quem usa o app é o responsável (fale com ele ou ela, e descreva os looks no feminino). Use um tom leve e carinhoso, com peças e combinações infantis, alegres e coloridas (vestidos, saias, shorts, macacões, conjuntinhos, tênis, sandálias, laços e tiaras). Priorize conforto, praticidade, liberdade para brincar e segurança, com peças adequadas à idade; nada de modelagem, decote, salto, maquiagem ou estilo adulto.`;
   return "";
 }
 /** Trecho para o prompt de imagem: quem aparece na ilustração. */
 export function closetImageNote(k: Kind): string {
   if (k.type === "MASCULINO") return "A pessoa retratada é um HOMEM (corpo, caimento e estilo masculinos); ignore qualquer referência feminina no texto a seguir. ";
-  if (k.type === "INFANTIL") return `A figura retratada é UMA CRIANÇA${k.age != null ? ` de cerca de ${k.age} anos` : ""}, estilizada e genérica (sem identidade real e sem rosto detalhado), com proporções infantis e pose simples e adequada. É ilustração, nunca fotografia; ignore qualquer referência feminina ou adulta no texto a seguir. `;
+  if (k.type === "INFANTIL") return `A figura retratada é UMA MENINA${k.age != null ? ` de cerca de ${k.age} anos` : ""}, estilizada e genérica (sem identidade real e sem rosto detalhado), com proporções infantis, pose simples e alegre e um visual fofo e colorido. É ilustração, nunca fotografia; ignore qualquer referência adulta no texto a seguir. `;
   return "";
 }
 

@@ -521,3 +521,12 @@ export async function setCardGift(f:FormData){
   await flash(v==="1"?"Campanha ligada: quem assinar no cartão recorrente ganha a Colorimetria.":"Campanha desligada. Quem já ganhou continua com a Colorimetria.");
   redirect("/admin/beneficios");
 }
+
+/* ---------- testadoras (mensagens personalizadas) ---------- */
+export async function adminTesters(){
+  const r=await withProfile(async(c,userId)=>{
+    try{return (await c.query("SELECT * FROM admin_tester_overview($1)",[userId])).rows}
+    catch(e){console.error("adminTesters falhou:",e);return null}
+  });
+  return r||[];
+}

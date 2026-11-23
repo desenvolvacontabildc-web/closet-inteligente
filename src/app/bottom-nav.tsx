@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { uiCopy } from "@/components/closet-ui";
 
 const ICONS: Record<string, ReactNode> = {
   home: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 11.5 12 4l8 7.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" strokeLinecap="round" strokeLinejoin="round"/></svg>,
@@ -21,8 +22,10 @@ const TABS = [
   { href: "/perfil", key: "perfil", label: "Perfil" },
 ];
 
-export default function BottomNav({ isAdmin = false, adminBadge = 0, hasStore = false }: { isAdmin?: boolean; adminBadge?: number; hasStore?: boolean }) {
+export default function BottomNav({ isAdmin = false, adminBadge = 0, hasStore = false, kind = "FEMININO" }: { isAdmin?: boolean; adminBadge?: number; hasStore?: boolean; kind?: string }) {
   const pathname = usePathname();
+  const ui = uiCopy(kind);
+  const LABEL: Record<string, string> = { closet: ui.nav.closet, looks: ui.nav.looks, vitrine: ui.nav.vitrine };
   // Administradora ganha a aba "Gestão" (separada do Perfil), com selo de avisos não lidos.
   const extra = [
     ...(hasStore ? [{ href: "/minha-vitrine", key: "loja", label: "Minha loja" }] : []),
@@ -41,7 +44,7 @@ export default function BottomNav({ isAdmin = false, adminBadge = 0, hasStore = 
               {ICONS[t.key]}
               {t.key === "gestao" && adminBadge > 0 && <span className="nav-badge" aria-label={`${adminBadge} aviso${adminBadge === 1 ? "" : "s"} novo${adminBadge === 1 ? "" : "s"}`}>{adminBadge > 9 ? "9+" : adminBadge}</span>}
             </span>
-            {t.label}
+            {LABEL[t.key] || t.label}
           </Link>
         );
       })}

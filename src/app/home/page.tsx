@@ -15,6 +15,10 @@ import { STEP_TYPES } from "@/server/hair-options";
 import AnnouncementsBanner from "@/components/announcements-banner";
 import ClosetSwitcher from "@/components/closet-switcher";
 import PushToggle from "@/components/push-toggle";
+import { uiCopy } from "@/components/closet-ui";
+import { dayStr } from "@/server/skin-options";
+import { closetKindC } from "@/server/closet-type";
+import { forgottenPieceLook } from "@/server/look-actions";
 export default async function Home({searchParams}:{searchParams:Promise<{error?:string,skip?:string}>}){
  const {error,skip}=await searchParams;
  const skipIds=(skip||"").split(",").filter(Boolean);
@@ -47,6 +51,9 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
      FROM closet_items ci WHERE ci.status='ACTIVE' AND ci.id::text != ALL($1::text[])
      ORDER BY last_used_at ASC NULLS FIRST LIMIT 1`,[skipIds])).rows[0]||null;
    const review=await reviewCandidates(c,50);
+   const kind=(await closetKindC(c,id)).type;
+   const feedbackDone=(await c.query("SELECT 1 FROM feedback_responses WHERE user_id=$1",[id])).rowCount===1;
+   const joker=(await c.query("SELECT intro,pieces FROM joker_suggestions WHERE month=$1",[`${dayStr().slice(0,8)}01`])).rows[0]||null;
    const cuidese=await hasCuidese(c,id);
    const hair=cuidese?await hairReminder(c):null;
    const skin=cuidese?await skinReminder(c):null;
@@ -59,14 +66,15 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
    const stats=(await c.query("SELECT (SELECT count(*) FROM closet_items WHERE status='ACTIVE')::int pecas,(SELECT count(*) FROM looks WHERE status IN ('APPROVED','WORN') AND kind NOT IN ('DAILY','TRIP','ANALYSIS'))::int looks,(SELECT count(*) FROM looks WHERE status='WORN')::int usados")).rows[0] as {pecas:number;looks:number;usados:number};
    const vitrine=(await c.query("SELECT item_id,item_name,object_key FROM storefront_list()")).rows as {item_id:string;item_name:string;object_key:string|null}[];
    const finds=(await c.query("SELECT id,title,object_key FROM list_active_finds() LIMIT 12")).rows as {id:string;title:string;object_key:string|null}[];
-   return {...p,week,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review,hair,skin,bazar,stats,vitrine,finds};
+   return {...p,kind,feedbackDone,joker,week,sub,aiRemaining,todayLooks,activeItems,trend,dayLook,dayPiece,novasConquistas,review,hair,skin,bazar,stats,vitrine,finds};
  });
  if(!profile)redirect("/");
  if(!profile.onboarding_completed)redirect("/onboarding");
- const {display_name,week,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until,hair,skin,bazar,stats,vitrine,finds}=profile;
+ const {display_name,kind,feedbackDone,joker,week,sub,aiRemaining,todayLooks,activeItems,trend,avatar_object_key,dayLook,dayPiece,novasConquistas,city,review,closet_review_snooze_until,hair,skin,bazar,stats,vitrine,finds}=profile;
  const showReview=review.length>0&&(!closet_review_snooze_until||new Date(closet_review_snooze_until)<new Date());
  const weather=await fetchCurrentWeather(city||"");
  const firstName=((display_name||"").trim().split(/\s+/)[0]||"").toLowerCase().replace(/^./,(ch:string)=>ch.toUpperCase());
+ const ui=uiCopy(kind);
  const poucasPecas=activeItems.length<8;
  const dayPieceDays=dayPiece?.last_used_at?Math.floor((Date.now()-new Date(dayPiece.last_used_at).getTime())/86400000):null;
  const trialDaysLeft=sub?.status==="TRIAL"&&sub.trial_ends_at?Math.max(0,Math.ceil((new Date(sub.trial_ends_at).getTime()-Date.now())/86400000)):null;
@@ -82,7 +90,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
    {trialDaysLeft!==null&&<div className="trial-banner"><p>{trialDaysLeft>0?`Faltam ${trialDaysLeft} dia${trialDaysLeft===1?"":"s"} do seu teste gratuito.`:"Seu teste gratuito termina hoje."} <Link href="/assinatura">Escolha um plano</Link> para manter o acesso ao seu Closet.</p></div>}
    {sub?.status==="ACTIVE"&&<p className="usage-line">Plano {PLAN_LABEL[sub.plan as Plan]||sub.plan}{aiRemaining!==null?` · restam ${aiRemaining} operações de IA este mês`:" · operações de IA ilimitadas"}.</p>}
    <section className="welcome">
-     <p className="eyebrow">SEU CLOSET ESTÁ PRONTO</p>
+     <p className="eyebrow">{ui.welcomeEyebrow}</p>
      <div className="avatar-row">
        {avatar_object_key
          ? <img className="avatar" src="/api/perfil/foto" alt={display_name}/>
@@ -113,14 +121,14 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        <h2>Monte o seu closet: {Math.min(stats.pecas,8)} de 8 peças</h2>
        <div className="hair-progress" aria-hidden="true"><i style={{width:`${Math.round((Math.min(stats.pecas,8)/8)*100)}%`}}/></div>
        <ol className="start-steps">
-         <li className={stats.pecas>=8?"done":""}>Cadastre pelo menos 8 peças (de preferência com uma foto sua vestindo cada uma).</li>
+         <li className={stats.pecas>=8?"done":""}>{ui.startPieces}</li>
          <li className={stats.looks>0||todayLooks.length>0?"done":""}>Peça o seu primeiro look.</li>
          <li className={stats.looks>0?"done":""}>Toque em “Gostei” nos looks que combinam com você.</li>
        </ol>
        <div className="action-row"><Link href="/closet/rapido"><button type="button">{stats.pecas===0?"Cadastrar as primeiras peças":"Adicionar mais peças"}</button></Link><Link href={stats.pecas===0?"/looks/comprar?primeiro=1":"/looks/comprar"} className="link">{stats.pecas===0?"Quer ver um look agora? Gere o seu primeiro sem cadastrar nada":"Ainda sem peças? Monte looks com o que vale comprar"}</Link></div>
      </div>}
      <div className="empty">
-       <h2>Look para hoje</h2>
+       <h2>{ui.dayLook}</h2>
        {poucasPecas&&<p className="look-meta">Suas sugestões ainda vão melhorar: quanto mais peças você cadastrar e mais looks usar/avaliar, mais o app entende sua rotina e seu estilo e mais certeiras ficam as opções.</p>}
        {todayLooks.length>0?<div className="grid two-col">
          {todayLooks.map((l:any)=>(
@@ -171,7 +179,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
          <div className="day-cover">{dayPiece.photo_id?<img src={`/api/closet/photos/${dayPiece.photo_id}?w=640`} alt={dayPiece.name}/>:<span className="cover-empty">✦</span>}</div>
          <div className="day-body">
          <div>
-           <span className="eyebrow">PEÇA DO DIA</span>
+           <span className="eyebrow">{dayPieceDays===null?"PEÇA ESQUECIDA":"PEÇA DO DIA"}</span>
            <strong>{dayPiece.name}</strong>
            <p className="look-meta">{dayPieceDays===null?"Você ainda não usou essa peça em nenhum look.":`Você não usa essa peça há ${dayPieceDays} dias.`} Que tal incluir ela hoje?</p>
          </div>
@@ -179,6 +187,10 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
            <form action={generateTodayLook}>
              <input type="hidden" name="base_item_id" value={dayPiece.id}/>
              <SubmitButton pendingText="Pensando... (pode levar até 20s)">Montar look com esta peça</SubmitButton>
+           </form>
+           <form action={forgottenPieceLook}>
+             <input type="hidden" name="item_id" value={dayPiece.id}/>
+             <SubmitButton pendingText="Criando o look e a imagem... (até 2 minutos)">Ver um look com ela em imagem</SubmitButton>
            </form>
            <Link href={`/home?skip=${dayPiece.id}`}>Gerar outra sugestão</Link>
          </div>
@@ -238,14 +250,29 @@ export default async function Home({searchParams}:{searchParams:Promise<{error?:
        </>}
      </div>}
      <div className="quick-actions">
-       <Link href="/looks"><span aria-hidden="true">✦</span>Criar look</Link>
-       <Link href="/looks/comprar"><span aria-hidden="true">✦</span>Looks com peças novas</Link>
-       <Link href="/looks/analisar"><span aria-hidden="true">✦</span>Analisar meu look</Link>
-       <Link href="/closet"><span aria-hidden="true">✦</span>Adicionar peças</Link>
-       <Link href="/vitrine"><span aria-hidden="true">✦</span>Comprar com desconto</Link>
-       <Link href="/bazar"><span aria-hidden="true">✦</span>Bazar e aluguel</Link>
-       <Link href="/mala"><span aria-hidden="true">✦</span>Mala de viagem</Link>
+       <Link href="/looks"><span aria-hidden="true">{ui.spark}</span>{ui.quick.look}</Link>
+       <Link href="/looks/comprar"><span aria-hidden="true">{ui.spark}</span>{ui.quick.wish}</Link>
+       <Link href="/looks/coringas"><span aria-hidden="true">{ui.spark}</span>Compras coringa do mês</Link>
+       <Link href="/looks/analisar"><span aria-hidden="true">{ui.spark}</span>{ui.quick.analyze}</Link>
+       <Link href="/closet"><span aria-hidden="true">{ui.spark}</span>{ui.quick.add}</Link>
+       <Link href="/vitrine"><span aria-hidden="true">{ui.spark}</span>{ui.quick.vitrine}</Link>
+       <Link href="/bazar"><span aria-hidden="true">{ui.spark}</span>{ui.quick.bazar}</Link>
+       <Link href="/mala"><span aria-hidden="true">{ui.spark}</span>{ui.quick.trip}</Link>
      </div>
+     <Link href="/looks/coringas" className="trend-teaser joker-teaser">
+       <div>
+         <span className="eyebrow">COMPRAS CORINGA DO MÊS</span>
+         <strong>{joker?`${(joker.pieces||[]).length} sugestões que combinam com o seu closet`:"Veja o que comprar para fechar mais looks"}</strong>
+         <p className="look-meta">{joker?(joker.pieces||[]).slice(0,3).map((p:any)=>p.name).join(" · "):"Uma indicação por mês, feita sob medida para o seu estilo e para a estação."}</p>
+       </div>
+     </Link>
+     {!feedbackDone&&<Link href="/feedback" className="trend-teaser joker-teaser">
+       <div>
+         <span className="eyebrow">SUA OPINIÃO IMPORTA</span>
+         <strong>Conte em 2 minutos o que você achou do Closet</strong>
+         <p className="look-meta">Suas respostas ajudam a deixar o app cada vez melhor.</p>
+       </div>
+     </Link>}
      {showReview&&<div className="card home-review">
        <h2>Hora de rever seu closet</h2>
        <p className="look-meta">{review.length} peça{review.length===1?"":"s"} parada{review.length===1?"":"s"} há um bom tempo. Vale manter, doar ou descartar?</p>

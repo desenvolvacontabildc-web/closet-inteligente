@@ -38,6 +38,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
       <Link href="/admin/bazar" className="admin-tile"><strong>Bazar & Aluguel</strong><small>Anúncios e denúncias</small></Link>
       <Link href="/admin/grupo" className="admin-tile"><strong>Ações em grupo</strong><small>Estender prazo, liberar Colorimetria, créditos</small></Link>
       <Link href="/admin/mensagens" className="admin-tile"><strong>Mensagens prontas</strong><small>Convites e avisos para o WhatsApp</small></Link>
+      <Link href="/admin/feedback" className="admin-tile"><strong>Feedback</strong><small>Respostas do questionário das testadoras</small></Link>
       <Link href="/admin/funil" className="admin-tile"><strong>Funil</strong><small>Cadastro, primeira peça, primeiro look e pagamento</small></Link>
       <Link href="/admin/uso" className="admin-tile"><strong>Uso e custos</strong><small>Imagens, IA e gasto estimado</small></Link>
       <Link href="/admin/comunicados" className="admin-tile"><strong>Comunicados</strong><small>Avisos na tela inicial do app</small></Link>

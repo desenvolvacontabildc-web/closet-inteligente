@@ -1129,3 +1129,21 @@ button.rl-more{min-height:0 !important;margin:0 !important;padding:6px 14px !imp
 .funnel-bar{height:10px;border-radius:99px;background:var(--surface-2);overflow:hidden;margin-top:4px}
 .funnel-bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
 .msg-preview{white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:14px;line-height:1.5;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0}
+
+/* ===== Compras coringa / feedback ===== */
+.joker-teaser{margin-top:10px}
+.joker-card h3{margin:0 0 4px}
+.joker-card .look-meta{margin:2px 0}
+.joker-tags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.joker-tags span{font-size:12px;padding:3px 9px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line)}
+.scale{display:flex;gap:6px;flex-wrap:wrap}
+.scale label{display:flex;align-items:center;gap:4px;padding:6px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+/* ===== Closet infantil: mais alegre e arredondado ===== */
+body[data-closet="INFANTIL"]{background-image:radial-gradient(circle at 12% 0%,#ffe7f1 0,transparent 38%),radial-gradient(circle at 92% 8%,#e6f3ff 0,transparent 34%)}
+body[data-closet="INFANTIL"] .card,body[data-closet="INFANTIL"] .home-stat,body[data-closet="INFANTIL"] .look-card,body[data-closet="INFANTIL"] .decide-card{border-radius:26px}
+body[data-closet="INFANTIL"] .eyebrow{letter-spacing:.14em;color:var(--accent)}
+body[data-closet="INFANTIL"] button,body[data-closet="INFANTIL"] .quick-actions a{border-radius:99px}
+body[data-closet="INFANTIL"] h1,body[data-closet="INFANTIL"] h2{font-weight:700}
+/* ===== Closet masculino: tons mais sóbrios ===== */
+body[data-closet="MASCULINO"] .eyebrow{letter-spacing:.2em}
+body[data-closet="MASCULINO"] .card,body[data-closet="MASCULINO"] .home-stat{border-radius:12px}

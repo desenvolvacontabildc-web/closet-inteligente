@@ -569,3 +569,24 @@ export async function uploadLookPhoto(f: FormData) {
   }
   redirect("/looks");
 }
+
+/** Home: uma peça esquecida vira um look completo e já com imagem (usa 1 geração de imagem do plano). */
+export async function forgottenPieceLook(f: FormData) {
+  const itemId = String(f.get("item_id") || "");
+  if (!/^[0-9a-f-]{36}$/i.test(itemId)) bounce("/home", "Peça inválida.");
+  const pre = await withProfile(async (c, uid) => {
+    const item = (await c.query("SELECT name, status FROM closet_items WHERE id=$1", [itemId])).rows[0];
+    return { userId: uid, item: item as { name: string; status: string } | undefined };
+  });
+  if (!pre) redirect("/");
+  if (!pre.item || pre.item.status !== "ACTIVE") bounce("/home", "Não encontrei essa peça ativa no seu closet.");
+  const request =
+    `A cliente quer redescobrir uma peça esquecida do closet: "${pre.item.name}" (id ${itemId}). ` +
+    `Monte UM look completo e atual com exatamente essa peça (coloque o id dela em item_ids), completando com outras peças reais do closet, para um uso do dia a dia.`;
+  const result = await generateLooksFromRequest(pre.userId, request, 1, "SUGGESTED", "", "/home", itemId);
+  if (result.createdCount === 0) bounce("/home", "Não consegui montar um look com essa peça agora. Cadastre mais peças que combinem com ela e tente de novo.");
+  const lookId = result.createdIds[0];
+  const img = await generateLookImageQuiet(lookId, "");
+  await flash(img.ok ? "Look montado com a peça esquecida e a imagem já está pronta!" : `Look montado! ${img.message || "A imagem não pôde ser gerada agora."}`, img.ok ? "ok" : "info");
+  redirect(`/looks?novos=${lookId}`);
+}
